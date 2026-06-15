@@ -100,6 +100,18 @@ describe('collectItemCheckModifier', () => {
   it('somma i checkModifier globali e quelli sul target', () => {
     expect(collectItemCheckModifier([magicBlade])).toBe(1);
   });
+
+  it('include il modificatore solo se appliesTo coincide con il target', () => {
+    const item: Item = {
+      id: 'x',
+      name: 'X',
+      equipped: true,
+      effects: [{ kind: 'checkModifier', value: 5, appliesTo: 'forza' }],
+    };
+    expect(collectItemCheckModifier([item], 'forza')).toBe(5);
+    expect(collectItemCheckModifier([item], 'mente')).toBe(0);
+    expect(collectItemCheckModifier([item])).toBe(0);
+  });
 });
 
 describe('defenseValue', () => {

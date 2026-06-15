@@ -48,6 +48,10 @@ describe('currentParticipant', () => {
     const enc = createEncounter('e', inputs);
     expect(currentParticipant(enc).actorId).toBe('eroe');
   });
+  it('lancia se il round è completo', () => {
+    const enc = endTurn(endTurn(endTurn(createEncounter('e', inputs))));
+    expect(() => currentParticipant(enc)).toThrow();
+  });
 });
 
 describe('endTurn', () => {
@@ -86,6 +90,11 @@ describe('moveParticipant', () => {
   it('lancia se la zona non è adiacente', () => {
     expect(() => moveParticipant(createEncounter('e', inputs), map, 'eroe', 'c')).toThrow(
       'Mossa non valida',
+    );
+  });
+  it('lancia per un attore sconosciuto', () => {
+    expect(() => moveParticipant(createEncounter('e', inputs), map, 'ignoto', 'b')).toThrow(
+      'Partecipante sconosciuto nello scontro',
     );
   });
 });

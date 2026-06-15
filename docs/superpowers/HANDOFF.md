@@ -1,6 +1,6 @@
 # Loomn — Handoff per il prossimo agente
 
-> **Data:** 2026-06-15 · **Branch:** `main` · **HEAD:** `43c1cb5` · **Stato:** Piani 1-6 completi e mergiati (engine + persistenza), **125 test verdi**, typecheck pulito, tree pulito.
+> **Data:** 2026-06-15 · **Branch:** `main` · **HEAD:** `43c1cb5` (più i commit doc di aggiornamento successivi — fai `git log`) · **Stato:** Piani 1-6 completi e mergiati (engine + persistenza), **125 test verdi**, typecheck pulito, tree pulito.
 >
 > Questo documento ti permette di riprendere **esattamente** da dove siamo. Leggilo tutto prima di agire. La memoria di progetto è in `.claude/.../memory/loomn-project.md` e `loomn-working-style.md` (caricata a inizio sessione).
 
@@ -47,7 +47,7 @@ Ogni piano ha in fondo una **roadmap aggiornata** e una sezione **self-review**.
 
 ## 3. Stato dell'engine (`packages/engine`) — cosa esiste già
 
-Monorepo **pnpm workspaces** (`pnpm-workspace.yaml` globba `packages/*` e `app/*`). Solo `packages/engine` esiste finora. TS strict (`tsconfig.base.json`): `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `verbatimModuleSyntax`. Test: Vitest (config root `vitest.config.ts`, include `packages/**/*.test.ts`). **125 test verdi totali** (98 engine + 27 da `shared`/`memory` del Piano 6).
+Monorepo **pnpm workspaces** (`pnpm-workspace.yaml` globba `packages/*` e `app/*`). Esistono `packages/engine` (dettagliato qui sotto), più `packages/shared` e `packages/memory` (Piano 6 — vedi §3-bis). TS strict (`tsconfig.base.json`): `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `verbatimModuleSyntax`. Test: Vitest (config root `vitest.config.ts`, include `packages/**/*.test.ts`). **125 test verdi totali** (98 engine + 27 da `shared`/`memory` del Piano 6).
 
 `packages/engine/src/index.ts` ri-esporta **15 moduli**, in quest'ordine. Export pubblici per modulo:
 
@@ -127,7 +127,7 @@ Workflow superpowers, una skill per fase:
 
 - **OS:** Windows 11. Shell: PowerShell; **Bash disponibile** (usa Bash per git/pnpm, sono POSIX). I warning `LF will be replaced by CRLF` sono cosmetici.
 - **Toolchain:** Node v24.9.0, pnpm 9.12.0, corepack 0.34.0 (già installati, su PATH).
-- **Verifica (dalla root):** `pnpm test` (Vitest, atteso 98 verdi ora), `pnpm typecheck` (→ `pnpm -r typecheck` → engine `tsc --noEmit`), `pnpm -C packages/engine typecheck`.
+- **Verifica (dalla root):** `pnpm test` (Vitest, atteso **125 verdi**), `pnpm typecheck` (→ `pnpm -r typecheck` → `tsc --noEmit` su engine/shared/memory), `pnpm -C packages/<pkg> typecheck` per il singolo pacchetto.
 - I subagent creano file con lo strumento Write (NON `New-Item -Force`, che tronca).
 
 ---
@@ -138,18 +138,7 @@ Workflow superpowers, una skill per fase:
 
 **Piano grande:** valuta uno split in 2-3 sotto-piani (Provider Layer + porta; StructuredOutputPort + fallback; AI Master/pipeline + TracingPort). Da qui in poi si entra nell'IO reale (rete/streaming): meno puramente unit-testabile, si useranno porte iniettate + doppi. Decisioni aperte: la porta `LanguageModel` qui sarà **async** (a differenza dell'EventStore sincrono); confine dello streaming; dove vivono gli schemi Zod degli strumenti (probabile `shared`).
 
-> *Sotto: bozza storica del Piano 6, ora implementato — conservata come riferimento.*
-
-**Bozza di design** (da rifinire scrivendo il piano):
-- **Nuovo pacchetto `packages/memory`** (il workspace globba già `packages/*`): `package.json` (`@loomn/memory`), `tsconfig.json` che estende la base, dipende da `@loomn/engine` (workspace dep). Dipendenza ammessa: `memory → engine` (regola spec: `ai/memory/content → engine → shared`).
-- **DB:** SQLite. La porta `EventStore` del Piano 5 è **sincrona** (`append`/`load`/`version` ritornano valori sync) → usa un driver **sincrono: `better-sqlite3`** per implementarla senza cambiare la porta. *(Se in futuro serve async — es. libsql — la porta andrebbe resa async: decisione esplicita, non implicita.)*
-- **`createSqliteEventStore(db): EventStore`** — tabella `events(seq INTEGER PRIMARY KEY, type TEXT, payload TEXT/JSON)`. `append` in **transazione** con check `MAX(seq) === expectedVersion` → altrimenti `ConcurrencyError` (riusa la classe di engine). `load()` deserializza in `StoredEvent[]`. Persisti anche gli **snapshot** (tabella `snapshots(version, state JSON)`).
-- **Serializzazione/validazione:** i payload `DomainEvent` contengono `Actor`/`Encounter`/`CheckResult` annidati → round-trip JSON. Lo spec vuole **validazione Zod ai confini**. **Decisione da prendere nel brainstorming/piano:** introdurre ora il pacchetto **`shared`** con gli schemi Zod di `DomainEvent` (unica fonte, spec §4/§12) oppure rimandare. Raccomandazione: valuta `shared` qui, perché serializzazione+validazione è il primo punto in cui serve davvero.
-- **Contract test condivisi:** estrai da `event-store.test.ts` (engine) una funzione di suite riutilizzabile e falla girare su `createInMemoryEventStore` **e** `createSqliteEventStore` (in-memory `:memory:` per i test). Questo è il "contract test" dello spec §9.
-- **Affronta i deferral del Piano 5:** hardening copia di `load()` (shallow → evitare leak di riferimenti) e copia difensiva dello snapshot.
-- **Drizzle** ORM + migrazioni (lo spec cita Drizzle). Valuta se Drizzle serve davvero per uno schema così piccolo o se `better-sqlite3` puro basta in Fase 1 — decisione da motivare nel piano (lo spec dice Drizzle, ma niente debito: scegli con criterio).
-
-**Punti aperti da decidere quando scrivi il Piano 6** (segnalali all'utente o risolvili con default motivati): sync vs async EventStore (racc. sync); `shared` + Zod ora o dopo; Drizzle vs better-sqlite3 puro.
+> Il design del Piano 6 (ormai implementato) non è più qui: vedi il piano `...piano6-persistenza.md` e la §3-bis. Esempio di metodo replicabile per il Piano 7: decisioni aperte risolte verso lo spec + **verifica empirica in sandbox** di ogni scelta tecnica prima della stesura (così il piano contiene solo codice già dimostrato).
 
 ---
 

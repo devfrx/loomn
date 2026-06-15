@@ -11,9 +11,10 @@ export interface HttpResponse {
   ok: boolean;
   status: number;
   statusText: string;
-  /** Corpo SSE come async-iterable di chunk di byte. */
+  /** Corpo SSE come async-iterable di chunk di byte. Mutuamente esclusivo con `text()`:
+   *  il corpo e un ReadableStream a uso singolo, va consumato una volta sola (percorso ok). */
   body(): AsyncIterable<Uint8Array>;
-  /** Corpo completo come testo (usato per le risposte di errore). */
+  /** Corpo completo come testo (percorso di errore). Mutuamente esclusivo con `body()`. */
   text(): Promise<string>;
 }
 

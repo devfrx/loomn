@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { createEncounter, rangeBetween, type ParticipantInput } from './encounter';
+import {
+  createEncounter,
+  rangeBetween,
+  currentParticipant,
+  endTurn,
+  roundComplete,
+  nextRound,
+  moveParticipant,
+  type ParticipantInput,
+} from './encounter';
 import type { ZoneMap } from './zone';
 
 const map: ZoneMap = { a: ['b'], b: ['a', 'c'], c: ['b'] };
@@ -30,6 +39,53 @@ describe('rangeBetween', () => {
     const enc = createEncounter('enc-1', inputs);
     expect(() => rangeBetween(enc, map, 'eroe', 'ignoto')).toThrow(
       'Partecipante sconosciuto nello scontro',
+    );
+  });
+});
+
+describe('currentParticipant', () => {
+  it('ritorna il partecipante del turno corrente', () => {
+    const enc = createEncounter('e', inputs);
+    expect(currentParticipant(enc).actorId).toBe('eroe');
+  });
+});
+
+describe('endTurn', () => {
+  it('marca chi ha agito e avanza il turno', () => {
+    const enc = endTurn(createEncounter('e', inputs));
+    expect(enc.turnIndex).toBe(1);
+    expect(enc.participants[0]!.actedThisRound).toBe(true);
+    expect(enc.participants[1]!.actedThisRound).toBe(false);
+  });
+});
+
+describe('roundComplete', () => {
+  it('è vero quando tutti hanno agito', () => {
+    let enc = createEncounter('e', inputs);
+    expect(roundComplete(enc)).toBe(false);
+    enc = endTurn(endTurn(endTurn(enc)));
+    expect(roundComplete(enc)).toBe(true);
+  });
+});
+
+describe('nextRound', () => {
+  it('azzera gli stati, incrementa il round e riparte dal primo', () => {
+    let enc = endTurn(endTurn(endTurn(createEncounter('e', inputs))));
+    enc = nextRound(enc);
+    expect(enc.round).toBe(2);
+    expect(enc.turnIndex).toBe(0);
+    expect(enc.participants.every((p) => p.actedThisRound === false)).toBe(true);
+  });
+});
+
+describe('moveParticipant', () => {
+  it('muove in una zona adiacente', () => {
+    const enc = moveParticipant(createEncounter('e', inputs), map, 'eroe', 'b');
+    expect(enc.participants.find((p) => p.actorId === 'eroe')?.zone).toBe('b');
+  });
+  it('lancia se la zona non è adiacente', () => {
+    expect(() => moveParticipant(createEncounter('e', inputs), map, 'eroe', 'c')).toThrow(
+      'Mossa non valida',
     );
   });
 });

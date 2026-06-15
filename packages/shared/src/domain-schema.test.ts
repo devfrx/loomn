@@ -50,9 +50,10 @@ describe('domainEventSchema', () => {
     expect(domainEventSchema.parse(ev)).toEqual(ev);
   });
 
-  it('valida gli eventi semplici DamageApplied, ActorDowned, TurnEnded', () => {
+  it('valida gli eventi semplici DamageApplied, ActorDowned, RoundAdvanced, TurnEnded', () => {
     expect(domainEventSchema.parse({ type: 'DamageApplied', targetId: 'goblin', resource: 'hp', amount: 4 })).toEqual({ type: 'DamageApplied', targetId: 'goblin', resource: 'hp', amount: 4 });
     expect(domainEventSchema.parse({ type: 'ActorDowned', actorId: 'goblin' })).toEqual({ type: 'ActorDowned', actorId: 'goblin' });
+    expect(domainEventSchema.parse({ type: 'RoundAdvanced' })).toEqual({ type: 'RoundAdvanced' });
     expect(domainEventSchema.parse({ type: 'TurnEnded' })).toEqual({ type: 'TurnEnded' });
   });
 

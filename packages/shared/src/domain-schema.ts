@@ -83,7 +83,9 @@ const itemEffectSchema = z
       ? o.appliesTo === undefined
         ? { kind: o.kind, value: o.value }
         : { kind: o.kind, value: o.value, appliesTo: o.appliesTo }
-      : o,
+      : // contributeDice/defenseModifier non hanno campi opzionali; o.dice e gia
+        // trasformato da dieGroupSchema, quindi il passthrough produce il tipo esatto.
+        o,
   );
 
 const itemSchema = z.object({

@@ -13,6 +13,9 @@ export function parseJson(raw: string): JsonParse {
 
 // Strip fence ```json...``` poi slice dal primo { all ultimo } (toglie la prosa attorno).
 // jsonrepair NON estrae il JSON dalla prosa, quindi l estrazione va fatta prima.
+// Gestisce solo candidati OGGETTO: lo StructuredOutputPort e object-rooted (i parameters
+// delle function-call e i root json_schema dei provider devono essere oggetti; per le liste
+// si avvolge in un oggetto, es. { items: [...] }), quindi non si estraggono array top-level.
 export function extractJsonCandidate(raw: string): string {
   let s = raw.trim();
   const fence = s.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);

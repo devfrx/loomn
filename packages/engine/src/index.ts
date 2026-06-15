@@ -11,3 +11,4 @@ export * from './zone';
 export * from './encounter';
 export * from './combat';
 export * from './events';
+export * from './commands';

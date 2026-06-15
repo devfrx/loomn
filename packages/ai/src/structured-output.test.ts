@@ -7,7 +7,8 @@ import { createRecordingTracer } from './tracing';
 const schema = z.object({ actorId: z.string(), dc: z.number().int() });
 
 // Fake model: handler mappa (richiesta, indice di chiamata) -> eventi da streammare.
-// Chiamate in ordine: 0 = function-call, 1 = json-schema, 2 = repair#1, 3 = repair#2.
+// Chiamate nell ordine default: 0 = function-call, 1 = json-schema, 2 = repair#1, 3 = repair#2
+// (l indice si sposta se `strategies` limita i livelli).
 function fakeModel(handler: (req: LlmRequest, i: number) => LlmStreamEvent[]): LanguageModel {
   let i = 0;
   return {
@@ -96,10 +97,17 @@ describe('createStructuredOutput', () => {
     expect(toolsSeen).toBe(false);
   });
 
-  it('lancia StructuredOutputError se tutti i livelli falliscono', async () => {
+  it('lancia StructuredOutputError con lastText se tutti i livelli falliscono', async () => {
     const model = fakeModel(() => textResp('mai un json valido'));
     const so = createStructuredOutput(model);
-    await expect(so.generate({ messages, schema, schemaName: 'make_check' })).rejects.toBeInstanceOf(StructuredOutputError);
+    let err: unknown;
+    try {
+      await so.generate({ messages, schema, schemaName: 'make_check' });
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(StructuredOutputError);
+    expect((err as StructuredOutputError).lastText).toBe('mai un json valido');
   });
 
   it('un errore di provider al livello 1 non interrompe il fallback', async () => {
@@ -111,6 +119,18 @@ describe('createStructuredOutput', () => {
     const so = createStructuredOutput(model);
     const res = await so.generate({ messages, schema, schemaName: 'make_check' });
     expect(res.strategy).toBe('json-schema');
+    expect(res.value).toEqual({ actorId: 'pc1', dc: 4 });
+  });
+
+  it('un errore di provider al livello 2 cade al repair', async () => {
+    const model = fakeModel((req) => {
+      if (req.tools !== undefined) return toolCall('non-json');
+      if (req.responseFormat !== undefined) throw new Error('json_schema non supportato');
+      return textResp('{"actorId":"pc1","dc":4}');
+    });
+    const so = createStructuredOutput(model);
+    const res = await so.generate({ messages, schema, schemaName: 'make_check' });
+    expect(res.strategy).toBe('repair');
     expect(res.value).toEqual({ actorId: 'pc1', dc: 4 });
   });
 });

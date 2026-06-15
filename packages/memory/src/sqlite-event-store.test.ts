@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { ZodError } from 'zod';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -67,7 +68,7 @@ describe('createSqliteEventStore - isolamento e validazione', () => {
       inject.db.insert(events).values({ type: 'DamageApplied', payload: '{"type":"DamageApplied"}' }).run();
       inject.close();
       const store = createSqliteEventStore(path);
-      expect(() => store.load()).toThrow();
+      expect(() => store.load()).toThrow(ZodError);
       store.close();
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -89,5 +90,22 @@ describe('createSqliteEventStore - snapshot', () => {
     store.saveSnapshot(snap);
     expect(store.latestSnapshot()).toEqual(snap);
     store.close();
+  });
+
+  it('persiste lo snapshot su file tra riaperture', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'loomn-mem-'));
+    const path = join(dir, 'snap.db');
+    try {
+      const a = createSqliteEventStore(path);
+      a.append(evs, 0);
+      const snap = takeSnapshot(rebuild(a.load()));
+      a.saveSnapshot(snap);
+      a.close();
+      const b = createSqliteEventStore(path);
+      expect(b.latestSnapshot()).toEqual(snap);
+      b.close();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

@@ -30,7 +30,8 @@ export interface AttackResult {
 /** Esegue un attacco. Prova-colpo dell'attaccante (con oggetti equipaggiati) contro la
  *  CD = difesa del bersaglio; in caso di colpo, tira i dadi-effetto dell'arma equipaggiata,
  *  applica il danno alla risorsa indicata e segna 'morente' se la risorsa arriva a 0.
- *  Funzione pura; ogni casualità passa per `rng`. */
+ *  Funzione pura; ogni casualità passa per `rng`.
+ *  Nota: la condizione 'morente' è un segnaposto pre-Event-Sourcing (sarà formalizzata nel Piano 5). */
 export function performAttack(input: AttackInput, rng: RandomSource): AttackResult {
   const dc = defenseValue(input.target, input.defense, input.defenseBase);
 

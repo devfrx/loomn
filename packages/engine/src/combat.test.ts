@@ -110,4 +110,25 @@ describe('performAttack', () => {
     expect(res.hit).toBe(false);
     expect(res.target.resources['hp']!.current).toBe(10);
   });
+
+  it('successo con costo conta come colpo', () => {
+    // d20=0.3 -> faccia 7 ; 7 + 3 = 10 vs CD 10 -> margine 0 -> success_at_cost (colpo)
+    const rng = stubRandom([0.3, 0.5, 0.5]); // poi danno 2d6 = 4+4 = 8
+    const res = performAttack(
+      {
+        attacker: attacker(),
+        target: target(),
+        attribute: 'forza',
+        defense: 'difesa',
+        defenseBase: 10,
+        damageResource: 'hp',
+      },
+      rng,
+    );
+    expect(res.check.outcome).toBe('success_at_cost');
+    expect(res.hit).toBe(true);
+    expect(res.damage).toBe(8);
+    expect(res.target.resources['hp']!.current).toBe(2);
+    expect(res.downed).toBe(false);
+  });
 });

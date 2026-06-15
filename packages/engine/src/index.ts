@@ -9,3 +9,4 @@ export * from './item';
 export * from './progression';
 export * from './zone';
 export * from './encounter';
+export * from './combat';

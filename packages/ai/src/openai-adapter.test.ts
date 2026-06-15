@@ -38,6 +38,17 @@ const SSE = [
   'data: [DONE]\n\n',
 ].join('');
 
+// Due tool-call parallele, frammentate; index 1 introdotta PRIMA della 0 per
+// esercitare l ordinamento per index in fase di emissione.
+const SSE_PARALLEL = [
+  'data: {"choices":[{"delta":{"tool_calls":[{"index":1,"id":"call_b","function":{"name":"apply_effect","arguments":"{\\"key\\":"}}]}}]}\n\n',
+  'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_a","function":{"name":"request_check","arguments":"{\\"dc\\":"}}]}}]}\n\n',
+  'data: {"choices":[{"delta":{"tool_calls":[{"index":1,"function":{"arguments":"\\"poison\\"}"}}]}}]}\n\n',
+  'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"10}"}}]}}]}\n\n',
+  'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}\n\n',
+  'data: [DONE]\n\n',
+].join('');
+
 describe('adapter OpenAI-compatibile', () => {
   it('trasmette i delta di testo e accumula una tool-call frammentata', async () => {
     const { transport } = fakeTransport(SSE);
@@ -96,5 +107,15 @@ describe('adapter OpenAI-compatibile', () => {
     expect(tracer.events.map((e) => e.kind)).toEqual(['request', 'response']);
     const response = tracer.events.find((e) => e.kind === 'response');
     expect(response).toMatchObject({ finishReason: 'tool_calls', toolCallCount: 1 });
+  });
+
+  it('accumula tool-call parallele e le emette ordinate per index', async () => {
+    const { transport } = fakeTransport(SSE_PARALLEL);
+    const model = createOpenAiCompatibleModel({ baseUrl: 'http://x/v1', model: 'm', transport });
+    const res = await collectResponse(model.stream({ messages: [{ role: 'user', content: 'hi' }] }));
+    expect(res.toolCalls).toEqual([
+      { id: 'call_a', name: 'request_check', arguments: '{"dc":10}' },
+      { id: 'call_b', name: 'apply_effect', arguments: '{"key":"poison"}' },
+    ]);
   });
 });

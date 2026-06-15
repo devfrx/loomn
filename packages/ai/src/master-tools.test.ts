@@ -62,6 +62,7 @@ describe('resolveToolCall', () => {
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('atteso errore');
     expect(r.error.length).toBeGreaterThan(0);
+    expect(r.error).toContain('targetId');
   });
 
   it('rifiuta uno strumento sconosciuto', () => {

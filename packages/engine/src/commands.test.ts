@@ -87,4 +87,7 @@ describe('decide EndTurn e NextRound', () => {
   it('NextRound emette RoundAdvanced', () => {
     expect(decide(withEncounter(), { type: 'NextRound' }, rng)).toEqual([{ type: 'RoundAdvanced' }]);
   });
+  it('NextRound lancia senza scontro', () => {
+    expect(() => decide(initialState, { type: 'NextRound' }, rng)).toThrow('Nessuno scontro attivo');
+  });
 });

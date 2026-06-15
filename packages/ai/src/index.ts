@@ -4,3 +4,4 @@ export * from './transport';
 export * from './openai-adapter';
 export * from './structured-output';
 export * from './master-tools';
+export * from './master-turn';

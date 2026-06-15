@@ -85,6 +85,8 @@ describe('runMasterTurn', () => {
     expect(res.state.actors['g1']?.resources['hp']?.current).toBe(5);
     expect(res.narration).toBe('La spada cala e il goblin barcolla.');
     expect(res.invocations[0]?.toolName).toBe('attack');
+    expect(res.transcript[0]?.role).toBe('system');
+    expect(res.transcript.length).toBeGreaterThan(3);
   });
 
   it('e deterministico a parita di seed (stessi eventi)', async () => {

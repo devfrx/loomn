@@ -155,6 +155,18 @@ describe('decide Attack', () => {
     ).toThrow('sconosciuto');
   });
 
+  it('colpo a segno senza atterramento: emette AttackResolved e DamageApplied (2 eventi)', () => {
+    const tank: Actor = { ...actor('orco'), resources: { hp: { current: 50, max: 50 } } };
+    const s = withActors(hero(), tank);
+    // d20=0.95 -> colpo critico ; danno 2d6 = 8 ; tank a 50 HP non viene atterrato
+    const events = decide(
+      s,
+      { type: 'Attack', attackerId: 'eroe', targetId: 'orco', attribute: 'forza', defense: 'difesa', defenseBase: 10, damageResource: 'hp' },
+      stub([0.95, 0.5, 0.5]),
+    );
+    expect(events.map((e) => e.type)).toEqual(['AttackResolved', 'DamageApplied']);
+  });
+
   it('ciclo decide->apply: l attacco riduce gli HP nello stato', () => {
     let s = withActors(hero(), actor('goblin'));
     const events = decide(

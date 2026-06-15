@@ -23,7 +23,7 @@ export type Command =
     };
 
 /** Valida un comando contro lo stato e produce gli eventi risultanti.
- *  L'RNG è disponibile per i comandi che lo richiedono (qui nessuno). Funzione pura. */
+ *  L'RNG è consumato dai comandi che lo richiedono (es. Attack). Funzione pura. */
 export function decide(state: GameState, command: Command, rng: RandomSource): DomainEvent[] {
   switch (command.type) {
     case 'AddActor':

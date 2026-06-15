@@ -38,10 +38,12 @@ describe('levelFor', () => {
 });
 
 describe('applyProgression', () => {
-  it('ricalcola il livello in base allo XP corrente', () => {
-    const out = applyProgression(actorAt(300, 1), [100, 300, 600]);
+  it('ricalcola il livello in base allo XP corrente senza mutare loriginale', () => {
+    const original = actorAt(300, 1);
+    const out = applyProgression(original, [100, 300, 600]);
     expect(out.progression.level).toBe(3);
     expect(out.progression.xp).toBe(300);
+    expect(original.progression.level).toBe(1);
   });
 });
 

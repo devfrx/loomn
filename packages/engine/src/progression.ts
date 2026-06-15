@@ -9,7 +9,9 @@ export function awardXp(actor: Actor, amount: number): Actor {
 }
 
 /** Livello dato l'XP cumulativo e le soglie (XP cumulativo richiesto per liv. 2, 3, …,
- *  in ordine crescente). Livello 1 = 0 XP. */
+ *  in ordine crescente). Livello 1 = 0 XP.
+ *  Precondizione: le soglie devono essere ordinate in modo crescente; un input non
+ *  ordinato produce risultati errati (il ciclo si interrompe alla prima soglia non raggiunta). */
 export function levelFor(xp: number, thresholds: number[]): number {
   let level = 1;
   for (const t of thresholds) {

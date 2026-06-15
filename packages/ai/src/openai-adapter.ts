@@ -150,8 +150,14 @@ async function* streamChatCompletion(byteChunks: AsyncIterable<Uint8Array>): Asy
   let finishReason: LlmFinishReason = 'unknown';
   for await (const payload of parseSse(byteChunks)) {
     if (payload === '[DONE]') break;
-    const parsed = chunkSchema.safeParse(JSON.parse(payload) as unknown);
-    if (!parsed.success) continue; // skip difensivo di rumore/heartbeat del provider
+    let json: unknown;
+    try {
+      json = JSON.parse(payload);
+    } catch {
+      continue; // data: non-JSON (rumore/troncamento del provider): skip difensivo
+    }
+    const parsed = chunkSchema.safeParse(json);
+    if (!parsed.success) continue; // skip difensivo di shape inattesa (heartbeat/extra)
     const choice = parsed.data.choices?.[0];
     if (choice === undefined) continue;
     const delta = choice.delta;
@@ -174,9 +180,8 @@ async function* streamChatCompletion(byteChunks: AsyncIterable<Uint8Array>): Asy
       finishReason = mapFinishReason(choice.finish_reason);
     }
   }
-  for (const i of [...toolAcc.keys()].sort((a, b) => a - b)) {
-    const tc = toolAcc.get(i);
-    if (tc !== undefined) yield { type: 'tool-call', id: tc.id, name: tc.name, arguments: tc.args };
+  for (const [, tc] of [...toolAcc.entries()].sort((a, b) => a[0] - b[0])) {
+    yield { type: 'tool-call', id: tc.id, name: tc.name, arguments: tc.args };
   }
   yield { type: 'finish', reason: finishReason };
 }

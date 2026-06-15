@@ -118,4 +118,18 @@ describe('adapter OpenAI-compatibile', () => {
       { id: 'call_b', name: 'apply_effect', arguments: '{"key":"poison"}' },
     ]);
   });
+
+  it('ignora una riga data malformata senza abortire lo stream', async () => {
+    const sse = [
+      'data: {"choices":[{"delta":{"content":"ciao"}}]}\n\n',
+      'data: questo non e json valido\n\n',
+      'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n',
+      'data: [DONE]\n\n',
+    ].join('');
+    const { transport } = fakeTransport(sse);
+    const model = createOpenAiCompatibleModel({ baseUrl: 'http://x/v1', model: 'm', transport });
+    const res = await collectResponse(model.stream({ messages: [{ role: 'user', content: 'hi' }] }));
+    expect(res.text).toBe('ciao');
+    expect(res.finishReason).toBe('stop');
+  });
 });

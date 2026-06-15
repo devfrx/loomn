@@ -14,6 +14,7 @@ describe('areAdjacent', () => {
     expect(areAdjacent(map, 'a', 'b')).toBe(true);
     expect(areAdjacent(map, 'a', 'c')).toBe(false);
     expect(areAdjacent(map, 'a', 'a')).toBe(false);
+    expect(areAdjacent(map, 'z', 'a')).toBe(false);
   });
 });
 
@@ -25,6 +26,12 @@ describe('zoneDistance', () => {
     expect(zoneDistance(map, 'a', 'd')).toBe(Infinity);
     expect(zoneDistance(map, 'a', 'z')).toBe(Infinity);
   });
+
+  it('termina e calcola la distanza anche con cicli', () => {
+    const cyclic: ZoneMap = { x: ['y', 'z'], y: ['x', 'z'], z: ['x', 'y'] };
+    expect(zoneDistance(cyclic, 'x', 'z')).toBe(1);
+    expect(zoneDistance(cyclic, 'x', 'x')).toBe(0);
+  });
 });
 
 describe('rangeBand', () => {
@@ -33,5 +40,6 @@ describe('rangeBand', () => {
     expect(rangeBand(1)).toBe('near');
     expect(rangeBand(2)).toBe('far');
     expect(rangeBand(5)).toBe('far');
+    expect(rangeBand(Infinity)).toBe('far');
   });
 });

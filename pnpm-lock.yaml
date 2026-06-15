@@ -15,6 +15,16 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@22.19.21)
 
+  packages/ai:
+    dependencies:
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.21
+
   packages/engine: {}
 
   packages/memory:

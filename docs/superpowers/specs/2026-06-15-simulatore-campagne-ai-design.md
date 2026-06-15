@@ -1,8 +1,8 @@
 # Simulatore di Campagne Interattive con Master AI — Design
 
-> **Stato:** bozza di architettura approvata. La **struttura di gioco** (attributi,
-> abilità, funzionalità di gameplay, contenuti dei moduli a tema) è **ancora da
-> studiare** ed è marcata come `DA DEFINIRE` più sotto.
+> **Stato:** architettura e **struttura di gioco definite** (§11). Restano aperti solo i
+> punti di taratura elencati in §13. Implementazione: vedi i piani in
+> `docs/superpowers/plans/` (Fase 1 / Piano 1 scritto).
 >
 > **Nome del progetto:** **Loomn** (deciso 2026-06-15). Evoca il telaio (*loom*) che
 > *tesse* le trame di qualsiasi genere; variante coniata per essere ownable ed evitare il

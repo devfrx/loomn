@@ -10,3 +10,4 @@ export * from './progression';
 export * from './zone';
 export * from './encounter';
 export * from './combat';
+export * from './events';

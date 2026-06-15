@@ -1,6 +1,6 @@
 # Loomn — Handoff per il prossimo agente
 
-> **Data:** 2026-06-15 · **Branch:** `main` · **HEAD:** `d30adbc` (più eventuali commit doc successivi — fai `git log`) · **Stato:** Piani 1-6 + **7a** completi e mergiati (engine + persistenza + Provider Layer AI), **144 test verdi**, typecheck pulito, tree pulito.
+> **Data:** 2026-06-15 · **Branch:** `main` · **HEAD:** `612e1bb` (più eventuali commit doc successivi — fai `git log`) · **Stato:** Piani 1-6 + **7a + 7b** completi e mergiati (engine + persistenza + Provider Layer AI + StructuredOutputPort), **160 test verdi**, typecheck pulito, tree pulito.
 >
 > Questo documento ti permette di riprendere **esattamente** da dove siamo. Leggilo tutto prima di agire. La memoria di progetto è in `.claude/.../memory/loomn-project.md` e `loomn-working-style.md` (caricata a inizio sessione).
 
@@ -8,7 +8,7 @@
 
 ## 0. TL;DR — cosa fare adesso
 
-L'engine deterministico (Piani 1-5), la **Persistenza (Piano 6)** e il **Provider Layer AI (Piano 7a)** sono **finiti e mergiati** in `main`. Il Piano 7 è stato **splittato in 7a (fatto) / 7b / 7c** (vedi §7). Il prossimo passo è **scrivere ed eseguire il Piano 7b — `StructuredOutputPort` + i 3 livelli di fallback** (function-call → JSON-schema/grammar → parse+repair+retry), costruito sopra la porta `LanguageModel` di 7a. **7b e 7c NON sono ancora stati scritti** (il piano 7a è in `docs/superpowers/plans/2026-06-15-loomn-fase1-piano7a-provider-layer.md`).
+L'engine deterministico (Piani 1-5), la **Persistenza (Piano 6)**, il **Provider Layer AI (Piano 7a)** e lo **StructuredOutputPort (Piano 7b)** sono **finiti e mergiati** in `main`. Il Piano 7 è splittato in **7a (fatto) / 7b (fatto) / 7c** (vedi §7). Il prossimo passo è **scrivere ed eseguire il Piano 7c — AI Master pipeline + schemi Zod degli strumenti**: il turno agentico (contesto → prompt → `LanguageModel.stream` → tool-call → Zod → `Command` → `decide` → reinietta gli Event reali → narra), che usa lo `StructuredOutputPort` di 7b per validare gli argomenti degli strumenti. **7c NON è ancora stato scritto** (i piani 7a/7b sono in `docs/superpowers/plans/`).
 
 Il flusso da seguire è sempre lo stesso (vedi §4): `writing-plans` → commit doc su main → branch → `subagent-driven-development` (implementer + 2 review per task) → `finishing-a-development-branch` (merge locale) → aggiorna memoria.
 
@@ -84,16 +84,18 @@ Aggiunti dal Piano 6, mergiati in `main`. Grafo dipendenze: `memory → engine`,
 
 **Punti chiave (NON romperli):** la porta `EventStore` resta **sincrona** (better-sqlite3 sincrono). `append` usa una **transazione** con check `MAX(seq) === expectedVersion` → `ConcurrencyError` (riusata da engine); validazione Zod **solo in lettura** (`load`/`latestSnapshot`), non in scrittura (gli eventi vengono da `decide`, già tipati). Due **drift guard** a compile-time in `sqlite-event-store.ts` tengono gli schemi Zod allineati ai tipi engine. Una **suite di conformità condivisa** (`event-store-contract.ts`, `runEventStoreContract`) gira verde su in-memory **e** SQLite (contract test, spec §9). `drizzle-kit` **non** è ancora usato (migrazione frozen scritta a mano; si introdurrà nel Piano 8 con le proiezioni relazionali).
 
-### 3-ter. Pacchetto `ai` (Piano 7a) — cosa esiste già
+### 3-ter. Pacchetto `ai` (Piani 7a + 7b) — cosa esiste già
 
-Aggiunto dal Piano 7a, mergiato in `main`. È **foglia** come `shared`: dipende solo da `zod` (runtime) e `@types/node` (dev); **NON** importa engine/shared (lo farà 7c). Tutto il codice è stato verificato empiricamente in sandbox prima della stesura del piano.
+Aggiunto dai Piani 7a/7b, mergiato in `main`. È **foglia** come `shared`: dipende solo da `zod` + `zod-to-json-schema@~3.23.5` + `jsonrepair` (runtime) e `@types/node` (dev); **NON** importa engine/shared (lo farà 7c). Tutto il codice è stato verificato empiricamente in sandbox prima della stesura dei piani.
 
 | Modulo (`packages/ai/src/`) | Export / contenuto |
 |---|---|
 | `language-model.ts` | Porta `LanguageModel` (`readonly id`; `stream(req): AsyncIterable<LlmStreamEvent>`); tipi `LlmRole`/`LlmMessage`/`LlmToolDef`/`LlmResponseFormat`/`LlmRequest`/`LlmFinishReason`/`LlmStreamEvent`(text\|tool-call\|finish)/`LlmToolCall`/`LlmResponse`; `collectResponse(stream)` → `{text,toolCalls,finishReason}`. |
 | `transport.ts` | `HttpRequest`/`HttpResponse` (`body()`/`text()` **mutuamente esclusivi**, single-use)/`HttpTransport`; `createFetchTransport(fetchImpl=fetch)` (avvolge `fetch`; l'adapter non lo chiama mai direttamente). |
-| `tracing.ts` | `TraceEvent` (`request`\|`response`\|`error`; **senza timestamp** → chiamanti puri), `TracingPort`, `noopTracer`, `createRecordingTracer`. 7b estenderà la union. |
+| `tracing.ts` | `TraceEvent` (`request`\|`response`\|`validation-failure`\|`retry`\|`error`; **senza timestamp** → chiamanti puri; `strategy` è `string` per evitare cicli), `TracingPort`, `noopTracer`, `createRecordingTracer`. |
 | `openai-adapter.ts` | `createOpenAiCompatibleModel(config)` (LM Studio + cloud), `LanguageModelError`, `OpenAiCompatibleConfig`. Internamente: `buildBody` (spread condizionali per `exactOptionalPropertyTypes`), `parseSse` (robusto ai confini di chunk: buffer + `\n\n` + `TextDecoder({stream:true})`), `streamChatCompletion` (chunk validato Zod con `safeParse` + skip difensivo anche su `data:` non-JSON; accumulo tool-call per `index` in Map; emissione ordinata; `[DONE]`). |
+| `json-repair.ts` (7b, interno) | `parseJson`, `extractJsonCandidate` (strip fence + slice primo`{`..ultimo`}`, **object-rooted** per design), `repairJson`. `jsonrepair` è **lenient** (coerce testo nudo a stringa) → la validazione Zod è il vero filtro. **Non** nel barrel. |
+| `structured-output.ts` (7b) | `createStructuredOutput(model, {tracer?, strategies?})`, `StructuredOutputPort`, `StructuredOutputError` (con `lastText`), tipi `StructuredOutputRequest/Result/Options/Strategy`. 3 livelli in ordine (function-call → json_schema → repair+retry), Zod come gate, cascata su qualunque fallimento; `strategies` per saltare livelli. Costruito sopra `LanguageModel` (testato con fake model). |
 | `language-model-contract.ts` | `runLanguageModelContract(label, makeModel)`: suite di conformità condivisa (spec §9), come `event-store-contract.ts`. **Non** nel barrel (utility di test). Oggi gira sull'adapter OpenAI; in Fase 2 la riuseranno Anthropic/Gemini. |
 
 **Punti chiave (NON romperli):** la porta è **async/streaming** (a differenza dell'`EventStore` sincrono); l'adapter **nasconde** la frammentazione delle tool-call (emette tool-call intere); il transport è **iniettato** (nessuna chiamata di rete reale nei test — fake con SSE predefinito); il `TracingPort` non porta tempo nei suoi eventi (purezza dei chiamanti); il barrel `index.ts` esporta language-model/tracing/transport/openai-adapter (NON il contract).
@@ -146,17 +148,17 @@ Workflow superpowers, una skill per fase:
 
 ---
 
-## 7. PROSSIMO PASSO — Piano 7b: StructuredOutputPort (da scrivere)
+## 7. PROSSIMO PASSO — Piano 7c: AI Master pipeline + tool schemas (da scrivere)
 
-Il **Piano 7** (spec §5.4/§7) è stato **splittato in tre** sotto-piani:
+Il **Piano 7** (spec §5.4/§7) è splittato in tre sotto-piani:
 
-- **7a — Provider Layer ✅ FATTO e mergiato** — vedi `docs/superpowers/plans/2026-06-15-loomn-fase1-piano7a-provider-layer.md` e la §3-ter. Pacchetto `@loomn/ai`: porta `LanguageModel` (async/streaming), adapter OpenAI-compatibile (LM Studio + cloud) su `HttpTransport` iniettabile, `TracingPort`, suite di conformità `runLanguageModelContract`.
-- **7b — `StructuredOutputPort` + 3 livelli di fallback ← PROSSIMO.** Data una richiesta + uno schema Zod, ottiene output strutturato **validato**, con i 3 livelli (spec §7): (1) function-calling nativo → (2) constrained decoding / JSON-schema (`response_format: json_schema`) → (3) parse + repair + 1 retry. Costruito **sopra** `LanguageModel`/`collectResponse` di 7a. Estende `TraceEvent` con `validation-failure`/`retry`. **Dipendenze da aggiungere (pin verificati empiricamente):** `zod-to-json-schema@~3.23.5` (genera JSON-Schema da Zod — NB 3.24+ richiede zod≥3.24.1, 3.25+ importa `zod/v3` e **crasha a runtime** con zod 3.23.8) e `jsonrepair@^3.8.0` (livello 3; serve uno «slice dal primo`{` all'ultimo`}`» PRIMA del repair perché jsonrepair non estrae JSON da prosa).
-- **7c — AI Master pipeline + tool schemas.** Schemi Zod degli strumenti (`request_check`, `apply_effect`, …) **in `@loomn/ai`** (NON in `shared`: sono il contratto LLM↔engine del bounded context AI) + il turno agentico: contesto (stub; Context Assembler vero = Piano 8) → prompt → `LanguageModel.stream` → tool-call → Zod → `Command` → `decide` esegue (RNG seedato) → reinietta gli **Event reali** nello stesso turno → narra (spec §5.4, singolo turno agentico). Dipendenze nuove: `@loomn/engine`, `@loomn/shared`.
+- **7a — Provider Layer ✅ FATTO e mergiato** — vedi `docs/superpowers/plans/2026-06-15-loomn-fase1-piano7a-provider-layer.md` e la §3-ter. Pacchetto `@loomn/ai`: porta `LanguageModel` (async/streaming), adapter OpenAI-compatibile su `HttpTransport` iniettabile, `TracingPort`, suite `runLanguageModelContract`.
+- **7b — `StructuredOutputPort` + 3 livelli di fallback ✅ FATTO e mergiato** — vedi `docs/superpowers/plans/2026-06-15-loomn-fase1-piano7b-structured-output.md` e la §3-ter. `createStructuredOutput(model, {tracer?, strategies?})`: dato uno schema Zod, ritorna un oggetto **validato** con 3 livelli in ordine — (1) function-call nativo → (2) constrained decoding `response_format: json_schema` → (3) parse+repair+1 retry — con **Zod come gate** a ogni livello e cascata su qualunque fallimento; `StructuredOutputError` se tutti falliscono. `json-repair.ts` (interno), `TraceEvent` esteso. Deps `zod-to-json-schema@~3.23.5` + `jsonrepair`.
+- **7c — AI Master pipeline + tool schemas ← PROSSIMO.** Schemi Zod degli strumenti (`request_check`, `apply_effect`, …) **in `@loomn/ai`** (NON in `shared`: sono il contratto LLM↔engine del bounded context AI), validati con lo `StructuredOutputPort` di 7b + il turno agentico: contesto (stub; Context Assembler vero = Piano 8) → prompt → `LanguageModel.stream` → tool-call → Zod → `Command` → `decide` esegue (RNG seedato) → reinietta gli **Event reali** nello stesso turno → narra (spec §5.4, singolo turno agentico). Dipendenze nuove: `@loomn/engine`, `@loomn/shared` (qui `ai` smette di essere foglia).
 
-> **Decisioni di confine del Piano 7 (già prese in 7a):** `LanguageModel` async/streaming; lo stream emette tool-call **intere** (frammentazione nascosta nell'adapter), `collectResponse` aggrega per i consumatori non-streaming; transport **iniettato** (nessuna rete reale nei test); validazione Zod del wire LLM; schemi degli strumenti in `@loomn/ai`.
+> **Decisioni di confine del Piano 7 (già prese in 7a/7b):** `LanguageModel` async/streaming; lo stream emette tool-call **intere** (frammentazione nascosta), `collectResponse` aggrega; transport **iniettato** (nessuna rete reale nei test); validazione Zod ovunque; lo `StructuredOutputPort` è **object-rooted** (i tool schema sono oggetti); schemi degli strumenti in `@loomn/ai`. 7c costruisce sopra `LanguageModel` (7a) e `StructuredOutputPort` (7b), testando con doppi/fake.
 >
-> **Metodo replicato in 7a (replicalo in 7b/7c):** decisioni aperte risolte verso lo spec + **verifica empirica in sandbox** di ogni scelta tecnica prima della stesura (il piano 7a conteneva solo codice già eseguito verde: SSE su confini di chunk, pin di `zod-to-json-schema`, `jsonrepair`+estrazione, typecheck strict, suite vitest). La sandbox è esterna al repo e va rimossa a fine lavoro.
+> **Metodo replicato in 7a/7b (replicalo in 7c):** decisioni aperte risolte verso lo spec + **verifica empirica in sandbox** di ogni scelta tecnica prima della stesura (i piani 7a/7b contenevano solo codice già eseguito verde). La sandbox è esterna al repo e va rimossa a fine lavoro.
 
 ---
 
@@ -164,8 +166,8 @@ Il **Piano 7** (spec §5.4/§7) è stato **splittato in tre** sotto-piani:
 
 - **Piano 6 — Persistenza** (SQLite/Drizzle, EventStore SQLite, contract test, pacchetti `shared`+`memory`) ✅ fatto
 - **Piano 7a — Provider Layer** (`@loomn/ai`: porta `LanguageModel` async/streaming, adapter OpenAI-compatibile, `HttpTransport` iniettabile, `TracingPort`, contract `runLanguageModelContract`) ✅ fatto
-- **Piano 7b — StructuredOutputPort + 3 livelli di fallback** ← *prossimo*
-- **Piano 7c — AI Master pipeline + tool schemas**
+- **Piano 7b — StructuredOutputPort + 3 livelli di fallback** (`createStructuredOutput`: function-call → json_schema → repair+retry; Zod come gate; `json-repair.ts`; `TraceEvent` esteso) ✅ fatto
+- **Piano 7c — AI Master pipeline + tool schemas** ← *prossimo*
 - **Piano 8 — Memoria L1.5 (canon ledger) + L2 (riassunti) + Context Assembler**
 - **Piano 9 — Shell Electron** (main/preload/renderer, sicurezza contextIsolation/sandbox/safeStorage, IPC tipizzato, **Clock** per i meta degli eventi)
 - **Piano 10 — UI Vue** (chat, scheda PG, **pannello dadi 3D** con `@3d-dice/dice-box` a risultati predeterminati, journal, gestione provider) (grande, probabile split)
@@ -178,7 +180,7 @@ Stima: ~6-9 piani per fine Fase 1; ~18-26 per la visione completa (Fase 2 = Modu
 ## 9. Checklist d'avvio per te (prossimo agente)
 
 1. Leggi questo file + lo spec + (se utile) i Piani 5 e 6 (porte e pacchetti esistenti).
-2. `git status` (atteso pulito, su `main`) e `pnpm test` (atteso **144 verdi**), `pnpm typecheck` pulito.
-3. Quando l'utente dice "scrivi il Piano 7b": usa `writing-plans`, applica le house rules (§5), parti dalla sintesi in §7. Le decisioni di confine del Piano 7 sono già prese in 7a (porta `LanguageModel` async/streaming, tool-call intere via `collectResponse`, transport iniettato, schemi strumenti in `@loomn/ai`); 7b ci costruisce sopra.
+2. `git status` (atteso pulito, su `main`) e `pnpm test` (atteso **160 verdi**), `pnpm typecheck` pulito.
+3. Quando l'utente dice "scrivi il Piano 7c": usa `writing-plans`, applica le house rules (§5), parti dalla sintesi in §7. Le porte di base ci sono già: `LanguageModel` (7a) e `StructuredOutputPort` (7b). 7c aggiunge gli schemi Zod degli strumenti (in `@loomn/ai`), la mappatura tool→`Command` e il turno agentico, e introduce le dipendenze `@loomn/engine`/`@loomn/shared` in `ai`.
 4. Verifica il piano (grep apostrofi), committa il doc su main, chiedi l'esecuzione, e procedi subagent-driven (§4).
 5. Mantieni il rigore: scope discipline nei prompt, verifica empirica del feedback, hardening solo su rami reali, niente over-engineering.

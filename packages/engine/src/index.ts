@@ -6,3 +6,4 @@ export * from './resource';
 export * from './condition';
 export * from './actor-check';
 export * from './item';
+export * from './progression';

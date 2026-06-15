@@ -15,6 +15,7 @@ export interface OpenDb {
  *  (idempotente) e restituisce l istanza Drizzle e una funzione di chiusura. */
 export function openDatabase(dbPath: string): OpenDb {
   const sqlite = new Database(dbPath);
+  // WAL: predispone letture concorrenti future (Fase 3); su :memory: e un no-op innocuo
   sqlite.pragma('journal_mode = WAL');
   const db = drizzle(sqlite);
   migrate(db, { migrationsFolder });

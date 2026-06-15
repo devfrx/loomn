@@ -44,6 +44,7 @@ export function createSqliteEventStore(dbPath: string): SqliteEventStore {
         for (const event of toAppend) {
           tx.insert(events).values({ type: event.type, payload: JSON.stringify(event) }).run();
         }
+        // corretto solo finche events e append-only e senza gap (nessun DELETE): seq contiguo
         return expectedVersion + toAppend.length;
       });
     },

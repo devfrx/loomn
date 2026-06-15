@@ -38,6 +38,20 @@ describe('createInMemoryEventStore', () => {
     store.append(evs, 0);
     expect(() => store.append([{ type: 'TurnEnded' }], 0)).toThrow(ConcurrencyError);
   });
+
+  it('ConcurrencyError espone expected e actual', () => {
+    const store = createInMemoryEventStore();
+    store.append(evs, 0);
+    let err: unknown;
+    try {
+      store.append([{ type: 'TurnEnded' }], 1);
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(ConcurrencyError);
+    expect((err as ConcurrencyError).expected).toBe(1);
+    expect((err as ConcurrencyError).actual).toBe(3);
+  });
 });
 
 describe('snapshot e rebuild', () => {

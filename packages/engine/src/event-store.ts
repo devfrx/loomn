@@ -8,7 +8,10 @@ export interface StoredEvent {
 
 /** Errore di concorrenza ottimistica: la versione attesa non coincide con quella attuale. */
 export class ConcurrencyError extends Error {
-  constructor(expected: number, actual: number) {
+  constructor(
+    readonly expected: number,
+    readonly actual: number,
+  ) {
     super(`Conflitto di concorrenza: atteso ${expected}, attuale ${actual}`);
     this.name = 'ConcurrencyError';
   }

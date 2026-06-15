@@ -27,7 +27,7 @@ Implementa, dello spec [2026-06-15-simulatore-campagne-ai-design.md](../specs/20
 - Meta degli eventi (timestamp/cause) → richiede un `Clock` iniettato, lo aggiunge il layer app (**Piano 9**); l engine e la persistenza restano puri.
 - Hardening della copia difensiva di `load()` dello store **in-memory** (engine): è un concern dell engine, non di questo piano (gli eventi sono immutabili per contratto). La proprietà di isolamento viene invece **garantita e testata per lo store SQLite** (Task 5), che ri-deserializza a ogni `load()`.
 
-**Prerequisito:** Piani 1-5 mergiati in `main` (`@loomn/engine`; `pnpm test` → **98 verdi**, `pnpm typecheck` pulito). Lavorare su un **branch dedicato**, non su `main`. Toolchain: Node v24.9.0, pnpm 9.12.0 (già installati). `better-sqlite3@11` si installa con **binario prebuilt** su Windows/Node 24 (verificato: nessun build nativo richiesto).
+**Prerequisito:** Piani 1-5 mergiati in `main` (`@loomn/engine`; `pnpm test` → **98 verdi**, `pnpm typecheck` pulito). Lavorare su un **branch dedicato**, non su `main`. Toolchain: Node v24.9.0, pnpm 9.12.0 (già installati). **`better-sqlite3@^12.10.1`** si installa con binario prebuilt su Windows/Node 24 sotto pnpm (NB as-built: la 11.x NON ha prebuilt per Node 24 ABI 137 → il build da sorgente fallisce senza ClangCL; la 12.x ha il prebuilt, API identica).
 
 ---
 
@@ -75,7 +75,7 @@ packages/
 
 Le tre decisioni aperte sono state risolte verso la **soluzione più professionale e priva di debiti** (scelta esplicita dell utente), cioè l architettura dichiarata nello spec, e ogni scelta tecnica è stata **verificata empiricamente** (house rule #3) prima di scrivere il piano.
 
-1. **EventStore sincrono.** La porta del Piano 5 è sincrona ed è già mergiata: renderla async romperebbe codice esistente e l idea stessa del contract test. Driver **better-sqlite3** (sincrono). *Verificato:* `better-sqlite3@11.10.0` installa con binario prebuilt su Win/Node 24; transazione sincrona Drizzle esegue **rollback e rilancia** l errore (così `ConcurrencyError` si propaga e l append in conflitto non lascia scritture parziali).
+1. **EventStore sincrono.** La porta del Piano 5 è sincrona ed è già mergiata: renderla async romperebbe codice esistente e l idea stessa del contract test. Driver **better-sqlite3@^12.10.1** (sincrono; la 11.x non ha prebuilt per Node 24 sotto pnpm → si è usata la 12.x, API identica). *Verificato:* installa con binario prebuilt su Win/Node 24; transazione sincrona Drizzle esegue **rollback e rilancia** l errore (così `ConcurrencyError` si propaga e l append in conflitto non lascia scritture parziali).
 2. **`@loomn/shared` + Zod ora** (non rimandato). Lo spec vuole gli schemi Zod come unica fonte di validazione ai confini; il DB su disco letto a runtime è un confine non fidato. *Verificato:* gli schemi sono **cast-free** — usando `.transform()` sui (soli 4) campi opzionali del grafo (`DieGroup.tag`, `DieResult.tag`, `ConditionEffect.appliesTo`, `ItemEffect.appliesTo`) l output type è exact-optional e `z.infer<typeof domainEventSchema>`/`gameStateSchema` risultano **bidirezionalmente assegnabili** ai tipi reali dell engine sotto `exactOptionalPropertyTypes` (senza i `.transform`, `z.optional()` produce `| undefined` → TS2375). Un *drift guard* a compile-time in `memory` impedisce divergenze future schema↔engine.
 3. **Drizzle + better-sqlite3 ora** (non SQL grezzo da retrofittare). *Verificato:* query builder + transazioni Drizzle funzionano; `migrate()` applica una migrazione **deterministica scritta a mano** (2 tabelle) ed è idempotente alla riapertura; vitest carica il modulo nativo better-sqlite3 **senza alcuna modifica a `vitest.config.ts`** (quando le dipendenze sono dichiarate nei package.json dei pacchetti); la cartella `migrations` si risolve via `import.meta.url` **indipendentemente dalla cwd** (i test girano da root).
 
@@ -426,7 +426,7 @@ Scaffold del pacchetto persistenza: tabelle Drizzle, migrazione deterministica, 
   "dependencies": {
     "@loomn/engine": "workspace:*",
     "@loomn/shared": "workspace:*",
-    "better-sqlite3": "^11.8.1",
+    "better-sqlite3": "^12.10.1",
     "drizzle-orm": "^0.38.4",
     "zod": "^3.23.8"
   },

@@ -1,6 +1,6 @@
 # Loomn — Handoff per il prossimo agente
 
-> **Data:** 2026-06-15 · **Branch:** `main` · **HEAD al momento del handoff:** `8004418` (il commit di questo file sarà successivo) · **Stato:** engine completo, 98 test verdi, tree pulito.
+> **Data:** 2026-06-15 · **Branch:** `main` · **HEAD:** `43c1cb5` · **Stato:** Piani 1-6 completi e mergiati (engine + persistenza), **125 test verdi**, typecheck pulito, tree pulito.
 >
 > Questo documento ti permette di riprendere **esattamente** da dove siamo. Leggilo tutto prima di agire. La memoria di progetto è in `.claude/.../memory/loomn-project.md` e `loomn-working-style.md` (caricata a inizio sessione).
 
@@ -8,7 +8,7 @@
 
 ## 0. TL;DR — cosa fare adesso
 
-L'engine deterministico è **finito** (Piani 1-5, tutti mergiati in `main`). Il prossimo passo è **scrivere ed eseguire il Piano 6 — Persistenza** (pacchetto `memory`: SQLite + Drizzle che implementa la porta `EventStore` del Piano 5). I Piani 1-5 sono documenti già scritti; **il Piano 6 NON è ancora stato scritto.**
+L'engine deterministico (Piani 1-5) e la **Persistenza (Piano 6)** sono **finiti e mergiati** in `main`. Il prossimo passo è **scrivere ed eseguire il Piano 7 — Provider AI + AI Master + StructuredOutputPort + TracingPort** (pacchetto `ai`: vedi §7 e roadmap §8). È un piano grande: valuta uno split in 2-3 sotto-piani. **Il Piano 7 NON è ancora stato scritto.**
 
 Il flusso da seguire è sempre lo stesso (vedi §4): `writing-plans` → commit doc su main → branch → `subagent-driven-development` (implementer + 2 review per task) → `finishing-a-development-branch` (merge locale) → aggiorna memoria.
 
@@ -37,7 +37,8 @@ Decisioni di prodotto fissate: single + multiplayer con Master AI; motore **gene
   - `2026-06-15-loomn-fase1-piano3-inventario-progressione.md` ✅ fatto
   - `2026-06-15-loomn-fase1-piano4-combattimento-zone.md` ✅ fatto
   - `2026-06-15-loomn-fase1-piano5-event-sourcing.md` ✅ fatto
-  - **Piano 6 → da scrivere.**
+  - `2026-06-15-loomn-fase1-piano6-persistenza.md` ✅ fatto (pacchetti `shared` + `memory`)
+  - **Piano 7 → da scrivere.**
 - **Memoria:** `C:\Users\zagor\.claude\projects\C--Users-zagor-Desktop-tabl\memory\` (`loomn-project.md`, `loomn-working-style.md`, indice in `MEMORY.md`).
 
 Ogni piano ha in fondo una **roadmap aggiornata** e una sezione **self-review**.
@@ -46,7 +47,7 @@ Ogni piano ha in fondo una **roadmap aggiornata** e una sezione **self-review**.
 
 ## 3. Stato dell'engine (`packages/engine`) — cosa esiste già
 
-Monorepo **pnpm workspaces** (`pnpm-workspace.yaml` globba `packages/*` e `app/*`). Solo `packages/engine` esiste finora. TS strict (`tsconfig.base.json`): `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `verbatimModuleSyntax`. Test: Vitest (config root `vitest.config.ts`, include `packages/**/*.test.ts`). **98 test verdi.**
+Monorepo **pnpm workspaces** (`pnpm-workspace.yaml` globba `packages/*` e `app/*`). Solo `packages/engine` esiste finora. TS strict (`tsconfig.base.json`): `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `verbatimModuleSyntax`. Test: Vitest (config root `vitest.config.ts`, include `packages/**/*.test.ts`). **125 test verdi totali** (98 engine + 27 da `shared`/`memory` del Piano 6).
 
 `packages/engine/src/index.ts` ri-esporta **15 moduli**, in quest'ordine. Export pubblici per modulo:
 
@@ -71,6 +72,17 @@ Monorepo **pnpm workspaces** (`pnpm-workspace.yaml` globba `packages/*` e `app/*
 **Grafo dipendenze (aciclico):** `random` ← `dice` ← `check`; `actor` → `dice`(type); `resource`/`condition`/`actor-check`/`item`/`progression` → `actor`(+ dice/check); `zone` (foglia) ← `encounter`; `combat` → actor/dice/check/actor-check/resource/condition/item; `events` → actor/check/resource/condition/encounter; `commands` → events + encounter/combat/dice; `event-store` → events. **Nessun ciclo. Niente importa `events`/`commands`/`event-store`/`encounter`/`combat` (a parte il barrel).**
 
 **La proprietà ES centrale (NON romperla):** `decide` consuma l'RNG e registra i **fatti risolti** negli eventi; `applyEvent` **rigioca senza RNG** → replay deterministico. `decide(Attack)` esegue `performAttack` ma usa solo i fatti (`check/hit/damage/downed`), **scartando** il `target` mutato; lo stato cambia solo via `applyEvent`.
+
+### 3-bis. Pacchetti `shared` e `memory` (Piano 6) — cosa esiste già
+
+Aggiunti dal Piano 6, mergiati in `main`. Grafo dipendenze: `memory → engine`, `memory → shared`; **`shared` è foglia** (dipende solo da `zod`, NON importa engine).
+
+| Pacchetto | Export / contenuto |
+|---|---|
+| `@loomn/shared` (`packages/shared`) | `domain-schema.ts` → `domainEventSchema`, `gameStateSchema` (Zod). **Unica fonte di validazione** ai confini. Cast-free: `.transform()` sui 4 campi opzionali (`DieGroup.tag`, `DieResult.tag`, `ConditionEffect.appliesTo`, `ItemEffect.appliesTo`) → `z.infer` assegnabile 1:1 ai tipi engine sotto `exactOptionalPropertyTypes`. Dep: `zod`. |
+| `@loomn/memory` (`packages/memory`) | `createSqliteEventStore(dbPath): SqliteEventStore` (implementa la porta `EventStore` del Piano 5 + `saveSnapshot`/`latestSnapshot`/`close`); `openDatabase(dbPath): OpenDb`. `schema.ts` (tabelle Drizzle `events`/`snapshots`), `migrations/` (una migrazione deterministica scritta a mano, applicata via `migrate()`). Deps: `@loomn/engine`, `@loomn/shared`, `better-sqlite3@^12.10.1` (la 11.x non ha prebuilt per Node 24 sotto pnpm), `drizzle-orm@^0.38.4`, `zod`. |
+
+**Punti chiave (NON romperli):** la porta `EventStore` resta **sincrona** (better-sqlite3 sincrono). `append` usa una **transazione** con check `MAX(seq) === expectedVersion` → `ConcurrencyError` (riusata da engine); validazione Zod **solo in lettura** (`load`/`latestSnapshot`), non in scrittura (gli eventi vengono da `decide`, già tipati). Due **drift guard** a compile-time in `sqlite-event-store.ts` tengono gli schemi Zod allineati ai tipi engine. Una **suite di conformità condivisa** (`event-store-contract.ts`, `runEventStoreContract`) gira verde su in-memory **e** SQLite (contract test, spec §9). `drizzle-kit` **non** è ancora usato (migrazione frozen scritta a mano; si introdurrà nel Piano 8 con le proiezioni relazionali).
 
 ---
 
@@ -120,9 +132,13 @@ Workflow superpowers, una skill per fase:
 
 ---
 
-## 7. PROSSIMO PASSO — Piano 6: Persistenza (da scrivere)
+## 7. PROSSIMO PASSO — Piano 7: Provider AI + AI Master (da scrivere)
 
-Obiettivo (spec §4 pacchetto `memory`, §5.1, §9 contract test): un **adapter SQLite** che implementa la **stessa porta `EventStore`** del Piano 5, più persistenza degli snapshot, con **contract test condivisi** (la stessa suite verde su in-memory e SQLite).
+**Piano 6 (Persistenza) è FATTO e mergiato** — vedi `docs/superpowers/plans/2026-06-15-loomn-fase1-piano6-persistenza.md` e la §3-bis. Il prossimo passo è il **Piano 7** (pacchetto `ai`, spec §5.4 e §7): client unificato **OpenAI-compatibile** (LM Studio + cloud) dietro una porta `LanguageModel`; pipeline AI Master (assembla contesto → prompt → LLM streaming → tool-call → validazione Zod → Command → engine esegue → narra gli Event reali); **`StructuredOutputPort`** con 3 livelli di fallback (function-calling → grammar/JSON-schema → parse+repair, critico per i modelli locali); **`TracingPort`** dal giorno 1. Riusa `@loomn/shared` per gli schemi Zod degli strumenti.
+
+**Piano grande:** valuta uno split in 2-3 sotto-piani (Provider Layer + porta; StructuredOutputPort + fallback; AI Master/pipeline + TracingPort). Da qui in poi si entra nell'IO reale (rete/streaming): meno puramente unit-testabile, si useranno porte iniettate + doppi. Decisioni aperte: la porta `LanguageModel` qui sarà **async** (a differenza dell'EventStore sincrono); confine dello streaming; dove vivono gli schemi Zod degli strumenti (probabile `shared`).
+
+> *Sotto: bozza storica del Piano 6, ora implementato — conservata come riferimento.*
 
 **Bozza di design** (da rifinire scrivendo il piano):
 - **Nuovo pacchetto `packages/memory`** (il workspace globba già `packages/*`): `package.json` (`@loomn/memory`), `tsconfig.json` che estende la base, dipende da `@loomn/engine` (workspace dep). Dipendenza ammessa: `memory → engine` (regola spec: `ai/memory/content → engine → shared`).
@@ -139,8 +155,8 @@ Obiettivo (spec §4 pacchetto `memory`, §5.1, §9 contract test): un **adapter 
 
 ## 8. Roadmap rimanente (Fase 1)
 
-- **Piano 6 — Persistenza** (SQLite/Drizzle, EventStore SQLite, contract test) ← *prossimo*
-- **Piano 7 — Provider AI + AI Master + StructuredOutputPort + TracingPort** (grande, probabile split in 2-3)
+- **Piano 6 — Persistenza** (SQLite/Drizzle, EventStore SQLite, contract test, pacchetti `shared`+`memory`) ✅ fatto
+- **Piano 7 — Provider AI + AI Master + StructuredOutputPort + TracingPort** (grande, probabile split in 2-3) ← *prossimo*
 - **Piano 8 — Memoria L1.5 (canon ledger) + L2 (riassunti) + Context Assembler**
 - **Piano 9 — Shell Electron** (main/preload/renderer, sicurezza contextIsolation/sandbox/safeStorage, IPC tipizzato, **Clock** per i meta degli eventi)
 - **Piano 10 — UI Vue** (chat, scheda PG, **pannello dadi 3D** con `@3d-dice/dice-box` a risultati predeterminati, journal, gestione provider) (grande, probabile split)
@@ -152,8 +168,8 @@ Stima: ~6-9 piani per fine Fase 1; ~18-26 per la visione completa (Fase 2 = Modu
 
 ## 9. Checklist d'avvio per te (prossimo agente)
 
-1. Leggi questo file + lo spec + (se utile) il Piano 5.
-2. `git status` (atteso pulito, su `main`) e `pnpm test` (atteso 98 verdi).
-3. Quando l'utente dice "scrivi il Piano 6": usa `writing-plans`, applica le house rules (§5), incolla la bozza §7, prendi le decisioni aperte (sync EventStore, shared/Zod, Drizzle).
+1. Leggi questo file + lo spec + (se utile) i Piani 5 e 6 (porte e pacchetti esistenti).
+2. `git status` (atteso pulito, su `main`) e `pnpm test` (atteso **125 verdi**), `pnpm typecheck` pulito.
+3. Quando l'utente dice "scrivi il Piano 7": usa `writing-plans`, applica le house rules (§5), parti dalla sintesi in §7, prendi le decisioni aperte (porta `LanguageModel` async, confine streaming, dove vivono gli schemi Zod degli strumenti, eventuale split in 2-3 sotto-piani).
 4. Verifica il piano (grep apostrofi), committa il doc su main, chiedi l'esecuzione, e procedi subagent-driven (§4).
 5. Mantieni il rigore: scope discipline nei prompt, verifica empirica del feedback, hardening solo su rami reali, niente over-engineering.

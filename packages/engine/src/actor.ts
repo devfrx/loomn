@@ -1,3 +1,5 @@
+import type { DieGroup, RollMode } from './dice';
+
 export type ActorKind = 'pc' | 'npc';
 
 export interface ResourcePool {
@@ -21,6 +23,23 @@ export interface Condition {
   duration: Duration;
 }
 
+export type ItemEffect =
+  | { kind: 'contributeDice'; dice: DieGroup[]; mode: RollMode }
+  | { kind: 'checkModifier'; value: number; appliesTo?: string }
+  | { kind: 'defenseModifier'; defense: string; value: number };
+
+export interface Item {
+  id: string;
+  name: string;
+  equipped: boolean;
+  effects: ItemEffect[];
+}
+
+export interface Progression {
+  xp: number;
+  level: number;
+}
+
 export interface Actor {
   id: string;
   name: string;
@@ -29,6 +48,8 @@ export interface Actor {
   skills: Record<string, number>;
   resources: Record<string, ResourcePool>;
   conditions: Condition[];
+  items: Item[];
+  progression: Progression;
 }
 
 /** Valore di un attributo, 0 se assente (i dati definiscono quali esistono). */

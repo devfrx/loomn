@@ -19,6 +19,8 @@ function hero(): Actor {
     conditions: [
       { key: 'inspired', source: 'bardo', effects: [{ kind: 'checkModifier', value: 1 }], duration: { kind: 'permanent' } },
     ],
+    items: [],
+    progression: { xp: 0, level: 1 },
   };
 }
 

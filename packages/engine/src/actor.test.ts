@@ -10,6 +10,8 @@ function sampleActor(): Actor {
     skills: { atletica: 2 },
     resources: { hp: { current: 10, max: 10 } },
     conditions: [],
+    items: [],
+    progression: { xp: 0, level: 1 },
   };
 }
 
@@ -28,5 +30,13 @@ describe('getSkill', () => {
   });
   it('ritorna 0 per una abilità assente (default)', () => {
     expect(getSkill(sampleActor(), 'furtività')).toBe(0);
+  });
+});
+
+describe('Actor schema', () => {
+  it('include inventario e progressione di default', () => {
+    const a = sampleActor();
+    expect(a.items).toEqual([]);
+    expect(a.progression).toEqual({ xp: 0, level: 1 });
   });
 });

@@ -11,6 +11,8 @@ function actorWith(current: number, max: number): Actor {
     skills: {},
     resources: { hp: { current, max } },
     conditions: [],
+    items: [],
+    progression: { xp: 0, level: 1 },
   };
 }
 

@@ -11,6 +11,8 @@ function baseActor(): Actor {
     skills: {},
     resources: { hp: { current: 10, max: 10 } },
     conditions: [],
+    items: [],
+    progression: { xp: 0, level: 1 },
   };
 }
 

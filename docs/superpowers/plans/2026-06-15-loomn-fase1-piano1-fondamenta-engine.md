@@ -89,7 +89,7 @@ packages:
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
     "typescript": "^5.5.4",
@@ -97,6 +97,10 @@ packages:
   }
 }
 ```
+
+> Nota: il typecheck root usa `pnpm -r typecheck` (esegue lo script `typecheck` di
+> ogni package) invece di `tsc -b`, che richiederebbe un `tsconfig.json` root con
+> project references e `composite`. Più semplice e senza debito.
 
 - [ ] **Step 4: Crea `tsconfig.base.json`**
 

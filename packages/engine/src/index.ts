@@ -8,3 +8,4 @@ export * from './actor-check';
 export * from './item';
 export * from './progression';
 export * from './zone';
+export * from './encounter';

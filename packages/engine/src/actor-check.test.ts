@@ -62,3 +62,49 @@ describe('actorCheck', () => {
     expect(res.outcome).toBe('critical');
   });
 });
+
+describe('buildCheckExpr con oggetti equipaggiati', () => {
+  it('include dadi e modificatori degli oggetti equipaggiati quando richiesto', () => {
+    const actor: Actor = {
+      ...hero(),
+      items: [
+        {
+          id: 'blade',
+          name: 'Lama',
+          equipped: true,
+          effects: [
+            { kind: 'contributeDice', dice: [{ count: 1, sides: 6 }], mode: 'check' },
+            { kind: 'checkModifier', value: 2 },
+          ],
+        },
+        {
+          id: 'stowed',
+          name: 'Riposto',
+          equipped: false,
+          effects: [{ kind: 'checkModifier', value: 99 }],
+        },
+      ],
+    };
+    const expr = buildCheckExpr({ actor, attribute: 'forza', includeEquipped: true, dc: 10 });
+    expect(expr.dice).toEqual([{ count: 1, sides: 20 }, { count: 1, sides: 6 }]);
+    // forza 3 + inspired 1 (globale) + items 2 ; lo stowed +99 escluso (non equipaggiato)
+    const total = expr.modifiers.reduce((s, m) => s + m.value, 0);
+    expect(total).toBe(6);
+  });
+
+  it('ignora gli oggetti se includeEquipped è assente', () => {
+    const actor: Actor = {
+      ...hero(),
+      items: [
+        {
+          id: 'blade',
+          name: 'Lama',
+          equipped: true,
+          effects: [{ kind: 'contributeDice', dice: [{ count: 1, sides: 6 }], mode: 'check' }],
+        },
+      ],
+    };
+    const expr = buildCheckExpr({ actor, attribute: 'forza', dc: 10 });
+    expect(expr.dice).toEqual([{ count: 1, sides: 20 }]);
+  });
+});

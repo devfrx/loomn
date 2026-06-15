@@ -100,6 +100,10 @@ describe('applyEvent', () => {
   it('lancia per TurnEnded senza scontro', () => {
     expect(() => applyEvent(initialState, { type: 'TurnEnded' })).toThrow('Nessuno scontro attivo');
   });
+
+  it('lancia per RoundAdvanced senza scontro', () => {
+    expect(() => applyEvent(initialState, { type: 'RoundAdvanced' })).toThrow('Nessuno scontro attivo');
+  });
 });
 
 describe('replay', () => {

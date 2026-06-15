@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { Actor } from './actor';
+import type { Actor, Item } from './actor';
 import type { RandomSource } from './random';
 import { decide } from './commands';
 import { applyEvent, initialState, type GameState } from './events';
@@ -89,5 +89,82 @@ describe('decide EndTurn e NextRound', () => {
   });
   it('NextRound lancia senza scontro', () => {
     expect(() => decide(initialState, { type: 'NextRound' }, rng)).toThrow('Nessuno scontro attivo');
+  });
+});
+
+function stub(values: number[]): RandomSource {
+  let i = 0;
+  return { next: () => values[i++ % values.length]! };
+}
+
+const weapon: Item = {
+  id: 'sword',
+  name: 'Spadone',
+  equipped: true,
+  effects: [{ kind: 'contributeDice', dice: [{ count: 2, sides: 6 }], mode: 'effect' }],
+};
+
+function hero(): Actor {
+  return {
+    id: 'eroe',
+    name: 'Eroe',
+    kind: 'pc',
+    attributes: { forza: 3 },
+    skills: {},
+    resources: { hp: { current: 10, max: 10 } },
+    conditions: [],
+    items: [weapon],
+    progression: { xp: 0, level: 1 },
+  };
+}
+
+describe('decide Attack', () => {
+  it('colpo a segno: emette AttackResolved, DamageApplied e ActorDowned', () => {
+    const s = withActors(hero(), actor('goblin'));
+    // d20=0.95 -> 20 (+3 forza = 23 vs CD 10, critico) ; danno 2d6=4+4=8 ; +2 = 10 -> goblin a 0
+    const events = decide(
+      s,
+      {
+        type: 'Attack',
+        attackerId: 'eroe',
+        targetId: 'goblin',
+        attribute: 'forza',
+        defense: 'difesa',
+        defenseBase: 10,
+        damageResource: 'hp',
+        damageModifiers: [{ value: 2, source: 'forza' }],
+      },
+      stub([0.95, 0.5, 0.5]),
+    );
+    expect(events.map((e) => e.type)).toEqual(['AttackResolved', 'DamageApplied', 'ActorDowned']);
+  });
+
+  it('colpo mancato: emette solo AttackResolved', () => {
+    const s = withActors(hero(), actor('goblin'));
+    const events = decide(
+      s,
+      { type: 'Attack', attackerId: 'eroe', targetId: 'goblin', attribute: 'forza', defense: 'difesa', defenseBase: 10, damageResource: 'hp' },
+      stub([0]),
+    );
+    expect(events.map((e) => e.type)).toEqual(['AttackResolved']);
+  });
+
+  it('lancia se attaccante o bersaglio sono sconosciuti', () => {
+    expect(() =>
+      decide(initialState, { type: 'Attack', attackerId: 'x', targetId: 'y', defense: 'difesa', defenseBase: 10, damageResource: 'hp' }, stub([0.5])),
+    ).toThrow('sconosciuto');
+  });
+
+  it('ciclo decide->apply: l attacco riduce gli HP nello stato', () => {
+    let s = withActors(hero(), actor('goblin'));
+    const events = decide(
+      s,
+      { type: 'Attack', attackerId: 'eroe', targetId: 'goblin', attribute: 'forza', defense: 'difesa', defenseBase: 10, damageResource: 'hp' },
+      stub([0.95, 0.5, 0.5]),
+    );
+    for (const e of events) {
+      s = applyEvent(s, e);
+    }
+    expect(s.actors['goblin']?.resources['hp']?.current).toBe(2); // 10 - 8 (2d6, nessun modificatore)
   });
 });

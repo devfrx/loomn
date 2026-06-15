@@ -10,7 +10,7 @@ export interface SqliteEventStore extends EventStore {
   close(): void;
 }
 
-/** Adapter SQLite della porta EventStore (Piano 5). dbPath = ':memory:' o un percorso file.
+/** Adapter SQLite della porta EventStore definita nel Piano 5. dbPath = ':memory:' o un percorso file.
  *  Concorrenza ottimistica via MAX(seq) in transazione; load valida con Zod (confine non fidato). */
 export function createSqliteEventStore(dbPath: string): SqliteEventStore {
   const { db, close } = openDatabase(dbPath);

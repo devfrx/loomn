@@ -5,3 +5,4 @@ export * from './actor';
 export * from './resource';
 export * from './condition';
 export * from './actor-check';
+export * from './item';

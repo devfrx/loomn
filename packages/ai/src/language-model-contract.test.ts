@@ -3,11 +3,11 @@ import { createOpenAiCompatibleModel } from './openai-adapter';
 import type { HttpTransport } from './transport';
 
 // Stream canonico: testo "pronto", tool-call request_check({"dc":10}) frammentata su due
-// chunk, poi finish_reason tool_calls. Ogni elemento dell'array e un evento SSE.
+// chunk, poi finish_reason tool_calls. Ogni stringa e un evento SSE.
 const CANON_SSE = [
   'data: {"choices":[{"delta":{"content":"pronto"}}]}\n\n',
-  'data: ' + JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'call_x', function: { name: 'request_check', arguments: '{"dc":' } }] } }] }) + '\n\n',
-  'data: ' + JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '10}' } }] } }] }) + '\n\n',
+  'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_x","function":{"name":"request_check","arguments":"{\\"dc\\":"}}]}}]}\n\n',
+  'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"10}"}}]}}]}\n\n',
   'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}\n\n',
   'data: [DONE]\n\n',
 ].join('');

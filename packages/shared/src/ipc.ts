@@ -35,5 +35,6 @@ export type ReadModelPush = z.infer<typeof readModelPushSchema>;
 /** Superficie IPC esposta dal preload al renderer (contratto tipizzato del bridge). */
 export interface LoomnBridge {
   ping(request: PingRequest): Promise<PingResponse>;
-  onReadModelPush(listener: (push: ReadModelPush) => void): void;
+  /** Sottoscrive i push read-side; ritorna una funzione che annulla la sottoscrizione. */
+  onReadModelPush(listener: (push: ReadModelPush) => void): () => void;
 }

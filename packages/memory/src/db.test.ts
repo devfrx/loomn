@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { openDatabase } from './db';
-import { events, snapshots, canonFacts } from './schema';
+import { events, snapshots, canonFacts, summaries } from './schema';
 
 describe('openDatabase', () => {
   it('crea la tabella events utilizzabile dopo la migrazione', () => {
@@ -24,6 +24,17 @@ describe('openDatabase', () => {
       .run();
     expect(db.select().from(canonFacts).all()).toEqual([
       { id: 'f1', subject: 's', predicate: 'p', object: 'o', eventSeq: 1, status: 'active' },
+    ]);
+    close();
+  });
+
+  it('crea la tabella summaries utilizzabile dopo la migrazione 0002', () => {
+    const { db, close } = openDatabase(':memory:');
+    db.insert(summaries)
+      .values({ id: 's1', level: 'scene', scope: 'sess1', text: 'la taverna brucia', importance: 7, salience: 0.7, createdAt: 1000, eventSeqFrom: 1, eventSeqTo: 4 })
+      .run();
+    expect(db.select().from(summaries).all()).toEqual([
+      { id: 's1', level: 'scene', scope: 'sess1', text: 'la taverna brucia', importance: 7, salience: 0.7, createdAt: 1000, eventSeqFrom: 1, eventSeqTo: 4 },
     ]);
     close();
   });

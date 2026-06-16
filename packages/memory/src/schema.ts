@@ -1,4 +1,4 @@
-import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, integer, text, real } from 'drizzle-orm/sqlite-core';
 
 export const events = sqliteTable('events', {
   seq: integer('seq').primaryKey({ autoIncrement: true }),
@@ -21,4 +21,19 @@ export const canonFacts = sqliteTable('canon_facts', {
   object: text('object').notNull(),
   eventSeq: integer('event_seq').notNull(),
   status: text('status').notNull(),
+});
+
+// L2 Memoria narrativa (spec 6): riassunti gerarchici scena -> sessione -> arco -> campagna.
+// `level` = livello della gerarchia; `scope` = chiave di raggruppamento (es. id sessione);
+// `created_at` = istante di formazione (porta Clock, per la recency a tempo di lettura, 8c).
+export const summaries = sqliteTable('summaries', {
+  id: text('id').primaryKey(),
+  level: text('level').notNull(),
+  scope: text('scope').notNull(),
+  text: text('text').notNull(),
+  importance: integer('importance').notNull(),
+  salience: real('salience').notNull(),
+  createdAt: integer('created_at').notNull(),
+  eventSeqFrom: integer('event_seq_from').notNull(),
+  eventSeqTo: integer('event_seq_to').notNull(),
 });

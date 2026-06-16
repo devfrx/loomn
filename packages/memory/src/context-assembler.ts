@@ -1,7 +1,13 @@
 // L2/L1.5 read path — Context Assembler (spec 6.2). Questo modulo vive in `memory` (legge i
-// propri store L1.5/L2 e il GameState/L1 da engine; NON importa `ai`). Qui i due helper PURI:
-// la stima dei token (porta iniettabile, default char/4) e il peso di recency a tempo di
-// lettura (decadimento sul createdAt, "now" dalla porta Clock). La factory e nel resto del file.
+// propri store L1.5/L2 e il GameState/L1 da engine; NON importa `ai`). Allocatore con priorita
+// e degrado controllato: L1 (priorita 2) + L1.5 (priorita 3) sempre inclusi, mai tagliati; L2
+// (priorita 4) rankata per salienza x recency (decadimento a tempo di lettura sul createdAt via
+// Clock) e inclusa dal punteggio piu alto finche c e budget (si taglia dal basso). La funzione
+// restituita (state) => string e strutturalmente compatibile col punto di iniezione di `ai`.
+import type { GameState } from '@loomn/engine';
+import type { CanonFact, CanonLedger } from './canon-ledger';
+import type { Summary, SummaryStore } from './summary-store';
+import type { Clock } from './clock';
 
 const MS_PER_HOUR = 3_600_000;
 
@@ -16,4 +22,110 @@ export function defaultEstimateTokens(text: string): number {
 export function recencyWeight(now: number, createdAt: number, decayPerHour: number): number {
   const ageHours = Math.max(0, now - createdAt) / MS_PER_HOUR;
   return Math.pow(decayPerHour, ageHours);
+}
+
+export interface ContextAssemblerDeps {
+  ledger: CanonLedger;
+  summaries: SummaryStore;
+  clock: Clock;
+}
+
+export interface ContextAssemblerConfig {
+  /** Budget di token per il blocco di contesto assemblato (L1 + L1.5 + L2). I messaggi fissi
+   *  (ruolo/regole/fase e azione del giocatore, spec 6.2 priorita 1 e 6) vivono fuori, in `ai`:
+   *  il chiamante dimensiona questo budget di conseguenza. */
+  tokenBudget: number;
+  /** Stima dei token di un testo. Default: euristica char/4. Porta iniettabile: l app puo
+   *  fornire un tokenizer reale senza che `memory` acquisisca dipendenze. */
+  estimateTokens?: (text: string) => number;
+  /** Fattore di decadimento della recency per ora trascorsa, in (0,1]. Default 0.995 (stile
+   *  Generative Agents, tarabile, spec 13). */
+  recencyDecayPerHour?: number;
+}
+
+/** Soggetti in scena = id e nome di ogni attore presente in L1. Filtra L1.5 ai fatti su
+ *  scena/PNG presenti (non tutto il mondo, spec 6.2). */
+function sceneSubjects(state: GameState): Set<string> {
+  const subjects = new Set<string>();
+  for (const actor of Object.values(state.actors)) {
+    subjects.add(actor.id);
+    subjects.add(actor.name);
+  }
+  return subjects;
+}
+
+function renderL1(state: GameState): string {
+  const actors = Object.values(state.actors).map((a) => {
+    const res = Object.entries(a.resources)
+      .map(([k, p]) => `${k} ${p.current}/${p.max}`)
+      .join(', ');
+    return `- ${a.name} (${a.kind}, id=${a.id})${res.length > 0 ? `: ${res}` : ''}`;
+  });
+  const list = actors.length > 0 ? actors.join('\n') : '- (nessun attore)';
+  const enc =
+    state.encounter === null
+      ? 'Nessuno scontro attivo.'
+      : `Scontro ${state.encounter.id}: round ${state.encounter.round}, turno ${state.encounter.turnIndex}.`;
+  return `Stato attuale (L1):\n${list}\n${enc}`;
+}
+
+function renderFact(f: CanonFact): string {
+  return `- ${f.subject} ${f.predicate} ${f.object}`;
+}
+
+function renderSummary(s: Summary): string {
+  return `- [${s.level}] ${s.text}`;
+}
+
+/** Tie-break stabile per id (determinismo a parita di chiave di ordinamento). */
+function byId(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/** Crea un Context Assembler (spec 6.2). `deps` chiude su ledger L1.5 (8a), store L2 (8b) e
+ *  Clock (8b); `config` fissa budget, stima token e decadimento. Ritorna una funzione PURA
+ *  (dato lo stato + il contenuto degli store + clock.now()) che assembla il blocco di contesto. */
+export function createContextAssembler(
+  deps: ContextAssemblerDeps,
+  config: ContextAssemblerConfig,
+): (state: GameState) => string {
+  const estimate = config.estimateTokens ?? defaultEstimateTokens;
+  const decay = config.recencyDecayPerHour ?? 0.995;
+
+  return (state: GameState): string => {
+    // Priorita 2 — L1 stato rilevante (sempre incluso, mai tagliato).
+    const l1 = renderL1(state);
+
+    // Priorita 3 — L1.5 canon rilevante: fatti ATTIVI sui soggetti in scena (sempre inclusi).
+    const subjects = sceneSubjects(state);
+    const facts = deps.ledger.active().filter((f) => subjects.has(f.subject));
+    const l15 = facts.length > 0 ? `Fatti canonici (L1.5):\n${facts.map(renderFact).join('\n')}` : '';
+
+    // Costo dei blocchi fissi (L1 + L1.5): erode il budget per L2; MAI tagliati.
+    const fixedTokens = [l1, l15].filter((b) => b.length > 0).reduce((sum, b) => sum + estimate(b), 0);
+    const remaining = Math.max(0, config.tokenBudget - fixedTokens);
+
+    // Priorita 4 — L2 narrativa recente: rankata per salienza x recency (decadimento sul
+    // createdAt a tempo di lettura, Clock iniettato). Inclusa dal punteggio piu alto finche
+    // c e budget; al primo riassunto che non entra ci si ferma (si taglia dal basso).
+    const now = deps.clock.now();
+    const ranked = deps.summaries
+      .list()
+      .map((s) => ({ s, score: s.salience * recencyWeight(now, s.createdAt, decay) }))
+      .sort((a, b) => b.score - a.score || b.s.createdAt - a.s.createdAt || byId(a.s.id, b.s.id));
+
+    const chosen: Summary[] = [];
+    let used = 0;
+    for (const { s } of ranked) {
+      const cost = estimate(renderSummary(s));
+      if (used + cost > remaining) break;
+      chosen.push(s);
+      used += cost;
+    }
+    // Render in ordine cronologico per leggibilita (la selezione resta per punteggio).
+    chosen.sort((a, b) => a.createdAt - b.createdAt || byId(a.id, b.id));
+    const l2 = chosen.length > 0 ? `Memoria recente (L2):\n${chosen.map(renderSummary).join('\n')}` : '';
+
+    return [l1, l15, l2].filter((b) => b.length > 0).join('\n\n');
+  };
 }

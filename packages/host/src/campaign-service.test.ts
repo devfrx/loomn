@@ -305,6 +305,41 @@ describe('createCampaignService - reflect e serializzazione', () => {
     }
   });
 
+  it('runTurn poi reflect: la narrazione raggiunge l estrattore e il fatto narrativo entra in L1.5', async () => {
+    const model = fakeModel([
+      { type: 'text', delta: 'Krix rivela di servire il Barone Vhalmar di Pietranera.' },
+      { type: 'finish', reason: 'stop' },
+    ]);
+    const extractPrompts: string[] = [];
+    const port: StructuredOutputPort = {
+      generate: async <T>(request: StructuredOutputRequest<T>): Promise<StructuredOutputResult<T>> => {
+        const joined = request.messages.map((m) => m.content).join('\n');
+        if (request.schemaName === 'extract_facts') {
+          extractPrompts.push(joined);
+          const value = {
+            facts: [{ subject: 'Krix', predicate: 'serve', object: 'Barone Vhalmar', functional: false, importance: 8 }],
+          };
+          return { value: value as T, strategy: 'function-call' };
+        }
+        const draft = { text: 'Krix confessa di servire il Barone Vhalmar.', importance: 8 };
+        return { value: draft as T, strategy: 'function-call' };
+      },
+    };
+    const { service, memory } = makeService({ model, structured: port });
+    try {
+      await service.runTurn('Chiedo a Krix per chi lavora.');
+      const out = await service.reflect('scena-1');
+      // La narrazione ha raggiunto l estrattore come prosa (asserzione non-vacua):
+      expect(extractPrompts[0]).toContain('Barone Vhalmar di Pietranera');
+      // Il fatto narrativo e entrato in L1.5:
+      expect(out.factCount).toBe(1);
+      const facts = memory.ledger.active();
+      expect(facts.some((f) => f.subject === 'Krix' && f.predicate === 'serve')).toBe(true);
+    } finally {
+      memory.close();
+    }
+  });
+
   it('serializza turno e dispatch concorrenti: nessun ConcurrencyError, ordine FIFO', async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {

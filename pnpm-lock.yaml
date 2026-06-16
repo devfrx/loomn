@@ -17,6 +17,9 @@ importers:
 
   app/desktop:
     dependencies:
+      '@loomn/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@loomn/engine':
         specifier: workspace:*
         version: link:../../packages/engine

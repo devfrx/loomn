@@ -1,6 +1,6 @@
 # Loomn — Handoff per il prossimo agente
 
-> **Data:** 2026-06-16 · **Branch:** `main` · **HEAD:** `ce8aae6` (più eventuali commit doc successivi — fai `git log`) · **Stato:** Piani 1-6 + **7a + 7b + 7c** completi e mergiati (engine + persistenza + Provider Layer AI + StructuredOutputPort + AI Master pipeline), **174 test verdi**, typecheck pulito, tree pulito.
+> **Data:** 2026-06-16 · **Branch:** `main` · **HEAD:** `ae558a5` (più eventuali commit doc successivi — fai `git log`) · **Stato:** Piani 1-6 + **7a/7b/7c + 8a** completi e mergiati (engine + persistenza + Provider Layer AI + StructuredOutputPort + AI Master pipeline + Canon Ledger L1.5), **182 test verdi**, typecheck pulito, tree pulito.
 >
 > Questo documento ti permette di riprendere **esattamente** da dove siamo. Leggilo tutto prima di agire. La memoria di progetto è in `.claude/.../memory/loomn-project.md` e `loomn-working-style.md` (caricata a inizio sessione).
 
@@ -8,7 +8,7 @@
 
 ## 0. TL;DR — cosa fare adesso
 
-L'engine deterministico (Piani 1-5), la **Persistenza (Piano 6)**, il **Provider Layer AI (Piano 7a)**, lo **StructuredOutputPort (Piano 7b)** e l'**AI Master pipeline (Piano 7c)** sono **finiti e mergiati** in `main`. Il Piano 7 (7a/7b/7c) è **completo**. Il prossimo passo è **scrivere ed eseguire il Piano 8 — Memoria L1.5 (canon ledger) + L2 (riassunti) + Context Assembler** (con budget di token, spec §6.2): rimpiazza l'`assembleContextStub` di 7c con l'allocatore a priorità; qui entra **drizzle-kit** per le proiezioni relazionali. Valuta se infilare qui (o in un piano dedicato) i `Command`/`Event` engine mancanti per gli strumenti rimandati di 7c (`request_check`/`apply_effect`/`advance_quest`) e la **FSM di fase** (spec §5.5). Tutti i piani 7a/7b/7c sono in `docs/superpowers/plans/`.
+L'engine (Piani 1-5), la **Persistenza (6)**, il **Provider Layer AI (7a)**, lo **StructuredOutputPort (7b)**, l'**AI Master pipeline (7c)** e il **Canon Ledger L1.5 (8a)** sono **finiti e mergiati** in `main`. Il Piano 7 è completo; il **Piano 8 è splittato in 8a/8b/8c** (come il 7) e **8a è fatto**. Il prossimo passo è **scrivere ed eseguire il Piano 8b — Reflection (asincrona, fuori dal turno) + L2 (riassunti gerarchici scena→sessione→arco→campagna)**: tabella `summaries` + la pipeline di Reflection che prende **porte iniettate** `FactExtractor`/`Summarizer` (impl LLM-backed in `@loomn/ai`/app; `memory` NON dipende da `ai`), scrive su L1.5 (8a) e L2, e assegna la **salienza** (spec §6.1). Poi 8c = **Context Assembler** con budget di token (spec §6.2, rimpiazza `assembleContextStub` di 7c, iniettato in `runMasterTurn`). Valuta se infilare in 8b/8c (o in un piano dedicato) i `Command`/`Event` engine mancanti per gli strumenti rimandati di 7c (`request_check`/`apply_effect`/`advance_quest`) e la **FSM di fase** (spec §5.5). Tutti i piani sono in `docs/superpowers/plans/`.
 
 Il flusso da seguire è sempre lo stesso (vedi §4): `writing-plans` → commit doc su main → branch → `subagent-driven-development` (implementer + 2 review per task) → `finishing-a-development-branch` (merge locale) → aggiorna memoria.
 
@@ -73,16 +73,16 @@ Monorepo **pnpm workspaces** (`pnpm-workspace.yaml` globba `packages/*` e `app/*
 
 **La proprietà ES centrale (NON romperla):** `decide` consuma l'RNG e registra i **fatti risolti** negli eventi; `applyEvent` **rigioca senza RNG** → replay deterministico. `decide(Attack)` esegue `performAttack` ma usa solo i fatti (`check/hit/damage/downed`), **scartando** il `target` mutato; lo stato cambia solo via `applyEvent`.
 
-### 3-bis. Pacchetti `shared` e `memory` (Piano 6) — cosa esiste già
+### 3-bis. Pacchetti `shared` e `memory` (Piano 6 + 8a) — cosa esiste già
 
-Aggiunti dal Piano 6, mergiati in `main`. Grafo dipendenze: `memory → engine`, `memory → shared`; **`shared` è foglia** (dipende solo da `zod`, NON importa engine).
+Aggiunti dal Piano 6 (+ Canon Ledger dal Piano 8a), mergiati in `main`. Grafo dipendenze: `memory → engine`, `memory → shared`; **`shared` è foglia** (dipende solo da `zod`, NON importa engine). **`memory` NON dipende da `ai`** (regola di dipendenza; la Reflection LLM-backed di 8b userà porte iniettate).
 
 | Pacchetto | Export / contenuto |
 |---|---|
 | `@loomn/shared` (`packages/shared`) | `domain-schema.ts` → `domainEventSchema`, `gameStateSchema` (Zod). **Unica fonte di validazione** ai confini. Cast-free: `.transform()` sui 4 campi opzionali (`DieGroup.tag`, `DieResult.tag`, `ConditionEffect.appliesTo`, `ItemEffect.appliesTo`) → `z.infer` assegnabile 1:1 ai tipi engine sotto `exactOptionalPropertyTypes`. Dep: `zod`. |
-| `@loomn/memory` (`packages/memory`) | `createSqliteEventStore(dbPath): SqliteEventStore` (implementa la porta `EventStore` del Piano 5 + `saveSnapshot`/`latestSnapshot`/`close`); `openDatabase(dbPath): OpenDb`. `schema.ts` (tabelle Drizzle `events`/`snapshots`), `migrations/` (una migrazione deterministica scritta a mano, applicata via `migrate()`). Deps: `@loomn/engine`, `@loomn/shared`, `better-sqlite3@^12.10.1` (la 11.x non ha prebuilt per Node 24 sotto pnpm), `drizzle-orm@^0.38.4`, `zod`. |
+| `@loomn/memory` (`packages/memory`) | `createSqliteEventStore(dbPath): SqliteEventStore` (implementa la porta `EventStore` del Piano 5 + `saveSnapshot`/`latestSnapshot`/`close`); `openDatabase(dbPath): OpenDb`. **`createCanonLedger(db): CanonLedger` (8a — L1.5):** `record`/`active`/`all`/`retract`/`supersede` su `canon_facts` (id/subject/predicate/object/eventSeq/status); prende un **handle Drizzle gia aperto** (l app condividera UNA connessione fra event store e ledger); `status` validato Zod in lettura; `supersede` = anti-contraddizione per predicati funzionali (ritira-e-rimpiazza in transazione; funge anche da primo inserimento). `schema.ts` (tabelle Drizzle `events`/`snapshots`/**`canonFacts`**), `migrations/` (`0000_init` + `0001_canon_ledger`, **scritte a mano**, journal con `when` congelato, applicate via `migrate()`). Deps: `@loomn/engine`, `@loomn/shared`, `better-sqlite3@^12.10.1` (la 11.x non ha prebuilt per Node 24 sotto pnpm), `drizzle-orm@^0.38.4`, `zod`. |
 
-**Punti chiave (NON romperli):** la porta `EventStore` resta **sincrona** (better-sqlite3 sincrono). `append` usa una **transazione** con check `MAX(seq) === expectedVersion` → `ConcurrencyError` (riusata da engine); validazione Zod **solo in lettura** (`load`/`latestSnapshot`), non in scrittura (gli eventi vengono da `decide`, già tipati). Due **drift guard** a compile-time in `sqlite-event-store.ts` tengono gli schemi Zod allineati ai tipi engine. Una **suite di conformità condivisa** (`event-store-contract.ts`, `runEventStoreContract`) gira verde su in-memory **e** SQLite (contract test, spec §9). `drizzle-kit` **non** è ancora usato (migrazione frozen scritta a mano; si introdurrà nel Piano 8 con le proiezioni relazionali).
+**Punti chiave (NON romperli):** la porta `EventStore` resta **sincrona** (better-sqlite3 sincrono). `append` usa una **transazione** con check `MAX(seq) === expectedVersion` → `ConcurrencyError` (riusata da engine); validazione Zod **solo in lettura** (`load`/`latestSnapshot`), non in scrittura (gli eventi vengono da `decide`, già tipati). Due **drift guard** a compile-time in `sqlite-event-store.ts` tengono gli schemi Zod allineati ai tipi engine. Una **suite di conformità condivisa** (`event-store-contract.ts`, `runEventStoreContract`) gira verde su in-memory **e** SQLite (contract test, spec §9). **`drizzle-kit` RIMANDATO (verificato empiricamente in 8a):** su questa baseline (journal scritto a mano, senza `0000_snapshot.json`) `drizzle-kit generate` non ha uno snapshot con cui diffare → ricrea **tutte** le tabelle nella nuova migrazione (il `migrate()` fallirebbe) e usa un `when` non-deterministico. Le migrazioni restano **scritte a mano** (deterministiche, `when` congelato, coerenti); drizzle-kit si introdurrà quando il churn dello schema lo giustificherà, con la ricostruzione una tantum della baseline. La `8a` aggiunge `canon_facts` con `0001_canon_ledger.sql` a mano.
 
 ### 3-ter. Pacchetto `ai` (Piani 7a + 7b + 7c) — cosa esiste già
 
@@ -150,7 +150,9 @@ Workflow superpowers, una skill per fase:
 
 ---
 
-## 7. Piano 7 (7a/7b/7c) — COMPLETO. PROSSIMO PASSO: Piano 8
+## 7. Piano 7 (7a/7b/7c) e Piano 8a — COMPLETI. PROSSIMO PASSO: Piano 8b
+
+> **Piano 8a — Canon Ledger (L1.5) ✅ FATTO e mergiato** — vedi `docs/superpowers/plans/2026-06-16-loomn-fase1-piano8a-canon-ledger.md` e §3-bis. `canon_facts` (proiezione SQLite) + `createCanonLedger` (record/active/all/retract/supersede). Migrazione **scritta a mano** (drizzle-kit rimandato, vedi §3-bis). Il **Piano 8 è splittato in 8a (fatto) / 8b / 8c**; il prossimo è **8b** (Reflection + L2, vedi §0/§8). Follow-up minore noto: `record`/`supersede` lanciano su `id` duplicato (PK) — quando 8b genera gli id, documentarlo o gestire l upsert.
 
 Il **Piano 7** (spec §5.4/§7) era splittato in tre sotto-piani, **tutti fatti e mergiati**:
 
@@ -170,8 +172,10 @@ Il **Piano 7** (spec §5.4/§7) era splittato in tre sotto-piani, **tutti fatti 
 - **Piano 7a — Provider Layer** (`@loomn/ai`: porta `LanguageModel` async/streaming, adapter OpenAI-compatibile, `HttpTransport` iniettabile, `TracingPort`, contract `runLanguageModelContract`) ✅ fatto
 - **Piano 7b — StructuredOutputPort + 3 livelli di fallback** (`createStructuredOutput`: function-call → json_schema → repair+retry; Zod come gate; `json-repair.ts`; `TraceEvent` esteso) ✅ fatto
 - **Piano 7c — AI Master pipeline + tool schemas** (`@loomn/ai`: `master-tools.ts` + `master-turn.ts`; `ai` acquisisce `@loomn/engine`) ✅ fatto
-- **Piano 8 — Memoria L1.5 (canon ledger) + L2 (riassunti) + Context Assembler** ← *prossimo* (rimpiazza `assembleContextStub`; qui drizzle-kit; valuta i `Command`/`Event` per gli strumenti rimandati di 7c e la FSM di fase §5.5)
-- **Piano 9 — Shell Electron** (main/preload/renderer, sicurezza contextIsolation/sandbox/safeStorage, IPC tipizzato, **Clock** per i meta degli eventi)
+- **Piano 8a — Canon Ledger (L1.5)** (`@loomn/memory`: `canon_facts` + `createCanonLedger`; migrazione scritta a mano) ✅ fatto
+- **Piano 8b — Reflection + L2 (riassunti)** ← *prossimo* (tabella `summaries`, porte `FactExtractor`/`Summarizer` iniettate, salienza; spec §6.1)
+- **Piano 8c — Context Assembler** (budget di token §6.2; rimpiazza `assembleContextStub`; iniettato in `runMasterTurn`)
+- **Piano 9 — Shell Electron** (main/preload/renderer, sicurezza contextIsolation/sandbox/safeStorage, IPC tipizzato, **Clock** per i meta degli eventi; wiring di EventStore+CanonLedger su connessione condivisa)
 - **Piano 10 — UI Vue** (chat, scheda PG, **pannello dadi 3D** con `@3d-dice/dice-box` a risultati predeterminati, journal, gestione provider) (grande, probabile split)
 - **Piano 11 — Moduli a tema** (formato dati Zod + import/export + 1 modulo curato)
 
@@ -181,8 +185,8 @@ Stima: ~5-8 piani per fine Fase 1; ~17-25 per la visione completa (Fase 2 = Modu
 
 ## 9. Checklist d'avvio per te (prossimo agente)
 
-1. Leggi questo file + lo spec (per il Piano 8 contano **§6** memoria a strati e **§6.1/§6.2** Reflection + Context Assembler) + (se utile) i Piani 6 e 7c (porte e pacchetti esistenti).
-2. `git status` (atteso pulito, su `main`) e `pnpm test` (atteso **174 verdi**), `pnpm typecheck` pulito.
-3. Quando l'utente dice "scrivi il Piano 8": usa `writing-plans`, applica le house rules (§5), parti dalla sintesi in §7/§8. Esiste già `@loomn/memory` (EventStore SQLite + snapshot, Piano 6) e il turno del Master (7c) con `assembleContextStub` da rimpiazzare. Piano 8 = canon ledger (L1.5) + riassunti (L2) + Context Assembler con budget di token (spec §6.2); qui si introduce **drizzle-kit** per le proiezioni relazionali. Valuta se includere i `Command`/`Event` engine per gli strumenti rimandati di 7c e la FSM di fase (spec §5.5).
+1. Leggi questo file + lo spec (per il Piano 8b contano **§6** memoria a strati e **§6.1** Reflection/salienza) + (se utile) i Piani 6, 7c e 8a (porte e pacchetti esistenti).
+2. `git status` (atteso pulito, su `main`) e `pnpm test` (atteso **182 verdi**), `pnpm typecheck` pulito.
+3. Quando l'utente dice "scrivi il Piano 8b": usa `writing-plans`, applica le house rules (§5), parti dalla sintesi in §0/§8. Esiste già `@loomn/memory` con EventStore SQLite + snapshot (6) e **Canon Ledger L1.5** (8a, `createCanonLedger`); il turno del Master (7c) ha `assembleContextStub` (lo rimpiazza 8c). Piano 8b = tabella `summaries` (L2) + pipeline di Reflection con **porte iniettate** `FactExtractor`/`Summarizer` (impl LLM-backed in `ai`/app; `memory` NON importa `ai`) + salienza, che scrive su L1.5 (8a) e L2. Migrazioni **scritte a mano** (drizzle-kit rimandato, vedi §3-bis). Valuta se includere i `Command`/`Event` engine per gli strumenti rimandati di 7c e la FSM di fase (spec §5.5).
 4. Verifica il piano (grep apostrofi), committa il doc su main, chiedi l'esecuzione, e procedi subagent-driven (§4).
 5. Mantieni il rigore: scope discipline nei prompt, verifica empirica del feedback, hardening solo su rami reali, niente over-engineering.

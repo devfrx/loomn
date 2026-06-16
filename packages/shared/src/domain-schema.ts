@@ -155,6 +155,7 @@ export const gameStateSchema = z.object({
 // la variante Attack usa .transform() per i campi opzionali cast-free (exactOptionalPropertyTypes):
 // discriminatedUnion accetta solo membri ZodObject, non i ZodEffects prodotti da .transform().
 
+// Modifier del motore (dice.ts): { value, source }.
 const modifierSchema = z.object({ value: z.number(), source: z.string() });
 
 const participantInputSchema = z.object({

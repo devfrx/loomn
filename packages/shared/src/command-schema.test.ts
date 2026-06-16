@@ -73,9 +73,15 @@ describe('commandSchema', () => {
       damageResource: 'hp',
       damageModifiers: [{ value: 2, source: 'forza' }],
     });
-    expect(parsed).toMatchObject({
+    expect(parsed).toEqual({
+      type: 'Attack',
+      attackerId: 'a',
+      targetId: 'b',
       attribute: 'forza',
       skill: 'spade',
+      defense: 'difesa',
+      defenseBase: 10,
+      damageResource: 'hp',
       damageModifiers: [{ value: 2, source: 'forza' }],
     });
   });
@@ -86,5 +92,15 @@ describe('commandSchema', () => {
 
   it('rifiuta AddActor senza attore', () => {
     expect(() => commandSchema.parse({ type: 'AddActor' })).toThrow();
+  });
+
+  it('rifiuta Attack senza i campi richiesti', () => {
+    expect(() => commandSchema.parse({ type: 'Attack', attackerId: 'a' })).toThrow();
+  });
+
+  it('rifiuta StartEncounter senza encounterId', () => {
+    expect(() =>
+      commandSchema.parse({ type: 'StartEncounter', participants: [{ actorId: 'x', zone: 'A', initiative: 1 }] }),
+    ).toThrow();
   });
 });

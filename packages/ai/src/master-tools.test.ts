@@ -124,6 +124,26 @@ describe('coercizione argomenti numerici (G1)', () => {
     expect(r.command.participants[0]?.initiative).toBe(3);
   });
 
+  it('rifiuta defenseBase non finito (Infinity)', () => {
+    const r = resolveToolCall(
+      'attack',
+      '{"attackerId":"pc1","targetId":"g1","defense":"riflessi","defenseBase":"Infinity","damageResource":"hp"}',
+    );
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('atteso errore');
+    expect(r.error).toContain('defenseBase');
+  });
+
+  it('rifiuta defenseBase null', () => {
+    const r = resolveToolCall(
+      'attack',
+      '{"attackerId":"pc1","targetId":"g1","defense":"riflessi","defenseBase":null,"damageResource":"hp"}',
+    );
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('atteso errore');
+    expect(r.error).toContain('defenseBase');
+  });
+
   it('coerce attributi e risorse numerici inviati come stringhe in spawn_npc', () => {
     const r = resolveToolCall(
       'spawn_npc',

@@ -22,7 +22,7 @@ const llmNumber = z.preprocess((v) => {
     return Number.isNaN(n) ? v : n; // numerica -> numero; non-numerica -> resta stringa (rifiutata)
   }
   return v; // number passa; null/undefined arrivano a z.number e sono rifiutati
-}, z.number());
+}, z.number().finite()); // .finite() chiude anche "Infinity"/"-Infinity" (numeri degeneri, prima irraggiungibili via JSON)
 
 const resourcePoolSchema = z.object({ current: llmNumber, max: llmNumber });
 

@@ -10,13 +10,27 @@ import { parseJson } from './json-repair';
 
 // --- schemi degli argomenti (Zod) ---
 
-const resourcePoolSchema = z.object({ current: z.number(), max: z.number() });
+// Gli LLM stringificano i numeri di routine ("defenseBase":"10") e cosi avevano bloccato
+// il combattimento nella slice (finding G1). Coerciamo le stringhe numeriche a numero, ma
+// restiamo STRICT: stringa vuota/whitespace/non-numerica/null/mancante e RIFIUTATA (niente
+// 0 silenzioso). Il codice resta l arbitro: un campo numerico assente non diventa uno zero.
+const llmNumber = z.preprocess((v) => {
+  if (typeof v === 'string') {
+    const trimmed = v.trim();
+    if (trimmed === '') return v; // resta stringa -> z.number la rifiuta
+    const n = Number(trimmed);
+    return Number.isNaN(n) ? v : n; // numerica -> numero; non-numerica -> resta stringa (rifiutata)
+  }
+  return v; // number passa; null/undefined arrivano a z.number e sono rifiutati
+}, z.number());
+
+const resourcePoolSchema = z.object({ current: llmNumber, max: llmNumber });
 
 const spawnNpcSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  attributes: z.record(z.number()).optional(),
-  skills: z.record(z.number()).optional(),
+  attributes: z.record(llmNumber).optional(),
+  skills: z.record(llmNumber).optional(),
   resources: z.record(resourcePoolSchema).optional(),
 });
 
@@ -26,14 +40,14 @@ const attackSchema = z.object({
   attribute: z.string().min(1).optional(),
   skill: z.string().min(1).optional(),
   defense: z.string().min(1),
-  defenseBase: z.number(),
+  defenseBase: llmNumber,
   damageResource: z.string().min(1),
 });
 
 const startEncounterSchema = z.object({
   encounterId: z.string().min(1),
   participants: z
-    .array(z.object({ actorId: z.string().min(1), zone: z.string().min(1), initiative: z.number() }))
+    .array(z.object({ actorId: z.string().min(1), zone: z.string().min(1), initiative: llmNumber }))
     .min(1),
 });
 
@@ -52,8 +66,15 @@ function issuesOf(error: z.ZodError): string {
   return error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; ');
 }
 
-// Cattura il tipo concreto A dello schema; il registro resta omogeneo (Record<string,ToolEntry>).
-function makeEntry<A>(description: string, schema: z.ZodType<A>, toCommand: (args: A) => Command): ToolEntry {
+// Cattura lo schema concreto S e ne deriva il tipo di OUTPUT con z.infer; il registro resta
+// omogeneo (Record<string,ToolEntry>). Vincolare su S (non su z.ZodType<A>) e necessario per gli
+// schemi con input/output divergenti come llmNumber (z.preprocess: input unknown, output number):
+// z.ZodType<A> forzerebbe input=output=A e degraderebbe l output a unknown.
+function makeEntry<S extends z.ZodTypeAny>(
+  description: string,
+  schema: S,
+  toCommand: (args: z.infer<S>) => Command,
+): ToolEntry {
   return {
     description,
     jsonSchema: zodToJsonSchema(schema, { target: 'openApi3', $refStrategy: 'none' }) as Record<string, unknown>,

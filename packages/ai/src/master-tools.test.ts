@@ -77,3 +77,62 @@ describe('resolveToolCall', () => {
     expect(r.ok).toBe(false);
   });
 });
+
+// G1: gli LLM stringificano i numeri di routine ("defenseBase":"10"). Gli schemi coercono
+// le stringhe numeriche a numero, ma restano STRICT: stringa vuota/non-numerica/mancante
+// e rifiutata (niente 0 silenzioso) — il codice resta l arbitro.
+describe('coercizione argomenti numerici (G1)', () => {
+  it('coerce defenseBase stringa numerica a number', () => {
+    const r = resolveToolCall(
+      'attack',
+      '{"attackerId":"pc1","targetId":"g1","defense":"riflessi","defenseBase":"10","damageResource":"hp"}',
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error('atteso ok');
+    if (r.command.type !== 'Attack') throw new Error('atteso Attack');
+    expect(r.command.defenseBase).toBe(10);
+  });
+
+  it('rifiuta defenseBase stringa vuota senza coercire a 0', () => {
+    const r = resolveToolCall(
+      'attack',
+      '{"attackerId":"pc1","targetId":"g1","defense":"riflessi","defenseBase":"","damageResource":"hp"}',
+    );
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('atteso errore');
+    expect(r.error).toContain('defenseBase');
+  });
+
+  it('rifiuta defenseBase stringa non numerica', () => {
+    const r = resolveToolCall(
+      'attack',
+      '{"attackerId":"pc1","targetId":"g1","defense":"riflessi","defenseBase":"forte","damageResource":"hp"}',
+    );
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('atteso errore');
+    expect(r.error).toContain('defenseBase');
+  });
+
+  it('coerce initiative stringa numerica in start_encounter', () => {
+    const r = resolveToolCall(
+      'start_encounter',
+      '{"encounterId":"e1","participants":[{"actorId":"pc1","zone":"z1","initiative":"3"}]}',
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error('atteso ok');
+    if (r.command.type !== 'StartEncounter') throw new Error('atteso StartEncounter');
+    expect(r.command.participants[0]?.initiative).toBe(3);
+  });
+
+  it('coerce attributi e risorse numerici inviati come stringhe in spawn_npc', () => {
+    const r = resolveToolCall(
+      'spawn_npc',
+      '{"id":"g1","name":"Goblin","attributes":{"forza":"3"},"resources":{"hp":{"current":"20","max":"20"}}}',
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error('atteso ok');
+    if (r.command.type !== 'AddActor') throw new Error('atteso AddActor');
+    expect(r.command.actor.attributes).toEqual({ forza: 3 });
+    expect(r.command.actor.resources).toEqual({ hp: { current: 20, max: 20 } });
+  });
+});

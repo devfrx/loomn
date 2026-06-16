@@ -6,3 +6,4 @@ export {
   reflectionDepsFor,
   renderEventsForReflection,
 } from './reflection-ports';
+export { createLanguageProvider, type LanguageProvider, type LanguageProviderConfig } from './provider';

@@ -12,6 +12,18 @@ describe('masterToolDefs', () => {
       expect(JSON.stringify(d.parameters)).not.toContain('$ref');
     }
   });
+
+  // G6: la coercizione array (z.preprocess) deve restare trasparente allo schema JSON mostrato
+  // al modello — advertizziamo participants come array, non come string (come per G1 sui number).
+  it('mostra participants come array nello schema di start_encounter (preprocess trasparente)', () => {
+    const se = masterToolDefs().find((d) => d.name === 'start_encounter');
+    if (se === undefined) throw new Error('atteso start_encounter');
+    const participants = (se.parameters as { properties: Record<string, { type?: string; minItems?: number }> })
+      .properties.participants;
+    if (participants === undefined) throw new Error('atteso participants');
+    expect(participants.type).toBe('array');
+    expect(participants.minItems).toBe(1);
+  });
 });
 
 describe('resolveToolCall', () => {
@@ -154,5 +166,65 @@ describe('coercizione argomenti numerici (G1)', () => {
     if (r.command.type !== 'AddActor') throw new Error('atteso AddActor');
     expect(r.command.actor.attributes).toEqual({ forza: 3 });
     expect(r.command.actor.resources).toEqual({ hp: { current: 20, max: 20 } });
+  });
+});
+
+// G6: gli LLM stringificano anche gli argomenti ARRAY ("participants":"[{...}]") e cosi
+// avevano impedito l avvio dello scontro nella slice. Coerciamo una stringa JSON-array ad
+// array, ma restiamo STRICT come per G1: una stringa non-JSON o un JSON che non e un array
+// resta com e e lo schema array sottostante la rifiuta (niente coercizione silenziosa); il
+// vincolo .min(1) sopravvive alla coercizione.
+describe('coercizione argomenti array (G6)', () => {
+  it('coerce participants stringificato a array', () => {
+    const r = resolveToolCall(
+      'start_encounter',
+      '{"encounterId":"e1","participants":"[{\\"actorId\\":\\"pc1\\",\\"zone\\":\\"z1\\",\\"initiative\\":3}]"}',
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error('atteso ok');
+    if (r.command.type !== 'StartEncounter') throw new Error('atteso StartEncounter');
+    expect(r.command.participants).toEqual([{ actorId: 'pc1', zone: 'z1', initiative: 3 }]);
+  });
+
+  it('compone con G1: initiative stringa dentro participants stringificato', () => {
+    const r = resolveToolCall(
+      'start_encounter',
+      '{"encounterId":"e1","participants":"[{\\"actorId\\":\\"pc1\\",\\"zone\\":\\"z1\\",\\"initiative\\":\\"7\\"}]"}',
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error('atteso ok');
+    if (r.command.type !== 'StartEncounter') throw new Error('atteso StartEncounter');
+    expect(r.command.participants[0]?.initiative).toBe(7);
+  });
+
+  it('rifiuta participants stringa non JSON', () => {
+    const r = resolveToolCall('start_encounter', '{"encounterId":"e1","participants":"pc1, pc2"}');
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('atteso errore');
+    expect(r.error).toContain('participants');
+  });
+
+  it('rifiuta participants JSON che non e un array', () => {
+    const r = resolveToolCall(
+      'start_encounter',
+      '{"encounterId":"e1","participants":"{\\"actorId\\":\\"pc1\\",\\"zone\\":\\"z1\\",\\"initiative\\":3}"}',
+    );
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('atteso errore');
+    expect(r.error).toContain('participants');
+  });
+
+  it('rifiuta participants stringa vuota', () => {
+    const r = resolveToolCall('start_encounter', '{"encounterId":"e1","participants":""}');
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('atteso errore');
+    expect(r.error).toContain('participants');
+  });
+
+  it('rifiuta participants array vuoto anche se stringificato (.min(1) sopravvive)', () => {
+    const r = resolveToolCall('start_encounter', '{"encounterId":"e1","participants":"[]"}');
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('atteso errore');
+    expect(r.error).toContain('participants');
   });
 });

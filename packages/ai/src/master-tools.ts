@@ -24,6 +24,26 @@ const llmNumber = z.preprocess((v) => {
   return v; // number passa; null/undefined arrivano a z.number e sono rifiutati
 }, z.number().finite()); // .finite() chiude anche "Infinity"/"-Infinity" (numeri degeneri, prima irraggiungibili via JSON)
 
+// Gli LLM stringificano anche gli argomenti ARRAY ("participants":"[{...}]") e cosi avevano
+// impedito l avvio dello scontro nella slice (finding G6). Coerciamo una stringa JSON-array
+// ad array delegando poi allo schema reale, ma restiamo STRICT come llmNumber: una stringa
+// non-JSON o un JSON che non e un array resta com e e lo schema array sottostante la rifiuta
+// (niente array silenzioso). Il vincolo .min(1) vive nello schema avvolto e resta in vigore.
+function llmArray<S extends z.ZodTypeAny>(schema: S) {
+  return z.preprocess((v) => {
+    if (typeof v === 'string') {
+      const trimmed = v.trim();
+      if (trimmed === '') return v; // resta stringa -> lo schema array la rifiuta
+      try {
+        return JSON.parse(trimmed) as unknown; // array -> validato; oggetto/numero -> rifiutato a valle
+      } catch {
+        return v; // non-JSON -> resta stringa (rifiutata)
+      }
+    }
+    return v; // array passa; null/undefined arrivano allo schema e sono rifiutati
+  }, schema);
+}
+
 const resourcePoolSchema = z.object({ current: llmNumber, max: llmNumber });
 
 const spawnNpcSchema = z.object({
@@ -46,9 +66,11 @@ const attackSchema = z.object({
 
 const startEncounterSchema = z.object({
   encounterId: z.string().min(1),
-  participants: z
-    .array(z.object({ actorId: z.string().min(1), zone: z.string().min(1), initiative: llmNumber }))
-    .min(1),
+  participants: llmArray(
+    z
+      .array(z.object({ actorId: z.string().min(1), zone: z.string().min(1), initiative: llmNumber }))
+      .min(1),
+  ),
 });
 
 const endTurnSchema = z.object({});

@@ -91,6 +91,18 @@ describe('applyEvent', () => {
     expect(s.version).toBe(base.version + 1);
   });
 
+  it('NarrationRecorded non cambia lo stato ma incrementa la versione', () => {
+    const base = withActors(actor('eroe'));
+    const s = applyEvent(base, {
+      type: 'NarrationRecorded',
+      playerAction: 'Osservo il goblin.',
+      narration: 'Il goblin ti fissa, diffidente.',
+    });
+    expect(s.actors).toEqual(base.actors);
+    expect(s.encounter).toEqual(base.encounter);
+    expect(s.version).toBe(base.version + 1);
+  });
+
   it('lancia per DamageApplied su attore sconosciuto', () => {
     expect(() =>
       applyEvent(initialState, { type: 'DamageApplied', targetId: 'ignoto', resource: 'hp', amount: 1 }),

@@ -50,6 +50,15 @@ describe('domainEventSchema', () => {
     expect(domainEventSchema.parse(ev)).toEqual(ev);
   });
 
+  it('valida NarrationRecorded e ne fa round-trip', () => {
+    const ev = {
+      type: 'NarrationRecorded',
+      playerAction: 'Attacco Krix.',
+      narration: 'La lama manca il bersaglio di un soffio.',
+    };
+    expect(domainEventSchema.parse(ev)).toEqual(ev);
+  });
+
   it('valida gli eventi semplici DamageApplied, ActorDowned, RoundAdvanced, TurnEnded', () => {
     expect(domainEventSchema.parse({ type: 'DamageApplied', targetId: 'goblin', resource: 'hp', amount: 4 })).toEqual({ type: 'DamageApplied', targetId: 'goblin', resource: 'hp', amount: 4 });
     expect(domainEventSchema.parse({ type: 'ActorDowned', actorId: 'goblin' })).toEqual({ type: 'ActorDowned', actorId: 'goblin' });

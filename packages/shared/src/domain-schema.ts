@@ -141,6 +141,7 @@ export const domainEventSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('DamageApplied'), targetId: z.string(), resource: z.string(), amount: z.number() }),
   z.object({ type: z.literal('ActorDowned'), actorId: z.string() }),
+  z.object({ type: z.literal('NarrationRecorded'), playerAction: z.string(), narration: z.string() }),
 ]);
 
 /** Schema Zod di GameState, per validare gli snapshot persistiti. */

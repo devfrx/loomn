@@ -11,7 +11,8 @@ export type DomainEvent =
   | { type: 'RoundAdvanced' }
   | { type: 'AttackResolved'; attackerId: string; targetId: string; check: CheckResult; hit: boolean }
   | { type: 'DamageApplied'; targetId: string; resource: string; amount: number }
-  | { type: 'ActorDowned'; actorId: string };
+  | { type: 'ActorDowned'; actorId: string }
+  | { type: 'NarrationRecorded'; playerAction: string; narration: string };
 
 export interface GameState {
   version: number;
@@ -50,6 +51,11 @@ export function applyEvent(state: GameState, event: DomainEvent): GameState {
     case 'RoundAdvanced':
       return { ...bumped, encounter: nextRound(requireEncounter(state)) };
     case 'AttackResolved':
+      return bumped;
+    case 'NarrationRecorded':
+      // Evento informativo: registra la prosa del Master nello stream (spec F4). No-op di
+      // stato (come AttackResolved): non muta actors/encounter, solo version++. e l unico
+      // evento non prodotto da decide (lo appende runTurn nel host).
       return bumped;
     case 'DamageApplied': {
       const target = adjustResource(requireActor(state, event.targetId), event.resource, -event.amount);

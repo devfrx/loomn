@@ -228,6 +228,29 @@ describe('createCampaignService - runTurn (AI dietro il servizio)', () => {
     }
   });
 
+  it('runTurn con Event meccanici ma narrazione vuota: persiste solo gli Event, niente NarrationRecorded', async () => {
+    const model = scriptedModel([
+      [
+        { type: 'tool-call', id: 't1', name: 'spawn_npc', arguments: JSON.stringify({ id: 'png1', name: 'Locandiere' }) },
+        { type: 'finish', reason: 'tool_calls' },
+      ],
+      [{ type: 'finish', reason: 'stop' }], // nessun testo -> narrazione vuota
+    ]);
+    const { service, memory } = makeService({ model });
+    try {
+      const out = await service.runTurn('Entro nella taverna.');
+      expect(out.narration).toBe('');
+      expect(out.events.some((e) => e.type === 'ActorAdded')).toBe(true);
+      expect(out.readModel.version).toBe(1); // solo ActorAdded (v1), nessun NarrationRecorded
+      expect(memory.eventStore.version()).toBe(1);
+      const stored = memory.eventStore.load();
+      expect(stored).toHaveLength(1);
+      expect(stored[0]?.event.type).toBe('ActorAdded');
+    } finally {
+      memory.close();
+    }
+  });
+
   it('persiste gli Event prodotti dal turno (tool-call -> decide -> append)', async () => {
     const spawnArgs = JSON.stringify({ id: 'png1', name: 'Locandiere' });
     const model = scriptedModel([

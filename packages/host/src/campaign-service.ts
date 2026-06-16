@@ -46,6 +46,9 @@ export interface DispatchOutcome {
 
 export interface TurnOutcome {
   narration: string;
+  /** Event MECCANICI prodotti dal turno (tool-call risolte da decide). NON include il
+   *  NarrationRecorded: quello e persistenza di stream (spec F4). Quindi readModel.version
+   *  avanza di events.length + (narration.length > 0 ? 1 : 0). */
   events: DomainEvent[];
   readModel: ReadModel;
 }

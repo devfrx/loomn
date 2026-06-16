@@ -149,3 +149,56 @@ export const gameStateSchema = z.object({
   actors: z.record(z.string(), actorSchema),
   encounter: encounterSchema.nullable(),
 });
+
+// --- Command (intenzione, spec 5.1): schema Zod del payload IPC non fidato (renderer->main, spec 4).
+// Riusa i building block del motore (actorSchema, ...). z.union e NON z.discriminatedUnion perche
+// la variante Attack usa .transform() per i campi opzionali cast-free (exactOptionalPropertyTypes):
+// discriminatedUnion accetta solo membri ZodObject, non i ZodEffects prodotti da .transform().
+
+const modifierSchema = z.object({ value: z.number(), source: z.string() });
+
+const participantInputSchema = z.object({
+  actorId: z.string(),
+  zone: z.string(),
+  initiative: z.number(),
+});
+
+// Attack ha 3 campi opzionali: il .transform() li OMETTE quando assenti, cosi il tipo inferito
+// non porta `| undefined` ed e assegnabile 1:1 a Command.Attack sotto exactOptionalPropertyTypes.
+const attackCommandSchema = z
+  .object({
+    type: z.literal('Attack'),
+    attackerId: z.string(),
+    targetId: z.string(),
+    attribute: z.string().optional(),
+    skill: z.string().optional(),
+    defense: z.string(),
+    defenseBase: z.number(),
+    damageResource: z.string(),
+    damageModifiers: z.array(modifierSchema).optional(),
+  })
+  .transform((o) => ({
+    type: o.type,
+    attackerId: o.attackerId,
+    targetId: o.targetId,
+    defense: o.defense,
+    defenseBase: o.defenseBase,
+    damageResource: o.damageResource,
+    ...(o.attribute !== undefined ? { attribute: o.attribute } : {}),
+    ...(o.skill !== undefined ? { skill: o.skill } : {}),
+    ...(o.damageModifiers !== undefined ? { damageModifiers: o.damageModifiers } : {}),
+  }));
+
+/** Schema Zod dell unione Command del motore (spec 5.1). Validazione del payload IPC non fidato
+ *  (renderer->main, spec 4). L inferenza e cast-free assegnabile 1:1 a Command (provato in host). */
+export const commandSchema = z.union([
+  z.object({ type: z.literal('AddActor'), actor: actorSchema }),
+  z.object({
+    type: z.literal('StartEncounter'),
+    encounterId: z.string(),
+    participants: z.array(participantInputSchema),
+  }),
+  z.object({ type: z.literal('EndTurn') }),
+  z.object({ type: z.literal('NextRound') }),
+  attackCommandSchema,
+]);

@@ -15,6 +15,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@loomn/shared": "workspace:*",
     "@types/node": "^22.10.5"
   }
 }

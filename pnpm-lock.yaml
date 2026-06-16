@@ -79,6 +79,9 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
+      '@loomn/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@types/node':
         specifier: ^22.10.5
         version: 22.19.21

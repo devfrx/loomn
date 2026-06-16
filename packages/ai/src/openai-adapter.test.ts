@@ -133,3 +133,53 @@ describe('adapter OpenAI-compatibile', () => {
     expect(res.finishReason).toBe('stop');
   });
 });
+
+// F2: alcuni provider OpenAI-compat (LM Studio sui fallimenti di rendering del template
+// Jinja per i tool) rispondono HTTP 200 ma emettono l errore IN-BAND come frame SSE
+// { "error": ... }. Senza riconoscimento il frame passerebbe lo schema (choices opzionale)
+// e verrebbe saltato -> stream vuoto silenzioso -> turno vuoto senza diagnostica. Corroborato
+// dal sibling alice (if "error" in chunk). Va sollevato come LanguageModelError, non inghiottito.
+describe('rilevamento errori SSE in-band (F2)', () => {
+  it('lancia LanguageModelError su un frame SSE di errore con HTTP 200', async () => {
+    const sse = 'event: error\ndata: {"error":{"message":"Error rendering prompt with jinja template"}}\n\n';
+    const { transport } = fakeTransport(sse); // ok:true, status:200 di default
+    const model = createOpenAiCompatibleModel({ baseUrl: 'http://x/v1', model: 'm', transport });
+    await expect(collectResponse(model.stream({ messages: [] }))).rejects.toBeInstanceOf(LanguageModelError);
+  });
+
+  it('include il messaggio del provider nell errore sollevato', async () => {
+    const sse = 'data: {"error":{"message":"Error rendering prompt with jinja template"}}\n\n';
+    const { transport } = fakeTransport(sse);
+    const model = createOpenAiCompatibleModel({ baseUrl: 'http://x/v1', model: 'm', transport });
+    await expect(collectResponse(model.stream({ messages: [] }))).rejects.toThrow('jinja template');
+  });
+
+  it('gestisce error come stringa top-level', async () => {
+    const sse = 'data: {"error":"boom dal provider"}\n\n';
+    const { transport } = fakeTransport(sse);
+    const model = createOpenAiCompatibleModel({ baseUrl: 'http://x/v1', model: 'm', transport });
+    await expect(collectResponse(model.stream({ messages: [] }))).rejects.toThrow('boom dal provider');
+  });
+
+  it('non tratta error null su un chunk di successo come un errore', async () => {
+    const sse = [
+      'data: {"choices":[{"delta":{"content":"ok"}}],"error":null}\n\n',
+      'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n',
+      'data: [DONE]\n\n',
+    ].join('');
+    const { transport } = fakeTransport(sse);
+    const model = createOpenAiCompatibleModel({ baseUrl: 'http://x/v1', model: 'm', transport });
+    const res = await collectResponse(model.stream({ messages: [{ role: 'user', content: 'hi' }] }));
+    expect(res.text).toBe('ok');
+    expect(res.finishReason).toBe('stop');
+  });
+
+  it('registra una trace error sul frame SSE di errore', async () => {
+    const tracer = createRecordingTracer();
+    const sse = 'event: error\ndata: {"error":{"message":"boom"}}\n\n';
+    const { transport } = fakeTransport(sse);
+    const model = createOpenAiCompatibleModel({ baseUrl: 'http://x/v1', model: 'm', transport, tracer });
+    await expect(collectResponse(model.stream({ messages: [] }))).rejects.toBeInstanceOf(LanguageModelError);
+    expect(tracer.events.map((e) => e.kind)).toContain('error');
+  });
+});

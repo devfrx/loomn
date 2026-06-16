@@ -124,6 +124,26 @@ const chunkSchema = z.object({
     .optional(),
 });
 
+// Alcuni provider OpenAI-compat (LM Studio in primis, sui fallimenti di rendering del template
+// Jinja per i tool) rispondono HTTP 200 ma emettono l errore IN-BAND come frame SSE
+// { "error": ... } invece di un chunk con choices. Senza questo riconoscimento il frame
+// passerebbe chunkSchema (choices opzionale) e verrebbe saltato -> stream vuoto silenzioso ->
+// turno vuoto senza diagnostica (finding F2, corroborato dal sibling alice: if "error" in chunk).
+// Ritorna il messaggio se il frame e un errore, altrimenti undefined (un chunk di successo con
+// "error": null NON e un errore). Estrazione gemella di alice: err.message se oggetto, altrimenti
+// la stringa/JSON grezzo.
+function streamErrorMessage(json: unknown): string | undefined {
+  if (typeof json !== 'object' || json === null) return undefined;
+  const err = (json as Record<string, unknown>)['error'];
+  if (err === undefined || err === null) return undefined;
+  if (typeof err === 'string') return err;
+  if (typeof err === 'object') {
+    const message = (err as Record<string, unknown>)['message'];
+    if (typeof message === 'string') return message;
+  }
+  return JSON.stringify(err);
+}
+
 function mapFinishReason(raw: string | null | undefined): LlmFinishReason {
   switch (raw) {
     case 'stop':
@@ -145,7 +165,11 @@ interface ToolAcc {
   args: string;
 }
 
-async function* streamChatCompletion(byteChunks: AsyncIterable<Uint8Array>): AsyncGenerator<LlmStreamEvent> {
+async function* streamChatCompletion(
+  byteChunks: AsyncIterable<Uint8Array>,
+  status: number,
+  statusText: string,
+): AsyncGenerator<LlmStreamEvent> {
   const toolAcc = new Map<number, ToolAcc>();
   let finishReason: LlmFinishReason = 'unknown';
   for await (const payload of parseSse(byteChunks)) {
@@ -156,6 +180,10 @@ async function* streamChatCompletion(byteChunks: AsyncIterable<Uint8Array>): Asy
     } catch {
       continue; // data: non-JSON (rumore/troncamento del provider): skip difensivo
     }
+    // F2: errore in-band del provider su HTTP 200 -> sollevalo invece di inghiottirlo. Lo status
+    // riportato e quello HTTP reale (200): l errore vive nel body, non nella riga di stato.
+    const streamError = streamErrorMessage(json);
+    if (streamError !== undefined) throw new LanguageModelError(status, statusText, streamError);
     const parsed = chunkSchema.safeParse(json);
     if (!parsed.success) continue; // skip difensivo di shape inattesa (heartbeat/extra)
     const choice = parsed.data.choices?.[0];
@@ -212,11 +240,18 @@ export function createOpenAiCompatibleModel(config: OpenAiCompatibleConfig): Lan
       let textLength = 0;
       let toolCallCount = 0;
       let finishReason = 'unknown';
-      for await (const event of streamChatCompletion(res.body())) {
-        if (event.type === 'text') textLength += event.delta.length;
-        else if (event.type === 'tool-call') toolCallCount += 1;
-        else finishReason = event.reason;
-        yield event;
+      try {
+        for await (const event of streamChatCompletion(res.body(), res.status, res.statusText)) {
+          if (event.type === 'text') textLength += event.delta.length;
+          else if (event.type === 'tool-call') toolCallCount += 1;
+          else finishReason = event.reason;
+          yield event;
+        }
+      } catch (err) {
+        // F2: un errore in-fase-di-stream (es. frame SSE di errore) non deve passare per la
+        // trace di response; tracialo come 'error' e rilancia (il chiamante riceve il throw).
+        if (err instanceof LanguageModelError) tracer.record({ kind: 'error', message: `SSE error: ${err.body}` });
+        throw err;
       }
       tracer.record({ kind: 'response', finishReason, textLength, toolCallCount });
     },

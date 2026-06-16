@@ -152,6 +152,20 @@ describe('createCampaignService - dispatch (write side)', () => {
       memory.close();
     }
   });
+
+  it('la coda non si blocca dopo un dispatch rifiutato: il dispatch successivo procede', async () => {
+    const { service, memory } = makeService();
+    try {
+      await service.dispatch({ type: 'AddActor', actor: actor('goblin', 'Goblin') });
+      await expect(service.dispatch({ type: 'AddActor', actor: actor('goblin', 'Goblin') })).rejects.toThrow();
+      const out = await service.dispatch({ type: 'AddActor', actor: actor('orc', 'Orc') });
+      expect(out.readModel.version).toBe(2);
+      expect(out.readModel.state.actors['orc']?.name).toBe('Orc');
+      expect(memory.eventStore.version()).toBe(2);
+    } finally {
+      memory.close();
+    }
+  });
 });
 
 describe('createCampaignService - runTurn (AI dietro il servizio)', () => {

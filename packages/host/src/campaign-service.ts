@@ -34,6 +34,8 @@ export interface CampaignServiceDeps {
  *  Il 9c-ii la spinge al renderer via IPC. */
 export interface ReadModel {
   version: number;
+  /** Riferimento PUNTUALE alla proiezione interna: trattarlo come SOLA LETTURA (non mutarlo).
+   *  Gli aggiornamenti del motore sono immutabili e il confine IPC del 9c-ii fa structured-clone. */
   state: GameState;
 }
 

@@ -20,8 +20,12 @@ function settingsPath(): string {
 
 /** Salva la config provider; cifra la chiave con safeStorage se presente e disponibile. */
 export function saveProviderConfig(config: ProviderConfig): void {
+  const hasKey = config.apiKey !== undefined && config.apiKey !== '';
+  if (hasKey && !safeStorage.isEncryptionAvailable()) {
+    throw new Error('safeStorage non disponibile: impossibile cifrare la chiave API');
+  }
   const stored: StoredSettings = { baseUrl: config.baseUrl, model: config.model };
-  if (config.apiKey !== undefined && config.apiKey !== '' && safeStorage.isEncryptionAvailable()) {
+  if (config.apiKey !== undefined && config.apiKey !== '') {
     stored.apiKeyEnc = safeStorage.encryptString(config.apiKey).toString('base64');
   }
   writeFileSync(settingsPath(), JSON.stringify(stored), 'utf8');
@@ -55,5 +59,6 @@ export function loadProviderConfig(): ProviderConfig | undefined {
   if (stored.apiKeyEnc !== undefined && safeStorage.isEncryptionAvailable()) {
     config.apiKey = safeStorage.decryptString(Buffer.from(stored.apiKeyEnc, 'base64'));
   }
-  return providerConfigSchema.parse(config);
+  const result = providerConfigSchema.safeParse(config);
+  return result.success ? result.data : undefined;
 }

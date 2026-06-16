@@ -152,3 +152,21 @@ describe('createContextAssembler (read path combinato, sqlite reale)', () => {
     }
   });
 });
+
+describe('compatibilita col punto di iniezione di ai', () => {
+  // Replica LOCALE del tipo `AssembleContext` di `ai` (memory NON importa ai): prova che
+  // l assembler reale e assegnabile al punto di iniezione di runMasterTurn.
+  type AssembleContext = (state: GameState) => string;
+
+  it('l assembler e assegnabile a (state) => string e produce il contesto', () => {
+    const { db, close } = openDatabase(':memory:');
+    try {
+      const ledger = createCanonLedger(db);
+      const summaries = createSummaryStore(db);
+      const injected: AssembleContext = createContextAssembler({ ledger, summaries, clock: fixedClock(0) }, { tokenBudget: 500 });
+      expect(injected(HERO_STATE)).toContain('Stato attuale (L1)');
+    } finally {
+      close();
+    }
+  });
+});

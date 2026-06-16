@@ -28,3 +28,10 @@ export {
   type ReflectionDeps,
   type ReflectionResult,
 } from './reflection';
+export {
+  createContextAssembler,
+  defaultEstimateTokens,
+  recencyWeight,
+  type ContextAssemblerDeps,
+  type ContextAssemblerConfig,
+} from './context-assembler';

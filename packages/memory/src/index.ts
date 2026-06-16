@@ -8,3 +8,11 @@ export {
   type CanonFactFilter,
   type CanonStatus,
 } from './canon-ledger';
+export {
+  createSummaryStore,
+  type SummaryStore,
+  type Summary,
+  type SummaryInput,
+  type SummaryFilter,
+  type SummaryLevel,
+} from './summary-store';

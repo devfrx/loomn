@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
-const status = ref('Shell Electron avviata (Piano 9a)');
+const status = ref('Loomn pronto (persistenza + IPC, Piano 9c-ii). UI completa: Piano 10.');
 </script>
 
 <template>

@@ -191,6 +191,11 @@ void app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  memory?.close();
   if (process.platform !== 'darwin') app.quit();
+});
+
+// Rilascia la connessione SQLite solo all uscita reale (su macOS window-all-closed NON chiude l app:
+// un successivo activate riusa lo stesso service e la connessione deve restare aperta).
+app.on('will-quit', () => {
+  memory?.close();
 });

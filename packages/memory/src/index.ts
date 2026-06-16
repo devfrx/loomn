@@ -16,3 +16,5 @@ export {
   type SummaryFilter,
   type SummaryLevel,
 } from './summary-store';
+export { scoreSalience, type SalienceInput } from './salience';
+export { type Clock } from './clock';

@@ -8,7 +8,7 @@
     "test:watch": "vitest",
     "typecheck": "pnpm -r typecheck",
     "rebuild:electron": "pnpm --filter @loomn/desktop exec electron-rebuild -f -w better-sqlite3",
-    "rebuild:node": "pnpm rebuild better-sqlite3"
+    "rebuild:node": "pnpm -r rebuild better-sqlite3"
   },
   "devDependencies": {
     "typescript": "^5.5.4",

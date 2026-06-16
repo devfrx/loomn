@@ -69,6 +69,7 @@ describe('renderEventsForReflection', () => {
     const text = renderEventsForReflection(events);
     expect(text).toContain('Chiedo a Krix per chi lavora.');
     expect(text).toContain('Krix rivela di servire il Barone Vhalmar.');
+    expect(text).toContain('#5 Scena (prosa)');
     expect(text).not.toContain('NarrationRecorded'); // prosa, non il tipo grezzo
     expect(text).not.toContain('{"type"'); // niente dump JSON
   });

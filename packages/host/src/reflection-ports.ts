@@ -61,7 +61,7 @@ export function renderEventsForReflection(events: StoredEvent[]): string {
 function reflectionMessages(system: string, input: ReflectionInput): LlmMessage[] {
   return [
     { role: 'system', content: system },
-    { role: 'user', content: `Scena ${input.scope} (eventi del motore):\n${renderEventsForReflection(input.events)}` },
+    { role: 'user', content: `Scena ${input.scope} (eventi del motore e narrazione del Master):\n${renderEventsForReflection(input.events)}` },
   ];
 }
 

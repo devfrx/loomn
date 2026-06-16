@@ -1,0 +1,25 @@
+{
+  "name": "@loomn/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@loomn/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "electron": "^42.4.0",
+    "electron-vite": "^4.0.1",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "vue": "^3.5.18",
+    "vue-tsc": "^2.1.10",
+    "typescript": "^5.5.4",
+    "@types/node": "^22.10.5"
+  }
+}

@@ -34,4 +34,8 @@ describe('contratto IPC: schemi dei payload', () => {
     const parsed = readModelPushSchema.parse({ version: 0, summary: 'nessuno stato' });
     expect(parsed.version).toBe(0);
   });
+
+  it('readModelPushSchema rifiuta una version negativa', () => {
+    expect(readModelPushSchema.safeParse({ version: -1, summary: 'x' }).success).toBe(false);
+  });
 });

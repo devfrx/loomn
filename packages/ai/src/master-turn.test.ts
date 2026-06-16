@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { replay, createSeededRandom, type Actor, type DomainEvent, type Item } from '@loomn/engine';
-import { runMasterTurn } from './master-turn';
+import { runMasterTurn, assembleContextStub } from './master-turn';
 import type { LanguageModel, LlmRequest, LlmStreamEvent } from './language-model';
 import { createRecordingTracer } from './tracing';
 
@@ -144,5 +144,26 @@ describe('runMasterTurn', () => {
     expect(res.events).toEqual([]);
     expect(res.narration).toBe('Il vento soffia tra le rovine.');
     expect(calls).toBe(1);
+  });
+});
+
+describe('iniezione del Context Assembler', () => {
+  it('usa l assembler iniettato per il messaggio di contesto', async () => {
+    const model = fakeModel(() => text('ok'));
+    const res = await runMasterTurn({
+      model,
+      rng: createSeededRandom(1),
+      state: baseState,
+      playerAction: 'Guardo intorno.',
+      assembleContext: () => 'CONTESTO-INIETTATO',
+    });
+    // transcript: [system(prompt), system(contesto), user(azione)] -> indice 1 e il contesto.
+    expect(res.transcript[1]?.content).toBe('CONTESTO-INIETTATO');
+  });
+
+  it('senza iniezione usa assembleContextStub (default invariato)', async () => {
+    const model = fakeModel(() => text('ok'));
+    const res = await runMasterTurn({ model, rng: createSeededRandom(1), state: baseState, playerAction: 'Guardo intorno.' });
+    expect(res.transcript[1]?.content).toBe(assembleContextStub(baseState));
   });
 });

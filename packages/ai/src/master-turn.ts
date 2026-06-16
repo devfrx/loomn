@@ -30,6 +30,11 @@ export function assembleContextStub(state: GameState): string {
   return `Stato attuale (L1):\n${list}\n${enc}`;
 }
 
+/** Punto di iniezione del Context Assembler (Piano 8c). `ai` NON importa `memory`: l app
+ *  fornisce l impl reale (creata in `memory`) iniettandola in runMasterTurn. La firma
+ *  coincide con quella di assembleContextStub, che resta il default. */
+export type AssembleContext = (state: GameState) => string;
+
 /** Costruisce i messaggi iniziali del turno: ruolo/regole + contesto + azione del giocatore. */
 export function buildMasterMessages(context: string, playerAction: string): LlmMessage[] {
   return [
@@ -47,6 +52,8 @@ export interface MasterTurnRequest {
   tracer?: TracingPort;
   /** numero massimo di iterazioni del ciclo agentico (default 6). */
   maxIterations?: number;
+  /** Context Assembler iniettato (Piano 8c). Default: assembleContextStub (stub L1 di 7c). */
+  assembleContext?: AssembleContext;
 }
 
 export interface ToolInvocation {
@@ -75,7 +82,8 @@ export async function runMasterTurn(request: MasterTurnRequest): Promise<MasterT
   let state = request.state;
   const events: DomainEvent[] = [];
   const invocations: ToolInvocation[] = [];
-  const messages: LlmMessage[] = buildMasterMessages(assembleContextStub(state), request.playerAction);
+  const assemble = request.assembleContext ?? assembleContextStub;
+  const messages: LlmMessage[] = buildMasterMessages(assemble(state), request.playerAction);
   let narration = '';
 
   for (let iter = 0; iter < maxIterations; iter++) {

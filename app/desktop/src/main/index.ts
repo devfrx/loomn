@@ -140,7 +140,9 @@ function createWindow(service: CampaignService): BrowserWindow {
     win.webContents.on('console-message', (details) => {
       if (details.message.startsWith('VERDICT:')) {
         console.log(`[MAIN] ${details.message}`);
-        app.exit(details.message.includes('PASS') ? 0 : 1);
+        // startsWith('VERDICT: PASS') e robusto: la decisione del gate non dipende dal contenuto
+        // delle label o del messaggio di eccezione interpolati nel resto della riga.
+        app.exit(details.message.startsWith('VERDICT: PASS') ? 0 : 1);
       }
     });
     // Rete di sicurezza: se il renderer non emette mai un VERDICT, non lasciare il gate appeso.

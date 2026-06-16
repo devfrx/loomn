@@ -32,18 +32,30 @@ const sceneDraftSchema = z.object({
 });
 
 const EXTRACT_SYSTEM =
-  'Sei un analista narrativo. Dagli eventi del motore estrai i fatti canonici DISCRETI come ' +
-  'terne (subject, predicate, object). functional=true se il predicato ammette un solo valore ' +
-  'per soggetto (es. si_trova_a, alleato_di), cosi il valore precedente va sostituito. ' +
-  'importance da 1 (effimero) a 10 (permanente). Ometti i dettagli effimeri (singoli tiri).';
+  'Sei un analista narrativo. Dalla scena (eventi del motore e narrazione del Master) estrai i ' +
+  'fatti canonici NARRATIVI e DISCRETI come terne (subject, predicate, object): relazioni, ' +
+  'alleanze, segreti, moventi, luoghi, promesse, tradimenti. functional=true se il predicato ' +
+  'ammette un solo valore per soggetto (es. si_trova_a, alleato_di), cosi il valore precedente va ' +
+  'sostituito. importance da 1 (effimero) a 10 (permanente). NON estrarre statistiche meccaniche ' +
+  'gia tracciate dal motore (hp, attributi, danni, singoli tiri): quelle sono gia in L1. Ometti i ' +
+  'dettagli effimeri.';
 
 const SUMMARIZE_SYSTEM =
   'Sei un cronista. Riassumi la scena in 1-3 frasi di prosa per la continuita narrativa. ' +
   'importance da 1 (effimero) a 10 (svolta permanente).';
 
-/** Rende gli eventi della scena in testo deterministico per il prompt (una riga per evento). */
+/** Rende gli eventi della scena in testo per il prompt. I NarrationRecorded diventano PROSA
+ *  (azione del giocatore + narrazione del Master) cosi l estrattore vede la storia; gli eventi
+ *  meccanici restano una riga per evento (deterministico). */
 export function renderEventsForReflection(events: StoredEvent[]): string {
-  return events.map((e) => `#${e.seq} ${e.event.type} ${JSON.stringify(e.event)}`).join('\n');
+  return events
+    .map((e) => {
+      if (e.event.type === 'NarrationRecorded') {
+        return `#${e.seq} Scena (prosa)\nGiocatore: ${e.event.playerAction}\nMaster: ${e.event.narration}`;
+      }
+      return `#${e.seq} ${e.event.type} ${JSON.stringify(e.event)}`;
+    })
+    .join('\n');
 }
 
 function reflectionMessages(system: string, input: ReflectionInput): LlmMessage[] {

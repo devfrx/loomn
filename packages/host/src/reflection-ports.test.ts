@@ -54,6 +54,24 @@ describe('renderEventsForReflection', () => {
     expect(lines[0]).toContain('#1 ActorAdded');
     expect(lines[1]).toContain('#2 DamageApplied');
   });
+
+  it('rende un NarrationRecorded come prosa (azione del giocatore e narrazione del Master)', () => {
+    const events: StoredEvent[] = [
+      {
+        seq: 5,
+        event: {
+          type: 'NarrationRecorded',
+          playerAction: 'Chiedo a Krix per chi lavora.',
+          narration: 'Krix rivela di servire il Barone Vhalmar.',
+        },
+      },
+    ];
+    const text = renderEventsForReflection(events);
+    expect(text).toContain('Chiedo a Krix per chi lavora.');
+    expect(text).toContain('Krix rivela di servire il Barone Vhalmar.');
+    expect(text).not.toContain('NarrationRecorded'); // prosa, non il tipo grezzo
+    expect(text).not.toContain('{"type"'); // niente dump JSON
+  });
 });
 
 describe('createLlmFactExtractor', () => {

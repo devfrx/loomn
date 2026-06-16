@@ -44,7 +44,8 @@ Decisioni di prodotto fissate: single + multiplayer con Master AI; motore **gene
   - `2026-06-16-loomn-fase1-piano8a-canon-ledger.md` ✅ fatto (Canon Ledger L1.5 in `memory`)
   - `2026-06-16-loomn-fase1-piano8b-reflection-l2.md` ✅ fatto (Reflection + L2 `summaries` + Salienza in `memory`)
   - `2026-06-16-loomn-fase1-piano8c-context-assembler.md` ✅ fatto (Context Assembler con budget di token; `@loomn/memory` + punto di iniezione in `@loomn/ai`)
-  - **Piano 9 → prossimo da scrivere** (Shell Electron; vedi §0/§7/§8).
+  - `2026-06-16-loomn-fase1-piano9a-shell-electron.md` ✅ fatto (Shell Electron `app/desktop`: electron-vite+Vue, contratto IPC in `shared`; vedi §7-bis)
+  - **Piano 9b → prossimo da scrivere** (Wiring memoria+AI, pacchetto `@loomn/host`; vedi §0/§7-bis/§8). Poi 9c (persistenza nell app).
 - **Memoria:** `C:\Users\zagor\.claude\projects\C--Users-zagor-Desktop-tabl\memory\` (`loomn-project.md`, `loomn-working-style.md`, indice in `MEMORY.md`).
 
 Ogni piano ha in fondo una **roadmap aggiornata** e una sezione **self-review**.
@@ -53,7 +54,7 @@ Ogni piano ha in fondo una **roadmap aggiornata** e una sezione **self-review**.
 
 ## 3. Stato dell'engine (`packages/engine`) — cosa esiste già
 
-Monorepo **pnpm workspaces** (`pnpm-workspace.yaml` globba `packages/*` e `app/*`). Esistono `packages/engine` (dettagliato qui sotto), più `packages/shared` e `packages/memory` (Piano 6 + 8a + 8b + 8c — vedi §3-bis) e `packages/ai` (Piani 7a/7b/7c + 8c — vedi §3-ter). TS strict (`tsconfig.base.json`): `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `verbatimModuleSyntax`. Test: Vitest (config root `vitest.config.ts`, include `packages/**/*.test.ts`). **215 test verdi totali** (98 engine + 66 `shared`/`memory` + 51 `ai`).
+Monorepo **pnpm workspaces** (`pnpm-workspace.yaml` globba `packages/*` e `app/*`). Esistono `packages/engine` (dettagliato qui sotto), più `packages/shared` e `packages/memory` (Piano 6 + 8a + 8b + 8c — vedi §3-bis) e `packages/ai` (Piani 7a/7b/7c + 8c — vedi §3-ter). TS strict (`tsconfig.base.json`): `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `verbatimModuleSyntax`. Test: Vitest (config root `vitest.config.ts`, include `packages/**/*.test.ts` — `app/desktop` NON è incluso: il suo gate è build + `vue-tsc`). **221 test verdi totali** (98 engine + 72 `shared`/`memory` + 51 `ai`; il Piano 9a ha aggiunto 6 test in `shared`).
 
 `packages/engine/src/index.ts` ri-esporta **15 moduli**, in quest'ordine. Export pubblici per modulo:
 
@@ -81,7 +82,7 @@ Monorepo **pnpm workspaces** (`pnpm-workspace.yaml` globba `packages/*` e `app/*
 
 ### 3-bis. Pacchetti `shared` e `memory` (Piano 6 + 8a + 8b + 8c) — cosa esiste già
 
-Aggiunti dal Piano 6 (+ Canon Ledger dal Piano 8a, + Reflection/L2/Salienza dal Piano 8b, + Context Assembler dal Piano 8c), mergiati in `main`. Grafo dipendenze: `memory → engine`, `memory → shared`; **`shared` è foglia** (dipende solo da `zod`, NON importa engine). **`memory` NON dipende da `ai`** (regola di dipendenza; la Reflection di 8b usa **porte iniettate** `FactExtractor`/`Summarizer`/`Clock`; le impl LLM-backed vivono nell'app, Piano 9 — `ai` e `memory` non si importano a vicenda).
+Aggiunti dal Piano 6 (+ Canon Ledger dal Piano 8a, + Reflection/L2/Salienza dal Piano 8b, + Context Assembler dal Piano 8c), mergiati in `main`. Grafo dipendenze: `memory → engine`, `memory → shared`; **`shared` è foglia** (dipende solo da `zod`, NON importa engine). **`memory` NON dipende da `ai`** (regola di dipendenza; la Reflection di 8b usa **porte iniettate** `FactExtractor`/`Summarizer`/`Clock`; le impl LLM-backed vivono nel pacchetto di composizione `@loomn/host`, Piano 9b — `ai` e `memory` non si importano a vicenda).
 
 | Pacchetto | Export / contenuto |
 |---|---|
@@ -128,7 +129,7 @@ Workflow superpowers, una skill per fase:
    - **finishing-a-development-branch** — skill `superpowers:finishing-a-development-branch`: presenta le 4 opzioni; l'utente sceglie sempre **"Merge in main (locale)"** → `git checkout main && git merge <branch>` (fast-forward) → `pnpm test` (verifica) → `git branch -d <branch>`.
    - **Aggiorna la memoria** (`loomn-project.md`): segna il piano fatto, conteggio test, prossimo passo.
 
-**Scelta del modello:** **la decide l'orchestratore**, per ruolo, seguendo la skill `subagent-driven-development` (il modello meno potente che regge il compito; il più capace per il giudizio/architettura, es. la final review). **Non vincolata a priori — scegli tu** in base a complessità del task e contesto. (Storico, non un obbligo: nei Piani 7a–8c implementer+review erano in sonnet e la final review in opus, ed è andata bene.)
+**Scelta del modello:** **la decide l'orchestratore che esegue**, per ruolo, seguendo la skill `subagent-driven-development` (il modello meno potente che regge il compito; il più capace dove serve giudizio/architettura, es. la final review). **Non vincolata a priori — la sceglie l'agente che continua il lavoro** in base a complessità del task e contesto; nessun modello è prescritto per ruolo.
 
 **Comunicazione:** tra un task e l'altro l'utente NON va interpellato; procedi fino al merge. Tieni l'utente aggiornato con una tabellina di stato dei task.
 
@@ -151,14 +152,14 @@ Workflow superpowers, una skill per fase:
 
 - **OS:** Windows 11. Shell: PowerShell; **Bash disponibile** (usa Bash per git/pnpm, sono POSIX). I warning `LF will be replaced by CRLF` sono cosmetici.
 - **Toolchain:** Node v24.9.0, pnpm 9.12.0, corepack 0.34.0 (già installati, su PATH).
-- **Verifica (dalla root):** `pnpm test` (Vitest, atteso **215 verdi**), `pnpm typecheck` (→ `pnpm -r typecheck` → `tsc --noEmit` su engine/shared/memory/ai), `pnpm -C packages/<pkg> typecheck` per il singolo pacchetto.
+- **Verifica (dalla root):** `pnpm test` (Vitest, atteso **221 verdi**), `pnpm typecheck` (→ `pnpm -r typecheck` → `tsc --noEmit` su engine/shared/memory/ai + `vue-tsc --noEmit` su `app/desktop`), `pnpm -C packages/<pkg> typecheck` per il singolo pacchetto.
 - I subagent creano file con lo strumento Write (NON `New-Item -Force`, che tronca).
 
 ---
 
-## 7. Piano 7 (7a/7b/7c) e Piano 8 (8a/8b/8c) — COMPLETI. PROSSIMO PASSO: Piano 9
+## 7. Piano 7 (7a/7b/7c) e Piano 8 (8a/8b/8c) — COMPLETI (Piano 9a fatto; il prossimo passo è in §7-bis)
 
-> **Piano 8a — Canon Ledger (L1.5) ✅ FATTO e mergiato** — vedi `docs/superpowers/plans/2026-06-16-loomn-fase1-piano8a-canon-ledger.md` e §3-bis. `canon_facts` (proiezione SQLite) + `createCanonLedger` (record/active/all/retract/supersede). **Piano 8b — Reflection + L2 + Salienza ✅ FATTO e mergiato** — vedi `docs/superpowers/plans/2026-06-16-loomn-fase1-piano8b-reflection-l2.md` e §3-bis: tabella `summaries` (L2) + `createSummaryStore`; `scoreSalience` (importanza×ricorrenza, output [0.1,1]) + porta `Clock`; colonna `salience` su `canon_facts` (migrazione 0003 ALTER); `runReflection` (porte `FactExtractor`/`Summarizer`/`Clock` **iniettate**, asincrona/fuori dal turno, testato coi doppi). Migrazioni ancora **scritte a mano** (drizzle-kit rimandato, §3-bis). **Piano 8c — Context Assembler ✅ FATTO e mergiato** — vedi `docs/superpowers/plans/2026-06-16-loomn-fase1-piano8c-context-assembler.md` e §3-bis/§3-ter: allocatore di lettura (spec §6.2) in `@loomn/memory` (`createContextAssembler`) + punto di iniezione `AssembleContext` in `@loomn/ai` (`runMasterTurn`); L1+L1.5 mai tagliati, L2 rankata per salienza×recency e tagliata dal basso entro un budget di token. Il **Piano 8 è splittato in 8a (fatto) / 8b (fatto) / 8c (fatto)** → **Piano 8 completo**; il prossimo è **Piano 9** (Shell Electron, vedi §0/§8). Il follow-up PK di 8a (`record`/`supersede` lanciano su `id` duplicato) è **gestito da 8b** con id deterministici per range (precondizione: una Reflection per range).
+> **Piano 8a — Canon Ledger (L1.5) ✅ FATTO e mergiato** — vedi `docs/superpowers/plans/2026-06-16-loomn-fase1-piano8a-canon-ledger.md` e §3-bis. `canon_facts` (proiezione SQLite) + `createCanonLedger` (record/active/all/retract/supersede). **Piano 8b — Reflection + L2 + Salienza ✅ FATTO e mergiato** — vedi `docs/superpowers/plans/2026-06-16-loomn-fase1-piano8b-reflection-l2.md` e §3-bis: tabella `summaries` (L2) + `createSummaryStore`; `scoreSalience` (importanza×ricorrenza, output [0.1,1]) + porta `Clock`; colonna `salience` su `canon_facts` (migrazione 0003 ALTER); `runReflection` (porte `FactExtractor`/`Summarizer`/`Clock` **iniettate**, asincrona/fuori dal turno, testato coi doppi). Migrazioni ancora **scritte a mano** (drizzle-kit rimandato, §3-bis). **Piano 8c — Context Assembler ✅ FATTO e mergiato** — vedi `docs/superpowers/plans/2026-06-16-loomn-fase1-piano8c-context-assembler.md` e §3-bis/§3-ter: allocatore di lettura (spec §6.2) in `@loomn/memory` (`createContextAssembler`) + punto di iniezione `AssembleContext` in `@loomn/ai` (`runMasterTurn`); L1+L1.5 mai tagliati, L2 rankata per salienza×recency e tagliata dal basso entro un budget di token. Il **Piano 8 è splittato in 8a (fatto) / 8b (fatto) / 8c (fatto)** → **Piano 8 completo**. Il **Piano 9 è splittato in 9a (fatto) / 9b / 9c**: 9a (Shell Electron) è fatto e mergiato (vedi §7-bis); il prossimo è **Piano 9b** (Wiring memoria+AI, vedi §0/§7-bis/§8). Il follow-up PK di 8a (`record`/`supersede` lanciano su `id` duplicato) è **gestito da 8b** con id deterministici per range (precondizione: una Reflection per range).
 
 Il **Piano 7** (spec §5.4/§7) era splittato in tre sotto-piani, **tutti fatti e mergiati**:
 

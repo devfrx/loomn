@@ -192,6 +192,42 @@ describe('createCampaignService - runTurn (AI dietro il servizio)', () => {
     }
   });
 
+  it('runTurn di puro dialogo persiste un NarrationRecorded nello stream (la storia lascia traccia)', async () => {
+    const model = fakeModel([
+      { type: 'text', delta: 'Krix rivela di servire il Barone Vhalmar.' },
+      { type: 'finish', reason: 'stop' },
+    ]);
+    const { service, memory } = makeService({ model });
+    try {
+      const out = await service.runTurn('Chiedo a Krix per chi lavora.');
+      expect(out.events).toEqual([]); // TurnOutcome.events resta meccanica (niente NarrationRecorded)
+      expect(out.readModel.version).toBe(1); // lo stream e cresciuto: il NarrationRecorded e persistito
+      expect(memory.eventStore.version()).toBe(1);
+      const stored = memory.eventStore.load();
+      expect(stored).toHaveLength(1);
+      expect(stored[0]?.event).toEqual({
+        type: 'NarrationRecorded',
+        playerAction: 'Chiedo a Krix per chi lavora.',
+        narration: 'Krix rivela di servire il Barone Vhalmar.',
+      });
+    } finally {
+      memory.close();
+    }
+  });
+
+  it('runTurn non persiste nulla se la narrazione e vuota e non ci sono Event', async () => {
+    const model = fakeModel([{ type: 'finish', reason: 'stop' }]); // niente testo, niente tool-call
+    const { service, memory } = makeService({ model });
+    try {
+      const out = await service.runTurn('Resto in silenzio.');
+      expect(out.narration).toBe('');
+      expect(out.readModel.version).toBe(0);
+      expect(memory.eventStore.version()).toBe(0);
+    } finally {
+      memory.close();
+    }
+  });
+
   it('persiste gli Event prodotti dal turno (tool-call -> decide -> append)', async () => {
     const spawnArgs = JSON.stringify({ id: 'png1', name: 'Locandiere' });
     const model = scriptedModel([
@@ -209,9 +245,9 @@ describe('createCampaignService - runTurn (AI dietro il servizio)', () => {
       const out = await service.runTurn('Entro nella taverna.');
       expect(out.events.some((e) => e.type === 'ActorAdded')).toBe(true);
       expect(out.narration).toBe('Un locandiere appare.');
-      expect(out.readModel.version).toBe(1);
+      expect(out.readModel.version).toBe(2); // ActorAdded (v1) + NarrationRecorded (v2)
       expect(out.readModel.state.actors['png1']?.name).toBe('Locandiere');
-      expect(memory.eventStore.version()).toBe(1);
+      expect(memory.eventStore.version()).toBe(2);
     } finally {
       memory.close();
     }
@@ -273,8 +309,8 @@ describe('createCampaignService - reflect e serializzazione', () => {
       release();
       const [turnOut, dispOut] = await Promise.all([turn, disp]);
       expect(turnOut.events.some((e) => e.type === 'ActorAdded')).toBe(true);
-      expect(dispOut.readModel.version).toBe(2); // turno (v1) poi dispatch (v2), senza conflitto
-      expect(memory.eventStore.version()).toBe(2);
+      expect(dispOut.readModel.version).toBe(3); // turno (ActorAdded v1 + NarrationRecorded v2) poi dispatch (v3)
+      expect(memory.eventStore.version()).toBe(3);
       const finalState = service.getReadModel().state;
       expect(finalState.actors['png1']?.name).toBe('Locandiere');
       expect(finalState.actors['goblin']?.name).toBe('Goblin');

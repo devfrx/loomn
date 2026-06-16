@@ -107,10 +107,27 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
           playerAction,
           assembleContext: deps.memory.assembleContext,
         });
-        if (result.events.length > 0) {
-          deps.memory.eventStore.append(result.events, startVersion);
-          state = result.state;
+        // La narrazione del Master entra nello stream come NarrationRecorded (spec F4): cosi la
+        // storia e rebuild-safe e la Reflection puo spogliarla. e l unico evento non prodotto da
+        // decide (registra l output dell AI: nessun RNG ne validazione meccanica). result.state
+        // ha gia applicato result.events; applichiamo SOLO la narrazione sopra.
+        const toStore: DomainEvent[] = [...result.events];
+        let nextState = result.state;
+        if (result.narration.length > 0) {
+          const narrationEvent: DomainEvent = {
+            type: 'NarrationRecorded',
+            playerAction,
+            narration: result.narration,
+          };
+          toStore.push(narrationEvent);
+          nextState = applyEvent(nextState, narrationEvent);
         }
+        if (toStore.length > 0) {
+          deps.memory.eventStore.append(toStore, startVersion);
+          state = nextState;
+        }
+        // TurnOutcome.events resta la lista MECCANICA: il NarrationRecorded e persistenza di stream,
+        // non un esito meccanico del turno. La version del read model riflette comunque il bump.
         return { narration: result.narration, events: result.events, readModel: readModel() };
       });
     },

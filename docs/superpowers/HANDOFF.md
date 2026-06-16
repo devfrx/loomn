@@ -53,7 +53,7 @@ Ogni piano ha in fondo una **roadmap aggiornata** e una sezione **self-review**.
 
 ## 3. Stato dell'engine (`packages/engine`) — cosa esiste già
 
-Monorepo **pnpm workspaces** (`pnpm-workspace.yaml` globba `packages/*` e `app/*`). Esistono `packages/engine` (dettagliato qui sotto), più `packages/shared` e `packages/memory` (Piano 6 + 8a + 8b — vedi §3-bis) e `packages/ai` (Piani 7a/7b/7c — vedi §3-ter). TS strict (`tsconfig.base.json`): `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `verbatimModuleSyntax`. Test: Vitest (config root `vitest.config.ts`, include `packages/**/*.test.ts`). **215 test verdi totali** (98 engine + 66 `shared`/`memory` + 51 `ai`).
+Monorepo **pnpm workspaces** (`pnpm-workspace.yaml` globba `packages/*` e `app/*`). Esistono `packages/engine` (dettagliato qui sotto), più `packages/shared` e `packages/memory` (Piano 6 + 8a + 8b + 8c — vedi §3-bis) e `packages/ai` (Piani 7a/7b/7c + 8c — vedi §3-ter). TS strict (`tsconfig.base.json`): `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `verbatimModuleSyntax`. Test: Vitest (config root `vitest.config.ts`, include `packages/**/*.test.ts`). **215 test verdi totali** (98 engine + 66 `shared`/`memory` + 51 `ai`).
 
 `packages/engine/src/index.ts` ri-esporta **15 moduli**, in quest'ordine. Export pubblici per modulo:
 
@@ -79,9 +79,9 @@ Monorepo **pnpm workspaces** (`pnpm-workspace.yaml` globba `packages/*` e `app/*
 
 **La proprietà ES centrale (NON romperla):** `decide` consuma l'RNG e registra i **fatti risolti** negli eventi; `applyEvent` **rigioca senza RNG** → replay deterministico. `decide(Attack)` esegue `performAttack` ma usa solo i fatti (`check/hit/damage/downed`), **scartando** il `target` mutato; lo stato cambia solo via `applyEvent`.
 
-### 3-bis. Pacchetti `shared` e `memory` (Piano 6 + 8a + 8b) — cosa esiste già
+### 3-bis. Pacchetti `shared` e `memory` (Piano 6 + 8a + 8b + 8c) — cosa esiste già
 
-Aggiunti dal Piano 6 (+ Canon Ledger dal Piano 8a, + Reflection/L2/Salienza dal Piano 8b), mergiati in `main`. Grafo dipendenze: `memory → engine`, `memory → shared`; **`shared` è foglia** (dipende solo da `zod`, NON importa engine). **`memory` NON dipende da `ai`** (regola di dipendenza; la Reflection di 8b usa **porte iniettate** `FactExtractor`/`Summarizer`/`Clock`; le impl LLM-backed vivono nell'app, Piano 9 — `ai` e `memory` non si importano a vicenda).
+Aggiunti dal Piano 6 (+ Canon Ledger dal Piano 8a, + Reflection/L2/Salienza dal Piano 8b, + Context Assembler dal Piano 8c), mergiati in `main`. Grafo dipendenze: `memory → engine`, `memory → shared`; **`shared` è foglia** (dipende solo da `zod`, NON importa engine). **`memory` NON dipende da `ai`** (regola di dipendenza; la Reflection di 8b usa **porte iniettate** `FactExtractor`/`Summarizer`/`Clock`; le impl LLM-backed vivono nell'app, Piano 9 — `ai` e `memory` non si importano a vicenda).
 
 | Pacchetto | Export / contenuto |
 |---|---|
@@ -90,7 +90,7 @@ Aggiunti dal Piano 6 (+ Canon Ledger dal Piano 8a, + Reflection/L2/Salienza dal 
 
 **Punti chiave (NON romperli):** la porta `EventStore` resta **sincrona** (better-sqlite3 sincrono). `append` usa una **transazione** con check `MAX(seq) === expectedVersion` → `ConcurrencyError` (riusata da engine); validazione Zod **solo in lettura** (`load`/`latestSnapshot`), non in scrittura (gli eventi vengono da `decide`, già tipati). Due **drift guard** a compile-time in `sqlite-event-store.ts` tengono gli schemi Zod allineati ai tipi engine. Una **suite di conformità condivisa** (`event-store-contract.ts`, `runEventStoreContract`) gira verde su in-memory **e** SQLite (contract test, spec §9). **`drizzle-kit` RIMANDATO (verificato empiricamente in 8a):** su questa baseline (journal scritto a mano, senza `0000_snapshot.json`) `drizzle-kit generate` non ha uno snapshot con cui diffare → ricrea **tutte** le tabelle nella nuova migrazione (il `migrate()` fallirebbe) e usa un `when` non-deterministico. Le migrazioni restano **scritte a mano** (deterministiche, `when` congelato, coerenti); drizzle-kit si introdurrà quando il churn dello schema lo giustificherà, con la ricostruzione una tantum della baseline. La `8a` aggiunge `canon_facts` (`0001`); la `8b` aggiunge `summaries` (`0002`) e la colonna `salience` su `canon_facts` (`0003` = `ALTER TABLE ADD ... DEFAULT 0 NOT NULL`, additiva/backward-compat) — tutte a mano, journal a 4 entries con `when` congelato.
 
-### 3-ter. Pacchetto `ai` (Piani 7a + 7b + 7c) — cosa esiste già
+### 3-ter. Pacchetto `ai` (Piani 7a + 7b + 7c + punto di iniezione 8c) — cosa esiste già
 
 Aggiunto dai Piani 7a/7b/7c, mergiato in `main`. Dipende da `zod` + `zod-to-json-schema@~3.23.5` + `jsonrepair` (runtime) + **`@loomn/engine@workspace:*` (aggiunta in 7c → `ai` NON è più foglia)** e `@types/node` (dev). Rispetta la regola `ai → engine → shared`; **NON** dipende da `@loomn/shared` (in 7c non serviva — gli `Command`/`Event` vengono già tipati dall'engine; YAGNI). L'engine **non** importa `ai` (nessun ciclo, verificato). Tutto il codice è stato verificato empiricamente in sandbox prima della stesura dei piani.
 
@@ -120,15 +120,15 @@ Workflow superpowers, una skill per fase:
 4. **Esegui subagent-driven** — skill `superpowers:subagent-driven-development`:
    - Crea un **branch dedicato** `feat/fase1-pianoN-...` (MAI implementare su main).
    - Per **ogni task**, in sequenza:
-     - **Implementer** (`Agent`, model **sonnet**): incolla il **testo completo** del task + contesto + **istruzioni di disciplina di scope**. Non far leggere il file di piano al subagent.
-     - **Spec review** (`Agent`, sonnet): "non fidarti del report, verifica leggendo i file e rieseguendo test/typecheck". Deve dire ✅/❌.
-     - **Code-quality review** (`Agent`, sonnet) — *solo dopo* spec ✅. Per i task senza logica (scaffold/solo tipi) la salto e lo dico.
+     - **Implementer** (`Agent`): incolla il **testo completo** del task + contesto + **istruzioni di disciplina di scope**. Non far leggere il file di piano al subagent.
+     - **Spec review** (`Agent`): "non fidarti del report, verifica leggendo i file e rieseguendo test/typecheck". Deve dire ✅/❌.
+     - **Code-quality review** (`Agent`) — *solo dopo* spec ✅. Per i task senza logica (scaffold/solo tipi) la salto e lo dico.
      - **Hardening selettivo** (vedi §5): accogli SOLO rami reali; uno o due test/doc extra via un piccolo Agent "test-only".
-   - **Final review** dell'intero branch (`Agent`, model **opus**), con BASE=punto di branch e HEAD=ultimo commit.
+   - **Final review** dell'intero branch (`Agent`), con BASE=punto di branch e HEAD=ultimo commit.
    - **finishing-a-development-branch** — skill `superpowers:finishing-a-development-branch`: presenta le 4 opzioni; l'utente sceglie sempre **"Merge in main (locale)"** → `git checkout main && git merge <branch>` (fast-forward) → `pnpm test` (verifica) → `git branch -d <branch>`.
    - **Aggiorna la memoria** (`loomn-project.md`): segna il piano fatto, conteggio test, prossimo passo.
 
-**Model selection:** implementer + review = `sonnet`; final review = `opus`. (Sono andati bene così.)
+**Scelta del modello:** **la decide l'orchestratore**, per ruolo, seguendo la skill `subagent-driven-development` (il modello meno potente che regge il compito; il più capace per il giudizio/architettura, es. la final review). **Non vincolata a priori — scegli tu** in base a complessità del task e contesto. (Storico, non un obbligo: nei Piani 7a–8c implementer+review erano in sonnet e la final review in opus, ed è andata bene.)
 
 **Comunicazione:** tra un task e l'altro l'utente NON va interpellato; procedi fino al merge. Tieni l'utente aggiornato con una tabellina di stato dei task.
 

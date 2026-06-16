@@ -7,3 +7,12 @@ export {
   renderEventsForReflection,
 } from './reflection-ports';
 export { createLanguageProvider, type LanguageProvider, type LanguageProviderConfig } from './provider';
+export {
+  createCampaignService,
+  type CampaignService,
+  type CampaignServiceDeps,
+  type ReadModel,
+  type DispatchOutcome,
+  type TurnOutcome,
+  type ReflectOutcome,
+} from './campaign-service';

@@ -33,7 +33,8 @@ export interface ContextAssemblerDeps {
 export interface ContextAssemblerConfig {
   /** Budget di token per il blocco di contesto assemblato (L1 + L1.5 + L2). I messaggi fissi
    *  (ruolo/regole/fase e azione del giocatore, spec 6.2 priorita 1 e 6) vivono fuori, in `ai`:
-   *  il chiamante dimensiona questo budget di conseguenza. */
+   *  il chiamante dimensiona questo budget di conseguenza. Stima approssimata: intestazioni di
+   *  blocco e separatori non sono conteggiati -> tieni un piccolo margine (~10 token). */
   tokenBudget: number;
   /** Stima dei token di un testo. Default: euristica char/4. Porta iniettabile: l app puo
    *  fornire un tokenizer reale senza che `memory` acquisisca dipendenze. */
@@ -83,8 +84,9 @@ function byId(a: string, b: string): number {
 }
 
 /** Crea un Context Assembler (spec 6.2). `deps` chiude su ledger L1.5 (8a), store L2 (8b) e
- *  Clock (8b); `config` fissa budget, stima token e decadimento. Ritorna una funzione PURA
- *  (dato lo stato + il contenuto degli store + clock.now()) che assembla il blocco di contesto. */
+ *  Clock (8b); `config` fissa budget, stima token e decadimento. Ritorna una funzione
+ *  DETERMINISTICA dati (stato, contenuto degli store al momento della chiamata, clock.now()):
+ *  rilegge gli store a ogni invocazione, quindi NON e memoizzabile per solo `state`. */
 export function createContextAssembler(
   deps: ContextAssemblerDeps,
   config: ContextAssemblerConfig,

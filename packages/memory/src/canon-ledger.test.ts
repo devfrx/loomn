@@ -62,6 +62,14 @@ describe('CanonLedger', () => {
     expect(l.active({ subject: 'pc1' }).map((f) => f.id)).toEqual(['a', 'b']);
   });
 
+  it('supersede senza un fatto precedente attiva direttamente il nuovo (primo inserimento)', () => {
+    const l = ledger();
+    l.supersede({ id: 'loc1', subject: 'pc1', predicate: 'si_trova_a', object: 'Taverna', eventSeq: 1 });
+    expect(l.active({ subject: 'pc1', predicate: 'si_trova_a' })).toEqual([
+      { id: 'loc1', subject: 'pc1', predicate: 'si_trova_a', object: 'Taverna', eventSeq: 1, status: 'active' },
+    ]);
+  });
+
   it('valida lo status letto dal DB e rifiuta un valore illegale (confine non fidato)', () => {
     const l = ledger();
     l.record({ id: 'f1', subject: 's', predicate: 'p', object: 'o', eventSeq: 1 });

@@ -18,3 +18,13 @@ export {
 } from './summary-store';
 export { scoreSalience, type SalienceInput } from './salience';
 export { type Clock } from './clock';
+export {
+  runReflection,
+  type FactExtractor,
+  type Summarizer,
+  type ExtractedFact,
+  type SceneSummaryDraft,
+  type ReflectionInput,
+  type ReflectionDeps,
+  type ReflectionResult,
+} from './reflection';

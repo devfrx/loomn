@@ -64,6 +64,25 @@ importers:
 
   packages/engine: {}
 
+  packages/host:
+    dependencies:
+      '@loomn/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@loomn/engine':
+        specifier: workspace:*
+        version: link:../engine
+      '@loomn/memory':
+        specifier: workspace:*
+        version: link:../memory
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.21
+
   packages/memory:
     dependencies:
       '@loomn/engine':

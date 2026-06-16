@@ -1,41 +1,121 @@
 import { describe, it, expect } from 'vitest';
 import {
   IPC_CHANNELS,
-  pingRequestSchema,
-  pingResponseSchema,
+  dispatchRequestSchema,
+  dispatchResultSchema,
+  runTurnRequestSchema,
+  runTurnResultSchema,
+  providerConfigSchema,
+  providerResultSchema,
+  reflectRequestSchema,
+  reflectResultSchema,
+  statusResultSchema,
   readModelPushSchema,
 } from './ipc';
 
-describe('contratto IPC: nomi dei canali', () => {
-  it('espone nomi di canale stabili e univoci', () => {
-    const names = Object.values(IPC_CHANNELS);
-    expect(new Set(names).size).toBe(names.length);
-    expect(IPC_CHANNELS.ping).toBe('loomn:ping');
+function sampleActor(id: string): unknown {
+  return {
+    id,
+    name: id,
+    kind: 'npc',
+    attributes: {},
+    skills: {},
+    resources: { hp: { current: 10, max: 10 } },
+    conditions: [],
+    items: [],
+    progression: { xp: 0, level: 1 },
+  };
+}
+
+describe('IPC_CHANNELS', () => {
+  it('non espone piu il canale ping (rimosso in 9c-ii)', () => {
+    expect((IPC_CHANNELS as Record<string, string>)['ping']).toBeUndefined();
+  });
+
+  it('espone i canali write e read del 9c-ii', () => {
+    expect(IPC_CHANNELS.dispatch).toBe('loomn:dispatch');
+    expect(IPC_CHANNELS.runTurn).toBe('loomn:run-turn');
+    expect(IPC_CHANNELS.setProvider).toBe('loomn:set-provider');
+    expect(IPC_CHANNELS.reflect).toBe('loomn:reflect');
+    expect(IPC_CHANNELS.getStatus).toBe('loomn:get-status');
     expect(IPC_CHANNELS.readModelPush).toBe('loomn:read-model-push');
   });
 });
 
-describe('contratto IPC: schemi dei payload', () => {
-  it('pingRequestSchema accetta un payload valido', () => {
-    const parsed = pingRequestSchema.parse({ text: 'ciao' });
-    expect(parsed.text).toBe('ciao');
+describe('dispatchRequestSchema (= commandSchema al confine)', () => {
+  it('valida un Command ben formato (AddActor)', () => {
+    const parsed = dispatchRequestSchema.parse({ type: 'AddActor', actor: sampleActor('goblin') });
+    expect(parsed.type).toBe('AddActor');
   });
 
-  it('pingRequestSchema rifiuta un payload senza text', () => {
-    expect(pingRequestSchema.safeParse({}).success).toBe(false);
+  it('rifiuta un payload che non e un Command', () => {
+    expect(() => dispatchRequestSchema.parse({ type: 'Teleport' })).toThrow();
+  });
+});
+
+describe('dispatchResultSchema (union ok/errore)', () => {
+  it('accetta l esito ok con versione', () => {
+    expect(dispatchResultSchema.parse({ ok: true, version: 3 })).toEqual({ ok: true, version: 3 });
   });
 
-  it('pingResponseSchema accetta una risposta valida', () => {
-    const parsed = pingResponseSchema.parse({ ok: true, echo: 'ciao', upper: 'CIAO' });
-    expect(parsed.ok).toBe(true);
+  it('accetta l esito di errore', () => {
+    expect(dispatchResultSchema.parse({ ok: false, error: 'boom' })).toEqual({ ok: false, error: 'boom' });
   });
 
-  it('readModelPushSchema accetta una proiezione read-side', () => {
-    const parsed = readModelPushSchema.parse({ version: 0, summary: 'nessuno stato' });
-    expect(parsed.version).toBe(0);
+  it('rifiuta ok senza versione', () => {
+    expect(() => dispatchResultSchema.parse({ ok: true })).toThrow();
+  });
+});
+
+describe('schemi run-turn / provider / reflect / status', () => {
+  it('runTurnRequest richiede playerAction stringa', () => {
+    expect(runTurnRequestSchema.parse({ playerAction: 'apro la porta' })).toEqual({ playerAction: 'apro la porta' });
+    expect(() => runTurnRequestSchema.parse({})).toThrow();
   });
 
-  it('readModelPushSchema rifiuta una version negativa', () => {
-    expect(readModelPushSchema.safeParse({ version: -1, summary: 'x' }).success).toBe(false);
+  it('runTurnResult ok porta narration e versione', () => {
+    expect(runTurnResultSchema.parse({ ok: true, narration: 'x', version: 1 })).toEqual({
+      ok: true,
+      narration: 'x',
+      version: 1,
+    });
+  });
+
+  it('providerConfig accetta apiKey opzionale (path LM Studio locale senza chiave)', () => {
+    expect(providerConfigSchema.parse({ baseUrl: 'http://x/v1', model: 'm' })).toEqual({
+      baseUrl: 'http://x/v1',
+      model: 'm',
+    });
+    expect(providerConfigSchema.parse({ baseUrl: 'http://x/v1', model: 'm', apiKey: 'sk' }).apiKey).toBe('sk');
+  });
+
+  it('providerResult e reflectResult validano le union ok/errore', () => {
+    expect(providerResultSchema.parse({ ok: true })).toEqual({ ok: true });
+    expect(reflectResultSchema.parse({ ok: true, factCount: 2, summarized: true })).toEqual({
+      ok: true,
+      factCount: 2,
+      summarized: true,
+    });
+    expect(() => reflectResultSchema.parse({ ok: true })).toThrow();
+  });
+
+  it('statusResult richiede i tre flag diagnostici', () => {
+    expect(statusResultSchema.parse({ version: 0, safeStorageAvailable: true, providerConfigured: false })).toEqual({
+      version: 0,
+      safeStorageAvailable: true,
+      providerConfigured: false,
+    });
+  });
+});
+
+describe('readModelPushSchema (snapshot read-side version e state)', () => {
+  it('valida uno snapshot con stato vuoto', () => {
+    const push = readModelPushSchema.parse({ version: 0, state: { version: 0, actors: {}, encounter: null } });
+    expect(push.version).toBe(0);
+    expect(push.state.actors).toEqual({});
+  });
+
+  it('rifiuta uno snapshot senza state', () => {
+    expect(() => readModelPushSchema.parse({ version: 0 })).toThrow();
   });
 });

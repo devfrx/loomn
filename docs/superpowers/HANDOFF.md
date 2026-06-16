@@ -38,7 +38,11 @@ Decisioni di prodotto fissate: single + multiplayer con Master AI; motore **gene
   - `2026-06-15-loomn-fase1-piano4-combattimento-zone.md` ✅ fatto
   - `2026-06-15-loomn-fase1-piano5-event-sourcing.md` ✅ fatto
   - `2026-06-15-loomn-fase1-piano6-persistenza.md` ✅ fatto (pacchetti `shared` + `memory`)
-  - **Piano 7 → da scrivere.**
+  - `2026-06-15-loomn-fase1-piano7a-provider-layer.md` ✅ fatto (`@loomn/ai`)
+  - `2026-06-15-loomn-fase1-piano7b-structured-output.md` ✅ fatto
+  - `2026-06-15-loomn-fase1-piano7c-ai-master-pipeline.md` ✅ fatto
+  - `2026-06-16-loomn-fase1-piano8a-canon-ledger.md` ✅ fatto (Canon Ledger L1.5 in `memory`)
+  - **Piano 8b → prossimo da scrivere** (Reflection + L2; vedi §0/§7/§8).
 - **Memoria:** `C:\Users\zagor\.claude\projects\C--Users-zagor-Desktop-tabl\memory\` (`loomn-project.md`, `loomn-working-style.md`, indice in `MEMORY.md`).
 
 Ogni piano ha in fondo una **roadmap aggiornata** e una sezione **self-review**.
@@ -47,7 +51,7 @@ Ogni piano ha in fondo una **roadmap aggiornata** e una sezione **self-review**.
 
 ## 3. Stato dell'engine (`packages/engine`) — cosa esiste già
 
-Monorepo **pnpm workspaces** (`pnpm-workspace.yaml` globba `packages/*` e `app/*`). Esistono `packages/engine` (dettagliato qui sotto), più `packages/shared` e `packages/memory` (Piano 6 — vedi §3-bis). TS strict (`tsconfig.base.json`): `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `verbatimModuleSyntax`. Test: Vitest (config root `vitest.config.ts`, include `packages/**/*.test.ts`). **125 test verdi totali** (98 engine + 27 da `shared`/`memory` del Piano 6).
+Monorepo **pnpm workspaces** (`pnpm-workspace.yaml` globba `packages/*` e `app/*`). Esistono `packages/engine` (dettagliato qui sotto), più `packages/shared` e `packages/memory` (Piano 6 + 8a — vedi §3-bis) e `packages/ai` (Piani 7a/7b/7c — vedi §3-ter). TS strict (`tsconfig.base.json`): `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `verbatimModuleSyntax`. Test: Vitest (config root `vitest.config.ts`, include `packages/**/*.test.ts`). **182 test verdi totali** (98 engine + 35 `shared`/`memory` + 49 `ai`).
 
 `packages/engine/src/index.ts` ri-esporta **15 moduli**, in quest'ordine. Export pubblici per modulo:
 
@@ -98,7 +102,7 @@ Aggiunto dai Piani 7a/7b/7c, mergiato in `main`. Dipende da `zod` + `zod-to-json
 | `structured-output.ts` (7b) | `createStructuredOutput(model, {tracer?, strategies?})`, `StructuredOutputPort`, `StructuredOutputError` (con `lastText`), tipi `StructuredOutputRequest/Result/Options/Strategy`. 3 livelli in ordine (function-call → json_schema → repair+retry), Zod come gate, cascata su qualunque fallimento; `strategies` per saltare livelli. Costruito sopra `LanguageModel` (testato con fake model). |
 | `language-model-contract.ts` | `runLanguageModelContract(label, makeModel)`: suite di conformità condivisa (spec §9), come `event-store-contract.ts`. **Non** nel barrel (utility di test). Oggi gira sull'adapter OpenAI; in Fase 2 la riuseranno Anthropic/Gemini. |
 | `master-tools.ts` (7c) | Contratto LLM↔engine del Master. 5 strumenti che mappano 1:1 ai `Command` esistenti: `spawn_npc→AddActor`, `attack→Attack`, `start_encounter→StartEncounter`, `end_turn→EndTurn`, `next_round→NextRound`. Registro omogeneo type-safe (`makeEntry<A>` cattura il tipo concreto dello schema Zod → `ToolEntry` type-erased, niente cast non sicuri). `masterToolDefs()` → `LlmToolDef[]` (schema JSON **inline** via `zodToJsonSchema` openApi3/`$refStrategy:'none'`); `resolveToolCall(name, rawArgs)` → `ToolResolution` (parse via `parseJson` + Zod `safeParse` + map al `Command`, o errore). |
-| `master-turn.ts` (7c) | `runMasterTurn(request)`: **turno agentico singolo** (spec §5.4). `assembleContextStub(state)` (stub L1, il vero Context Assembler è Piano 8) + `buildMasterMessages` + il ciclo: `model.stream` con `tools`+`toolChoice:'auto'` → `collectResponse` → per ogni tool-call `resolveToolCall` → `decide(state,cmd,rng)` (RNG **iniettato**, `request.rng`) → `applyEvent` → **reiniezione degli Event reali come messaggio `role:'user'`** (provider-agnostico: l'adapter 7a NON fa round-trip dei `tool_calls`; un `role:'tool'` verrebbe rifiutato da un provider reale). Termina su testo libero (= narrazione) o `maxIterations` (default 6). Rami falliti (Zod o `decide` che lancia) tracciati (`validation-failure`/`error`) e **senza eventi**. Ritorna `{state, events, narration, invocations, transcript}`. |
+| `master-turn.ts` (7c) | `runMasterTurn(request)`: **turno agentico singolo** (spec §5.4). `assembleContextStub(state)` (stub L1, il vero Context Assembler è il Piano 8c) + `buildMasterMessages` + il ciclo: `model.stream` con `tools`+`toolChoice:'auto'` → `collectResponse` → per ogni tool-call `resolveToolCall` → `decide(state,cmd,rng)` (RNG **iniettato**, `request.rng`) → `applyEvent` → **reiniezione degli Event reali come messaggio `role:'user'`** (provider-agnostico: l'adapter 7a NON fa round-trip dei `tool_calls`; un `role:'tool'` verrebbe rifiutato da un provider reale). Termina su testo libero (= narrazione) o `maxIterations` (default 6). Rami falliti (Zod o `decide` che lancia) tracciati (`validation-failure`/`error`) e **senza eventi**. Ritorna `{state, events, narration, invocations, transcript}`. |
 
 **Punti chiave (NON romperli):** la porta è **async/streaming** (a differenza dell'`EventStore` sincrono); l'adapter **nasconde** la frammentazione delle tool-call (emette tool-call intere); il transport è **iniettato** (nessuna chiamata di rete reale nei test — fake con SSE predefinito); il `TracingPort` non porta tempo nei suoi eventi (purezza dei chiamanti); il barrel `index.ts` esporta language-model/tracing/transport/openai-adapter/structured-output/master-tools/master-turn (NON il contract né `json-repair`, interni). **7c — il codice è l'arbitro:** nel turno, `decide` consuma l'RNG seedato e produce gli **Event reali**; gli argomenti dei tool sono validati con Zod (`resolveToolCall`) prima di diventare `Command`; comandi invalidi → rifiutati senza eventi. Strumenti rimandati (`request_check`/`apply_effect`/`advance_quest`) e **FSM di fase** (spec §5.5) sono **fuori ambito** di 7c (servono nuovi `Command`/`Event` engine o il contesto quest). Follow-up minore noto: nessun TraceEvent/narrazione di fallback al raggiungimento di `maxIterations`.
 
@@ -145,7 +149,7 @@ Workflow superpowers, una skill per fase:
 
 - **OS:** Windows 11. Shell: PowerShell; **Bash disponibile** (usa Bash per git/pnpm, sono POSIX). I warning `LF will be replaced by CRLF` sono cosmetici.
 - **Toolchain:** Node v24.9.0, pnpm 9.12.0, corepack 0.34.0 (già installati, su PATH).
-- **Verifica (dalla root):** `pnpm test` (Vitest, atteso **125 verdi**), `pnpm typecheck` (→ `pnpm -r typecheck` → `tsc --noEmit` su engine/shared/memory), `pnpm -C packages/<pkg> typecheck` per il singolo pacchetto.
+- **Verifica (dalla root):** `pnpm test` (Vitest, atteso **182 verdi**), `pnpm typecheck` (→ `pnpm -r typecheck` → `tsc --noEmit` su engine/shared/memory/ai), `pnpm -C packages/<pkg> typecheck` per il singolo pacchetto.
 - I subagent creano file con lo strumento Write (NON `New-Item -Force`, che tronca).
 
 ---
@@ -179,7 +183,7 @@ Il **Piano 7** (spec §5.4/§7) era splittato in tre sotto-piani, **tutti fatti 
 - **Piano 10 — UI Vue** (chat, scheda PG, **pannello dadi 3D** con `@3d-dice/dice-box` a risultati predeterminati, journal, gestione provider) (grande, probabile split)
 - **Piano 11 — Moduli a tema** (formato dati Zod + import/export + 1 modulo curato)
 
-Stima: ~5-8 piani per fine Fase 1; ~17-25 per la visione completa (Fase 2 = Module Editor, RAG/L3, più provider/moduli; Fase 3 = multiplayer). I piani grandi (7, 10) si decompongono — è una feature, non un'imprecisione. Da qui in poi si entra nell'IO reale (DB, AI, Electron, UI): i piani saranno meno puramente unit-testabili.
+Stima: ~5-8 piani per fine Fase 1; ~17-25 per la visione completa (Fase 2 = Module Editor, RAG/L3, più provider/moduli; Fase 3 = multiplayer). I piani grandi (7, 8, 10) si decompongono in sotto-piani — è una feature, non un'imprecisione. Da qui in poi si entra nell'IO reale (DB, AI, Electron, UI): i piani saranno meno puramente unit-testabili.
 
 ---
 

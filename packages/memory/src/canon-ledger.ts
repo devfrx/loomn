@@ -16,16 +16,19 @@ export interface CanonFact {
   predicate: string;
   object: string;
   eventSeq: number;
+  salience: number;
   status: CanonStatus;
 }
 
-/** Un nuovo fatto da registrare; lo stato iniziale e sempre 'active'. */
+/** Un nuovo fatto da registrare; lo stato iniziale e sempre 'active'. `salience` opzionale
+ *  (default 0): i call site 8a la omettono, la Reflection 8b la fornisce. */
 export interface CanonFactInput {
   id: string;
   subject: string;
   predicate: string;
   object: string;
   eventSeq: number;
+  salience?: number;
 }
 
 export interface CanonFactFilter {
@@ -57,9 +60,18 @@ function toFact(row: {
   predicate: string;
   object: string;
   eventSeq: number;
+  salience: number;
   status: string;
 }): CanonFact {
-  return { ...row, status: statusSchema.parse(row.status) };
+  return {
+    id: row.id,
+    subject: row.subject,
+    predicate: row.predicate,
+    object: row.object,
+    eventSeq: row.eventSeq,
+    salience: row.salience,
+    status: statusSchema.parse(row.status),
+  };
 }
 
 function buildWhere(filter: CanonFactFilter | undefined, activeOnly: boolean): SQL | undefined {
@@ -80,7 +92,7 @@ export function createCanonLedger(db: BetterSQLite3Database): CanonLedger {
   };
   return {
     record(fact) {
-      db.insert(canonFacts).values({ ...fact, status: 'active' }).run();
+      db.insert(canonFacts).values({ ...fact, salience: fact.salience ?? 0, status: 'active' }).run();
     },
     active(filter) {
       return query(filter, true);
@@ -98,7 +110,7 @@ export function createCanonLedger(db: BetterSQLite3Database): CanonLedger {
           .set({ status: 'retracted' })
           .where(and(eq(canonFacts.subject, fact.subject), eq(canonFacts.predicate, fact.predicate), eq(canonFacts.status, 'active')))
           .run();
-        tx.insert(canonFacts).values({ ...fact, status: 'active' }).run();
+        tx.insert(canonFacts).values({ ...fact, salience: fact.salience ?? 0, status: 'active' }).run();
       });
     },
   };

@@ -23,7 +23,16 @@ describe('openDatabase', () => {
       .values({ id: 'f1', subject: 's', predicate: 'p', object: 'o', eventSeq: 1, status: 'active' })
       .run();
     expect(db.select().from(canonFacts).all()).toEqual([
-      { id: 'f1', subject: 's', predicate: 'p', object: 'o', eventSeq: 1, status: 'active' },
+      { id: 'f1', subject: 's', predicate: 'p', object: 'o', eventSeq: 1, status: 'active', salience: 0 },
+    ]);
+    close();
+  });
+
+  it('aggiunge la colonna salience a canon_facts con la migrazione 0003 (default 0)', () => {
+    const { db, close } = openDatabase(':memory:');
+    db.insert(canonFacts).values({ id: 'f1', subject: 's', predicate: 'p', object: 'o', eventSeq: 1, status: 'active' }).run();
+    expect(db.select().from(canonFacts).all()).toEqual([
+      { id: 'f1', subject: 's', predicate: 'p', object: 'o', eventSeq: 1, status: 'active', salience: 0 },
     ]);
     close();
   });

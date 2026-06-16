@@ -19,7 +19,7 @@ describe('CanonLedger', () => {
     const l = ledger();
     l.record({ id: 'f1', subject: 'pc1', predicate: 'ha_ucciso', object: 'Guardia#3', eventSeq: 8120 });
     expect(l.active()).toEqual([
-      { id: 'f1', subject: 'pc1', predicate: 'ha_ucciso', object: 'Guardia#3', eventSeq: 8120, status: 'active' },
+      { id: 'f1', subject: 'pc1', predicate: 'ha_ucciso', object: 'Guardia#3', eventSeq: 8120, salience: 0, status: 'active' },
     ]);
   });
 
@@ -47,7 +47,7 @@ describe('CanonLedger', () => {
     l.record({ id: 'loc1', subject: 'pc1', predicate: 'si_trova_a', object: 'Taverna', eventSeq: 1 });
     l.supersede({ id: 'loc2', subject: 'pc1', predicate: 'si_trova_a', object: 'Foresta', eventSeq: 5 });
     expect(l.active({ subject: 'pc1', predicate: 'si_trova_a' })).toEqual([
-      { id: 'loc2', subject: 'pc1', predicate: 'si_trova_a', object: 'Foresta', eventSeq: 5, status: 'active' },
+      { id: 'loc2', subject: 'pc1', predicate: 'si_trova_a', object: 'Foresta', eventSeq: 5, salience: 0, status: 'active' },
     ]);
     expect(l.all({ subject: 'pc1', predicate: 'si_trova_a' }).map((f) => ({ id: f.id, status: f.status }))).toEqual([
       { id: 'loc1', status: 'retracted' },
@@ -66,7 +66,7 @@ describe('CanonLedger', () => {
     const l = ledger();
     l.supersede({ id: 'loc1', subject: 'pc1', predicate: 'si_trova_a', object: 'Taverna', eventSeq: 1 });
     expect(l.active({ subject: 'pc1', predicate: 'si_trova_a' })).toEqual([
-      { id: 'loc1', subject: 'pc1', predicate: 'si_trova_a', object: 'Taverna', eventSeq: 1, status: 'active' },
+      { id: 'loc1', subject: 'pc1', predicate: 'si_trova_a', object: 'Taverna', eventSeq: 1, salience: 0, status: 'active' },
     ]);
   });
 
@@ -75,5 +75,18 @@ describe('CanonLedger', () => {
     l.record({ id: 'f1', subject: 's', predicate: 'p', object: 'o', eventSeq: 1 });
     open?.db.run(sql`UPDATE canon_facts SET status = 'bogus' WHERE id = 'f1'`);
     expect(() => l.all()).toThrow();
+  });
+
+  it('registra un fatto con la salienza fornita', () => {
+    const l = ledger();
+    l.record({ id: 'f1', subject: 'pc1', predicate: 'ha_ucciso', object: 'Guardia#3', eventSeq: 8120, salience: 0.9 });
+    expect(l.active()[0]?.salience).toBe(0.9);
+  });
+
+  it('supersede conserva la salienza del nuovo fatto funzionale', () => {
+    const l = ledger();
+    l.record({ id: 'loc1', subject: 'pc1', predicate: 'si_trova_a', object: 'Taverna', eventSeq: 1, salience: 0.3 });
+    l.supersede({ id: 'loc2', subject: 'pc1', predicate: 'si_trova_a', object: 'Foresta', eventSeq: 5, salience: 0.6 });
+    expect(l.active({ subject: 'pc1', predicate: 'si_trova_a' })[0]?.salience).toBe(0.6);
   });
 });

@@ -21,6 +21,7 @@ export const canonFacts = sqliteTable('canon_facts', {
   object: text('object').notNull(),
   eventSeq: integer('event_seq').notNull(),
   status: text('status').notNull(),
+  salience: real('salience').notNull().default(0),
 });
 
 // L2 Memoria narrativa (spec 6): riassunti gerarchici scena -> sessione -> arco -> campagna.

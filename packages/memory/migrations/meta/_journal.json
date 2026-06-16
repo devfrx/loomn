@@ -4,6 +4,7 @@
   "entries": [
     { "idx": 0, "version": "6", "when": 1750000000000, "tag": "0000_init", "breakpoints": true },
     { "idx": 1, "version": "6", "when": 1750000000001, "tag": "0001_canon_ledger", "breakpoints": true },
-    { "idx": 2, "version": "6", "when": 1750000000002, "tag": "0002_summaries", "breakpoints": true }
+    { "idx": 2, "version": "6", "when": 1750000000002, "tag": "0002_summaries", "breakpoints": true },
+    { "idx": 3, "version": "6", "when": 1750000000003, "tag": "0003_canon_salience", "breakpoints": true }
   ]
 }

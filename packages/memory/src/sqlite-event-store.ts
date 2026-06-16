@@ -1,4 +1,5 @@
 import { sql, desc } from 'drizzle-orm';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   ConcurrencyError,
   type DomainEvent,
@@ -21,12 +22,15 @@ export interface SqliteEventStore extends EventStore {
   close(): void;
 }
 
-/** Adapter SQLite della porta EventStore definita nel Piano 5 + persistenza degli snapshot.
- *  dbPath = ':memory:' o un percorso file. Concorrenza ottimistica via MAX(seq) in
- *  transazione; load/latestSnapshot validano con Zod (confine non fidato). */
-export function createSqliteEventStore(dbPath: string): SqliteEventStore {
-  const { db, close } = openDatabase(dbPath);
+/** Event store SQLite + snapshot SENZA `close`: opera su un handle Drizzle gia aperto di cui
+ *  NON possiede il ciclo di vita (chiude chi ha aperto la connessione). E la forma condivisibile
+ *  con Canon Ledger e Summary Store sullo STESSO handle (Piano 9b / HANDOFF 7-bis). */
+export type SqliteEventStoreOn = Omit<SqliteEventStore, 'close'>;
 
+/** Costruisce l event store su una connessione gia aperta e condivisa. Concorrenza ottimistica
+ *  via MAX(seq) in transazione; load/latestSnapshot validano con Zod (confine non fidato). Non
+ *  chiude la connessione. */
+export function createSqliteEventStoreOn(db: BetterSQLite3Database): SqliteEventStoreOn {
   const currentVersion = (): number => {
     const row = db.select({ v: sql<number>`COALESCE(MAX(${events.seq}), 0)` }).from(events).get();
     return row?.v ?? 0;
@@ -66,8 +70,14 @@ export function createSqliteEventStore(dbPath: string): SqliteEventStore {
       }
       return { version: row.version, state: gameStateSchema.parse(JSON.parse(row.state)) };
     },
-    close,
   };
+}
+
+/** Adapter SQLite della porta EventStore (Piano 5) + snapshot, che POSSIEDE la propria
+ *  connessione: apre dbPath, costruisce il corpo su quel handle e aggiunge `close`. */
+export function createSqliteEventStore(dbPath: string): SqliteEventStore {
+  const { db, close } = openDatabase(dbPath);
+  return { ...createSqliteEventStoreOn(db), close };
 }
 
 // Drift guard a compile-time: gli schemi Zod devono restare allineati ai tipi del motore

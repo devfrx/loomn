@@ -1,5 +1,10 @@
 export { openDatabase, type OpenDb } from './db';
-export { createSqliteEventStore, type SqliteEventStore } from './sqlite-event-store';
+export {
+  createSqliteEventStore,
+  createSqliteEventStoreOn,
+  type SqliteEventStore,
+  type SqliteEventStoreOn,
+} from './sqlite-event-store';
 export {
   createCanonLedger,
   type CanonLedger,

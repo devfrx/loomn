@@ -11,9 +11,14 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@loomn/shared": "workspace:*"
+    "@loomn/shared": "workspace:*",
+    "@loomn/host": "workspace:*",
+    "@loomn/engine": "workspace:*",
+    "better-sqlite3": "^12.10.1",
+    "drizzle-orm": "^0.38.4"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.7.0",
     "electron": "^42.4.0",
     "electron-vite": "^4.0.1",
     "@vitejs/plugin-vue": "^5.2.4",

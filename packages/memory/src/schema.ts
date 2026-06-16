@@ -11,3 +11,14 @@ export const snapshots = sqliteTable('snapshots', {
   version: integer('version').primaryKey(),
   state: text('state').notNull(),
 });
+
+// L1.5 Canon Ledger (spec 6): fatti narrativi DISCRETI e interrogabili
+// (soggetto, predicato, oggetto, eventSeq di provenienza, stato). Proiezione SQLite.
+export const canonFacts = sqliteTable('canon_facts', {
+  id: text('id').primaryKey(),
+  subject: text('subject').notNull(),
+  predicate: text('predicate').notNull(),
+  object: text('object').notNull(),
+  eventSeq: integer('event_seq').notNull(),
+  status: text('status').notNull(),
+});

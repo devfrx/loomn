@@ -98,6 +98,14 @@ export function decide(state: GameState, command: Command, rng: RandomSource, ru
       if (attacker === undefined || target === undefined) {
         throw new Error('Attaccante o bersaglio sconosciuto');
       }
+      const vocab = ruleset.vocabulary;
+      if (command.attribute !== undefined) requireMember(vocab.attributes, command.attribute, 'Attributo');
+      if (command.skill !== undefined) requireMember(vocab.skills, command.skill, 'Abilita');
+      requireMember(vocab.defenses, command.defense, 'Difesa');
+      requireMember(vocab.resources, command.damageResource, 'Risorsa');
+      if (target.resources[command.damageResource] === undefined) {
+        throw new Error(`Risorsa sconosciuta: ${command.damageResource}`);
+      }
       const result = performAttack(
         {
           attacker,

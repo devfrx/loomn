@@ -521,3 +521,33 @@ describe('decide(AddActor) — vocabolario e auto-fill', () => {
     expect(events).toHaveLength(1);
   });
 });
+
+describe('decide(Attack) — vocabolario', () => {
+  const BVOCAB = createRuleset({
+    vocabulary: createVocabulary({ attributes: ['forza'], skills: ['arcano'], resources: ['hp'], defenses: ['difesa'] }),
+  });
+  const combatState = () => inCombat(withActors(hero(), actor('goblin')));
+
+  it('rifiuta una difesa fuori vocabolario', () => {
+    expect(() =>
+      decide(combatState(), { type: 'Attack', attackerId: 'eroe', targetId: 'goblin', attribute: 'forza', defense: 'parata', defenseBase: 10, damageResource: 'hp' }, stub([0.5]), BVOCAB),
+    ).toThrow(/parata/);
+  });
+
+  it('rifiuta un damageResource fuori vocabolario', () => {
+    expect(() =>
+      decide(combatState(), { type: 'Attack', attackerId: 'eroe', targetId: 'goblin', attribute: 'forza', defense: 'difesa', defenseBase: 10, damageResource: 'danno' }, stub([0.5]), BVOCAB),
+    ).toThrow(/danno/);
+  });
+
+  it('rifiuta un attributo fuori vocabolario', () => {
+    expect(() =>
+      decide(combatState(), { type: 'Attack', attackerId: 'eroe', targetId: 'goblin', attribute: 'magia', defense: 'difesa', defenseBase: 10, damageResource: 'hp' }, stub([0.5]), BVOCAB),
+    ).toThrow(/magia/);
+  });
+
+  it('accetta un attacco interamente in vocabolario', () => {
+    const events = decide(combatState(), { type: 'Attack', attackerId: 'eroe', targetId: 'goblin', attribute: 'forza', defense: 'difesa', defenseBase: 10, damageResource: 'hp' }, stub([0.95, 0.5, 0.5]), BVOCAB);
+    expect(events.length).toBeGreaterThanOrEqual(1);
+  });
+});

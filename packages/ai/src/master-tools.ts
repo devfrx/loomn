@@ -11,19 +11,26 @@ import { parseJson } from './json-repair';
 
 // --- schemi degli argomenti (Zod) ---
 
+// Coerce SOLO una stringa numerica trimmata a numero; lascia tutto il resto invariato (lo schema
+// numerico a valle rifiuta vuoto/non-numerico/null/mancante). Politica di coercizione condivisa da
+// llmNumber e llmInt: la regola vive in un solo posto (G1). Resta STRICT: niente 0/garbage silenzioso.
+function coerceNumericString(v: unknown): unknown {
+  if (typeof v === 'string') {
+    const trimmed = v.trim();
+    if (trimmed === '') return v; // resta stringa -> lo schema numerico la rifiuta
+    const n = Number(trimmed);
+    return Number.isNaN(n) ? v : n; // numerica -> numero; non-numerica -> resta stringa (rifiutata)
+  }
+  return v; // number passa; null/undefined arrivano allo schema e sono rifiutati
+}
+
 // Gli LLM stringificano i numeri di routine ("defenseBase":"10") e cosi avevano bloccato
 // il combattimento nella slice (finding G1). Coerciamo le stringhe numeriche a numero, ma
 // restiamo STRICT: stringa vuota/whitespace/non-numerica/null/mancante e RIFIUTATA (niente
 // 0 silenzioso). Il codice resta l arbitro: un campo numerico assente non diventa uno zero.
-const llmNumber = z.preprocess((v) => {
-  if (typeof v === 'string') {
-    const trimmed = v.trim();
-    if (trimmed === '') return v; // resta stringa -> z.number la rifiuta
-    const n = Number(trimmed);
-    return Number.isNaN(n) ? v : n; // numerica -> numero; non-numerica -> resta stringa (rifiutata)
-  }
-  return v; // number passa; null/undefined arrivano a z.number e sono rifiutati
-}, z.number().finite()); // .finite() chiude anche "Infinity"/"-Infinity" (numeri degeneri, prima irraggiungibili via JSON)
+// Coercivo (G1): una stringa numerica diventa numero finito; tutto il resto e rifiutato.
+// .finite() chiude anche "Infinity"/"-Infinity".
+const llmNumber = z.preprocess(coerceNumericString, z.number().finite());
 
 // Gli LLM stringificano anche gli argomenti ARRAY ("participants":"[{...}]") e cosi avevano
 // impedito l avvio dello scontro nella slice (finding G6). Coerciamo una stringa JSON-array
@@ -46,20 +53,10 @@ function llmArray<S extends z.ZodTypeAny>(schema: S) {
 }
 
 // Coercivo-intero: gemello di llmNumber per i campi che DEVONO essere interi (count/sides dei
-// dadi). Stessa politica strict: coerce SOLO stringhe numeriche, poi valida come intero >= min.
-// Stringa vuota/whitespace/non-numerica/decimale/null/mancante/non-finita -> RIFIUTATA
-// (z.number().int() rifiuta gia decimali, Infinity e NaN). Niente intero silenzioso: il codice
-// resta l arbitro. Factory perche il minimo varia per campo e va dentro lo schema avvolto.
+// dadi). z.number().int() rifiuta gia decimali, Infinity e NaN; .min(min) il sotto-minimo. Factory perche il
+// minimo varia per campo e va dentro lo schema avvolto dal preprocess (un ZodEffects non concatena .int()).
 function llmInt(min: number) {
-  return z.preprocess((v) => {
-    if (typeof v === 'string') {
-      const trimmed = v.trim();
-      if (trimmed === '') return v; // resta stringa -> z.number la rifiuta
-      const n = Number(trimmed);
-      return Number.isNaN(n) ? v : n; // numerica -> numero; non-numerica -> resta stringa (rifiutata)
-    }
-    return v; // number passa; null/undefined arrivano a z.number e sono rifiutati
-  }, z.number().int().min(min));
+  return z.preprocess(coerceNumericString, z.number().int().min(min));
 }
 
 const resourcePoolSchema = z.object({ current: llmNumber, max: llmNumber });

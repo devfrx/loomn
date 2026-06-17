@@ -367,12 +367,34 @@ describe('resolveToolCall apply_effect', () => {
     expect(r.error).toContain('count');
   });
 
-  it('mostra dice come array e direction come enum nello schema (coercizione trasparente)', () => {
+  it('rifiuta sides sotto il minimo (sides >= 2)', () => {
+    const r = resolveToolCall(
+      'apply_effect',
+      '{"targetId":"pc1","resource":"hp","direction":"restore","dice":[{"count":1,"sides":1}]}',
+    );
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('atteso errore');
+    expect(r.error).toContain('sides');
+  });
+
+  it('mostra dice come array di interi e direction come enum nello schema (coercizione trasparente)', () => {
     const ae = masterToolDefs().find((d) => d.name === 'apply_effect');
     if (ae === undefined) throw new Error('atteso apply_effect');
-    const props = (ae.parameters as { properties: Record<string, { type?: string; enum?: string[]; minItems?: number }> }).properties;
+    const props = (ae.parameters as {
+      properties: Record<string, {
+        type?: string;
+        enum?: string[];
+        minItems?: number;
+        items?: { properties?: Record<string, { type?: string; minimum?: number }> };
+      }>;
+    }).properties;
     expect(props.dice?.type).toBe('array');
     expect(props.dice?.minItems).toBe(1);
     expect(props.direction?.enum).toEqual(['restore', 'drain']);
+    const item = props.dice?.items?.properties;
+    expect(item?.count?.type).toBe('integer');
+    expect(item?.count?.minimum).toBe(1);
+    expect(item?.sides?.type).toBe('integer');
+    expect(item?.sides?.minimum).toBe(2);
   });
 });

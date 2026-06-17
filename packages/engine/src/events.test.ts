@@ -170,6 +170,7 @@ describe('applyEvent', () => {
     });
     const s = applyEvent(started, { type: 'QuestAdvanced', questId: 'q1', status: 'completed' });
     expect(s.quests['q1']?.status).toBe('completed');
+    expect(s.quests['q1']?.title).toBe('Trova l amuleto');
     expect(s.version).toBe(2);
   });
 

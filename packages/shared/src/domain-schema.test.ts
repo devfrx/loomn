@@ -166,6 +166,12 @@ describe('domainEventSchema', () => {
     const event = { type: 'QuestAdvanced' as const, questId: 'q1', status: 'completed' as const };
     expect(domainEventSchema.parse(event)).toEqual(event);
   });
+
+  it('rifiuta QuestAdvanced con status non terminale', () => {
+    expect(() =>
+      domainEventSchema.parse({ type: 'QuestAdvanced', questId: 'q1', status: 'active' }),
+    ).toThrow();
+  });
 });
 
 describe('gameStateSchema', () => {

@@ -201,6 +201,18 @@ describe('blocco quest in L1', () => {
     expect(ctx.indexOf('id=qa')).toBeLessThan(ctx.indexOf('id=qb'));
   });
 
+  it('rende solo le quest attive in uno stato misto attive+terminate', () => {
+    const ctx = assemble(
+      withQuests({
+        qa: { id: 'qa', title: 'In corso', status: 'active' },
+        qz: { id: 'qz', title: 'Conclusa', status: 'completed' },
+      }),
+    );
+    expect(ctx).toContain('Quest attive (L1)');
+    expect(ctx).toContain('In corso');
+    expect(ctx).not.toContain('Conclusa');
+  });
+
   it('non rende un blocco quest se non ci sono quest attive (solo terminate)', () => {
     const ctx = assemble(
       withQuests({
@@ -217,21 +229,20 @@ describe('blocco quest in L1', () => {
   });
 
   it('il blocco quest fa parte di L1: non viene tagliato con budget 0', () => {
-    const ctx = assemble(withQuests({ q1: { id: 'q1', title: 'Urgente', status: 'active' } }));
-    const ctx0 = (() => {
-      const { db, close } = openDatabase(':memory:');
-      try {
-        const ledger = createCanonLedger(db);
-        const summaries = createSummaryStore(db);
-        return createContextAssembler({ ledger, summaries, clock: fixedClock(0) }, { tokenBudget: 0 })(
-          { ...HERO_STATE, quests: { q1: { id: 'q1', title: 'Urgente', status: 'active' } } },
-        );
-      } finally {
-        close();
-      }
-    })();
-    expect(ctx).toContain('Urgente');
-    expect(ctx0).toContain('Quest attive (L1)');
-    expect(ctx0).toContain('Urgente');
+    const questState = withQuests({ q1: { id: 'q1', title: 'Urgente', status: 'active' } });
+    expect(assemble(questState)).toContain('Urgente');
+
+    const { db, close } = openDatabase(':memory:');
+    try {
+      const assembler0 = createContextAssembler(
+        { ledger: createCanonLedger(db), summaries: createSummaryStore(db), clock: fixedClock(0) },
+        { tokenBudget: 0 },
+      );
+      const ctx0 = assembler0(questState);
+      expect(ctx0).toContain('Quest attive (L1)');
+      expect(ctx0).toContain('Urgente');
+    } finally {
+      close();
+    }
   });
 });

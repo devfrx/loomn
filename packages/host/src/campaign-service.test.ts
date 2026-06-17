@@ -372,6 +372,34 @@ describe('createCampaignService - reflect e serializzazione', () => {
     }
   });
 
+  it('reflect chiamato due volte con eventi aggiunti in mezzo non collide (segmentazione per scena)', async () => {
+    const port: StructuredOutputPort = {
+      generate: async <T>(request: StructuredOutputRequest<T>): Promise<StructuredOutputResult<T>> => {
+        if (request.schemaName === 'extract_facts') {
+          const value = { facts: [{ subject: 'Goblin', predicate: 'minaccia', object: 'il villaggio', functional: false, importance: 6 }] };
+          return { value: value as T, strategy: 'function-call' };
+        }
+        const draft = { text: 'Il goblin minaccia il villaggio.', importance: 6 };
+        return { value: draft as T, strategy: 'function-call' };
+      },
+    };
+    const { service, memory } = makeService({ structured: port });
+    try {
+      await service.dispatch({ type: 'AddActor', actor: actor('goblin', 'Goblin') });
+      const first = await service.reflect('sess-1');
+      expect(first.factCount).toBe(1);
+      expect(first.summarized).toBe(true);
+      // Aggiunge altri eventi tra le due reflect (incluso un PhaseChanged via start_encounter).
+      await service.dispatch({ type: 'StartEncounter', encounterId: 'enc1', participants: [{ actorId: 'goblin', zone: 'z1', initiative: 10 }] });
+      // Seconda reflect: NON deve lanciare (UNIQUE constraint) e riflette solo gli eventi nuovi.
+      const second = await service.reflect('sess-1');
+      expect(second.summarized).toBe(true);
+      expect(memory.eventStore.version()).toBeGreaterThan(1);
+    } finally {
+      memory.close();
+    }
+  });
+
   it('serializza turno e dispatch concorrenti: nessun ConcurrencyError, ordine FIFO', async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {

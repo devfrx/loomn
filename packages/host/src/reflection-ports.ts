@@ -13,7 +13,7 @@ import type {
   ReflectionInput,
   ExtractedFact,
   SceneSummaryDraft,
-  ReflectionDeps,
+  ScenesReflectionDeps,
 } from '@loomn/memory';
 import type { MemorySystem } from './memory-system';
 
@@ -112,12 +112,13 @@ export function createLlmSummarizer(port: StructuredOutputPort): Summarizer {
 
 /** Compone le ReflectionDeps (porte di scrittura, Piano 8b) da un MemorySystem (ledger+summaries+
  *  clock sullo STESSO DB) e da uno StructuredOutputPort (impl LLM di extractor/summarizer). */
-export function reflectionDepsFor(system: MemorySystem, port: StructuredOutputPort): ReflectionDeps {
+export function reflectionDepsFor(system: MemorySystem, port: StructuredOutputPort): ScenesReflectionDeps {
   return {
     ledger: system.ledger,
     summaries: system.summaries,
     extractor: createLlmFactExtractor(port),
     summarizer: createLlmSummarizer(port),
     clock: system.clock,
+    cursor: system.cursor,
   };
 }

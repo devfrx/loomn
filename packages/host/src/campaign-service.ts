@@ -16,7 +16,7 @@ import {
   type Ruleset,
 } from '@loomn/engine';
 import { runMasterTurn, type LanguageModel, type StructuredOutputPort } from '@loomn/ai';
-import { runReflection } from '@loomn/memory';
+import { runScenesReflection } from '@loomn/memory';
 import type { MemorySystem } from './memory-system';
 import { reflectionDepsFor } from './reflection-ports';
 
@@ -142,11 +142,13 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
     reflect(scope: string): Promise<ReflectOutcome> {
       return enqueue(async () => {
         const stored = deps.memory.eventStore.load();
-        const res = await runReflection(reflectionDepsFor(deps.memory, deps.structured), {
+        const results = await runScenesReflection(reflectionDepsFor(deps.memory, deps.structured), {
           events: stored,
           scope,
         });
-        return { factCount: res.facts.length, summarized: res.summary !== null };
+        const factCount = results.reduce((n, r) => n + r.facts.length, 0);
+        const summarized = results.some((r) => r.summary !== null);
+        return { factCount, summarized };
       });
     },
   };

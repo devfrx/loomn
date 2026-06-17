@@ -72,6 +72,17 @@ describe('createMemorySystem - connessione condivisa', () => {
     sys.close();
     expect(() => sys.eventStore.version()).toThrow();
   });
+
+  it('il cursor di riflessione e montato sulla connessione condivisa (default 0, persiste il set)', () => {
+    const sys = createMemorySystem(':memory:', { clock: { now: () => 1000 } });
+    try {
+      expect(sys.cursor.get()).toBe(0);
+      sys.cursor.set(5);
+      expect(sys.cursor.get()).toBe(5);
+    } finally {
+      sys.close();
+    }
+  });
 });
 
 describe('systemClock', () => {

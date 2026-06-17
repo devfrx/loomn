@@ -8,10 +8,12 @@ import {
   createSqliteEventStoreOn,
   createCanonLedger,
   createSummaryStore,
+  createReflectionCursor,
   createContextAssembler,
   type SqliteEventStoreOn,
   type CanonLedger,
   type SummaryStore,
+  type ReflectionCursor,
   type Clock,
 } from '@loomn/memory';
 import type { GameState } from '@loomn/engine';
@@ -35,6 +37,8 @@ export interface MemorySystem {
   ledger: CanonLedger;
   /** Summary Store L2 sulla connessione condivisa. */
   summaries: SummaryStore;
+  /** Watermark di riflessione (item 6) sulla connessione condivisa. */
+  cursor: ReflectionCursor;
   /** Clock condiviso (lo stesso passato all assembler e da passare alla Reflection). */
   clock: Clock;
   /** Context Assembler reale (read path 8c), gia chiuso su ledger/summaries/clock. Da iniettare
@@ -54,6 +58,7 @@ export function createMemorySystem(dbPath: string, config: MemorySystemConfig = 
   const eventStore = createSqliteEventStoreOn(db);
   const ledger = createCanonLedger(db);
   const summaries = createSummaryStore(db);
+  const cursor = createReflectionCursor(db);
   const assembleContext = createContextAssembler(
     { ledger, summaries, clock },
     {
@@ -62,5 +67,5 @@ export function createMemorySystem(dbPath: string, config: MemorySystemConfig = 
       ...(config.estimateTokens !== undefined ? { estimateTokens: config.estimateTokens } : {}),
     },
   );
-  return { eventStore, ledger, summaries, clock, assembleContext, close };
+  return { eventStore, ledger, summaries, cursor, clock, assembleContext, close };
 }

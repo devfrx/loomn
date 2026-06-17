@@ -122,6 +122,7 @@ describe('reflectionDepsFor', () => {
       expect(deps.ledger).toBe(sys.ledger);
       expect(deps.summaries).toBe(sys.summaries);
       expect(deps.clock).toBe(sys.clock);
+      expect(deps.cursor).toBe(sys.cursor);
       expect(typeof deps.extractor.extract).toBe('function');
       expect(typeof deps.summarizer.summarize).toBe('function');
     } finally {

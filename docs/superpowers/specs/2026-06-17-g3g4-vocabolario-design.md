@@ -83,10 +83,10 @@ function enumOrString(set: ReadonlySet<string>): z.ZodTypeAny; // set non vuoto 
 function buildTools(vocab: Vocabulary): Record<string, ToolEntry>;
 ```
 
-- `spawn_npc`: `attributes: z.record(enumOrString(attrs), llmNumber)`, idem `skills`, `resources: z.record(enumOrString(res), resourcePoolSchema)`.
 - `attack`: `attribute`/`skill`/`defense`/`damageResource` via `enumOrString`.
 - `request_check`: `attribute`/`skill` via `enumOrString`.
 - `apply_effect`: `resource` via `enumOrString`.
+- `spawn_npc`: **NIENTE enum nel tool schema** — i campi record (`attributes`/`skills`/`resources`) restano `z.record(valueSchema)` aperti. *Motivo (verificato empiricamente, Zod 3.25):* `z.record(z.enum([...]), v)` *valida* le chiavi (rifiuta l'ignota) ma `zodToJsonSchema` lo rende con **tutte le chiavi `required`** → schema ingannevole (il modello crederebbe di dover fornire ogni attributo). Le chiavi di `spawn_npc` sono quindi validate **dal motore** (`decide(AddActor)`, §3.2) con errore che elenca il set legale; il JSON del tool resta onesto (object aperto).
 
 `masterToolDefs(phase, vocab)` e `resolveToolCall(name, rawArgs, vocab)` prendono il vocabolario (**un solo set di schemi** usato sia per il JSON mostrato al modello sia per la validazione → niente divergenza, le guardie di trasparenza restano valide). La macchineria `commandType`/`Extract<Command,{type:T}>`/`makeEntry` resta invariata.
 

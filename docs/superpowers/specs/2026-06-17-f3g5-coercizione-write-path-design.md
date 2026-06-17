@@ -84,7 +84,7 @@ const sceneDraftSchema = z.object({
 
 - **`facts`**: `z.array(...)` → `llmArray(z.array(extractedFactSchema))`. Una stringa JSON-array (`"[{...}]"`) viene `JSON.parse`-ata e poi validata dallo schema array reale; il function-call ora riesce. STRICT: stringa-non-JSON / vuota / JSON-non-array (oggetto/numero/null) → rifiutata dallo schema array sottostante (niente array silenzioso).
 - **`importance`** (in entrambi gli schemi): coercizione numerica via `coerceNumericString` condiviso. STRICT: `"abc"`/vuoto/null → rifiutato (niente intero silenzioso); fuori `[1,10]` → rifiutato.
-- **Lo schema JSON mostrato al modello resta invariato** (`{type:array}` / `{type:integer}`): il `preprocess` è trasparente a `zodToJsonSchema` (usa lo schema di OUTPUT). Non advertizziamo che le stringhe vanno bene — è solo rete di sicurezza, filosofia G1/G6. Una guardia di test lo pinna.
+- **Lo schema JSON mostrato al modello resta invariato** (`{type:array}` / `{type:integer}`): il `preprocess` è trasparente a `zodToJsonSchema` (usa lo schema di OUTPUT). Non advertizziamo che le stringhe vanno bene — è solo rete di sicurezza, filosofia G1/G6. La trasparenza di `llmArray`/`z.preprocess` è già pinnata da una guardia dedicata in `master-tools.test.ts` (G6); poiché il write-path riusa l'helper **identico** (estratto in `coercion.ts`), la proprietà è **ereditata** → niente test host ridondante né nuova dipendenza `zod-to-json-schema` su `@loomn/host`.
 
 ## 5. I due giudizi (decisi con l'utente — "hardening solo su rami reali / YAGNI")
 
@@ -101,12 +101,12 @@ const sceneDraftSchema = z.object({
 
 ## 7. Strategia di test (TDD)
 
-- **ai** — refactor behaviour-preserving: i **52 test esistenti di `master-tools.test.ts` restano verdi** (rete del refactor; gli helper ora importati). Opzionale: un piccolo `coercion.test.ts` che pinna gli helper isolati (o ci si affida ai test master-tools esistenti, dato che esercitano già `llmArray`/`llmNumber`/`llmInt`). *(La scelta esatta la fissa il piano; la disciplina di scope vieta di toccare i test non pertinenti.)*
-- **host** (`reflection-ports.test.ts`, con fake `StructuredOutputPort`/`LanguageModel`):
+- **ai** — refactor behaviour-preserving: i **52 test esistenti di `master-tools.test.ts` restano verdi** (rete del refactor; esercitano già `llmArray`/`llmNumber`/`llmInt` *e* la guardia di trasparenza di G6 — ora puntano agli helper estratti). **Niente nuovo `coercion.test.ts`**: duplicherebbe la copertura esistente (YAGNI). La disciplina di scope vieta di toccare i test non pertinenti.
+- **host** (`reflection-ports.test.ts`, con fake `StructuredOutputPort`/`LanguageModel`, via `createStructuredOutput` reale):
   - `facts` come stringa JSON-array → coerciuto, l'estrattore restituisce i fatti (prima: function-call falliva → repair).
   - `importance` come stringa `"8"` → coerciuto a `8` (in `extract` e in `summarize`).
-  - **strict**: `facts` stringa-non-JSON / vuota / JSON-oggetto-non-array → rifiutato; `importance` `"abc"`/vuoto/fuori-range → rifiutato.
-  - **guardia trasparenza**: il JSON-schema renderizzato per il modello mostra `facts` come `array` e `importance` come `integer` (il `preprocess` non trapela).
+  - **strict** (con `strategies:['function-call']` per pinnare il gate dello schema): `facts` stringa-non-JSON → rifiutato; `importance` `"abc"` → rifiutato (niente array/intero silenzioso).
+  - *(La trasparenza dello schema JSON è ereditata dalla guardia ai, vedi §4 — non re-testata in host per non aggiungere una dipendenza.)*
 
 ## 8. File toccati (orientativo per il piano)
 

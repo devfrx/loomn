@@ -16,3 +16,4 @@ export {
   type TurnOutcome,
   type ReflectOutcome,
 } from './campaign-service';
+export { devRuleset } from './dev-vocabulary';

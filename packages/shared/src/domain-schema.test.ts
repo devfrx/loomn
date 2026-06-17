@@ -172,6 +172,16 @@ describe('domainEventSchema', () => {
       domainEventSchema.parse({ type: 'QuestAdvanced', questId: 'q1', status: 'active' }),
     ).toThrow();
   });
+
+  it('fa round-trip di PhaseChanged', () => {
+    const ev = { type: 'PhaseChanged' as const, from: 'exploration' as const, to: 'combat' as const };
+    expect(domainEventSchema.parse(ev)).toEqual(ev);
+  });
+
+  it('fa round-trip di EncounterEnded', () => {
+    const ev = { type: 'EncounterEnded' as const, encounterId: 'e1' };
+    expect(domainEventSchema.parse(ev)).toEqual(ev);
+  });
 });
 
 describe('gameStateSchema', () => {

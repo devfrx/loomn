@@ -206,6 +206,8 @@ export const domainEventSchema = z.union([
     }),
     z.object({ type: z.literal('QuestStarted'), quest: questSchema }),
     z.object({ type: z.literal('QuestAdvanced'), questId: z.string(), status: questOutcomeSchema }),
+    z.object({ type: z.literal('PhaseChanged'), from: phaseSchema, to: phaseSchema }),
+    z.object({ type: z.literal('EncounterEnded'), encounterId: z.string() }),
   ]),
   checkResolvedEventSchema,
 ]);

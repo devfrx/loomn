@@ -180,6 +180,24 @@ describe('applyEvent', () => {
     ).toThrow('Quest sconosciuta: ignota');
   });
 
+  it('PhaseChanged imposta la fase e incrementa la versione, senza toccare il resto', () => {
+    const base = withActors(actor('eroe'));
+    const s = applyEvent(base, { type: 'PhaseChanged', from: 'exploration', to: 'dialogue' });
+    expect(s.phase).toBe('dialogue');
+    expect(s.actors).toEqual(base.actors);
+    expect(s.encounter).toEqual(base.encounter);
+    expect(s.quests).toEqual(base.quests);
+    expect(s.version).toBe(base.version + 1);
+  });
+
+  it('EncounterEnded azzera lo scontro e incrementa la versione', () => {
+    const enc = createEncounter('e', [{ actorId: 'eroe', zone: 'a', initiative: 10 }]);
+    const base = applyEvent(withActors(actor('eroe')), { type: 'EncounterStarted', encounter: enc });
+    const s = applyEvent(base, { type: 'EncounterEnded', encounterId: 'e' });
+    expect(s.encounter).toBeNull();
+    expect(s.version).toBe(base.version + 1);
+  });
+
   it('initialState ha quests vuoto', () => {
     expect(initialState.quests).toEqual({});
   });

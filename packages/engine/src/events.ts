@@ -20,7 +20,9 @@ export type DomainEvent =
   | { type: 'CheckResolved'; actorId: string; attribute?: string; skill?: string; difficulty: Difficulty; result: CheckResult }
   | { type: 'ResourceEffectApplied'; targetId: string; resource: string; delta: number; roll: RollResult }
   | { type: 'QuestStarted'; quest: Quest }
-  | { type: 'QuestAdvanced'; questId: string; status: QuestOutcome };
+  | { type: 'QuestAdvanced'; questId: string; status: QuestOutcome }
+  | { type: 'PhaseChanged'; from: Phase; to: Phase }
+  | { type: 'EncounterEnded'; encounterId: string };
 
 export interface GameState {
   version: number;
@@ -104,6 +106,12 @@ export function applyEvent(state: GameState, event: DomainEvent): GameState {
       });
       return { ...bumped, actors: { ...state.actors, [event.actorId]: downed } };
     }
+    case 'PhaseChanged':
+      // 'from' e provenienza (narrazione / confini di scena, item 6): non serve al proiettore.
+      return { ...bumped, phase: event.to };
+    case 'EncounterEnded':
+      // chiude lo scontro; la fase torna non-combat con il PhaseChanged emesso in coppia da decide.
+      return { ...bumped, encounter: null };
     default: {
       const _exhaustive: never = event;
       return _exhaustive;

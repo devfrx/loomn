@@ -35,6 +35,8 @@ export type Command =
 
 // Action-set per fase (spec §5.5). Co-locato con Command/decide: la legalita di fase e una
 // proprieta del vocabolario di comandi. phase.ts resta puro (stati + archi).
+// Un Command non elencato in nessun set e phase-agnostico (default voluto, la maggioranza dei
+// comandi). Aggiungilo a un set SOLO quando la restrizione di fase e imposta dallo spec.
 const COMBAT_ONLY = new Set<Command['type']>(['Attack', 'EndTurn', 'NextRound', 'EndEncounter']);
 const NON_COMBAT_ONLY = new Set<Command['type']>(['StartEncounter', 'EnterPhase']);
 

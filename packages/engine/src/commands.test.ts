@@ -382,12 +382,15 @@ describe('isCommandLegalInPhase', () => {
     for (const t of ['Attack', 'EndTurn', 'NextRound', 'EndEncounter'] as const) {
       expect(isCommandLegalInPhase('combat', t)).toBe(true);
       expect(isCommandLegalInPhase('exploration', t)).toBe(false);
+      expect(isCommandLegalInPhase('dialogue', t)).toBe(false);
+      expect(isCommandLegalInPhase('downtime', t)).toBe(false);
     }
   });
   it('i comandi di ingresso sono legali in ogni fase tranne combat', () => {
     for (const t of ['StartEncounter', 'EnterPhase'] as const) {
       expect(isCommandLegalInPhase('exploration', t)).toBe(true);
       expect(isCommandLegalInPhase('dialogue', t)).toBe(true);
+      expect(isCommandLegalInPhase('downtime', t)).toBe(true);
       expect(isCommandLegalInPhase('combat', t)).toBe(false);
     }
   });

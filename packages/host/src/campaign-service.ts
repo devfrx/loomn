@@ -197,8 +197,8 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
         }
       }
       const eligible = before !== undefined ? all.filter((e) => e.seq < before) : all;
-      const window = eligible.slice(-limit); // le `limit` piu recenti (ancora ascendenti)
-      return { entries: window.reverse(), hasMore: eligible.length > window.length };
+      const page = eligible.slice(-limit); // le `limit` piu recenti (ancora ascendenti)
+      return { entries: page.reverse(), hasMore: eligible.length > page.length };
     },
 
     getCanon(query: CanonQuery = {}): CanonFact[] {

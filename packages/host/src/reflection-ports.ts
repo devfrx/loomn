@@ -1,8 +1,8 @@
 // Impl LLM-backed delle porte di SCRITTURA della memoria (spec 6.1). E l UNICO punto in cui
-// ai (StructuredOutputPort di 7b) e memory (FactExtractor/Summarizer/ReflectionDeps) si
+// ai (StructuredOutputPort di 7b) e memory (FactExtractor/Summarizer/ScenesReflectionDeps) si
 // compongono per il write path: FactExtractor/Summarizer pilotano lo StructuredOutputPort con
-// uno schema Zod; reflectionDepsFor li monta su ledger/summaries/clock del MemorySystem, pronto
-// per runReflection. (Il read path e gia composto da MemorySystem.assembleContext.)
+// uno schema Zod; reflectionDepsFor li monta su ledger/summaries/clock/cursor del MemorySystem,
+// pronto per runScenesReflection. (Il read path e gia composto da MemorySystem.assembleContext.)
 import { z } from 'zod';
 import { llmArray, coerceNumericString } from '@loomn/ai';
 import type { LlmMessage, StructuredOutputPort } from '@loomn/ai';
@@ -110,8 +110,9 @@ export function createLlmSummarizer(port: StructuredOutputPort): Summarizer {
   };
 }
 
-/** Compone le ReflectionDeps (porte di scrittura, Piano 8b) da un MemorySystem (ledger+summaries+
- *  clock sullo STESSO DB) e da uno StructuredOutputPort (impl LLM di extractor/summarizer). */
+/** Compone le ScenesReflectionDeps (porte di scrittura + cursor, Piano 8b/item 6) da un
+ *  MemorySystem (ledger+summaries+clock+cursor sullo STESSO DB) e da uno StructuredOutputPort
+ *  (impl LLM di extractor/summarizer). */
 export function reflectionDepsFor(system: MemorySystem, port: StructuredOutputPort): ScenesReflectionDeps {
   return {
     ledger: system.ledger,

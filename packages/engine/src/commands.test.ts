@@ -217,3 +217,74 @@ describe('decide RequestCheck', () => {
     ).toThrow('Attore sconosciuto: ignoto');
   });
 });
+
+describe('decide ApplyEffect', () => {
+  it('restore: emette ResourceEffectApplied con delta positivo e roll registrato', () => {
+    const s = withActors(actor('eroe'));
+    const events = decide(
+      s,
+      { type: 'ApplyEffect', targetId: 'eroe', resource: 'hp', direction: 'restore', dice: [{ count: 2, sides: 6 }] },
+      stub([0.5]), // ogni d6 = 4 -> 2d6 = 8
+    );
+    expect(events).toHaveLength(1);
+    const ev = events[0]!;
+    expect(ev.type).toBe('ResourceEffectApplied');
+    if (ev.type === 'ResourceEffectApplied') {
+      expect(ev.targetId).toBe('eroe');
+      expect(ev.resource).toBe('hp');
+      expect(ev.delta).toBe(8); // +8 (restore)
+      expect(ev.roll.total).toBe(8);
+      expect(ev.roll.mode).toBe('effect');
+    }
+  });
+
+  it('drain: emette ResourceEffectApplied con delta negativo', () => {
+    const s = withActors(actor('eroe'));
+    const ev = decide(
+      s,
+      { type: 'ApplyEffect', targetId: 'eroe', resource: 'hp', direction: 'drain', dice: [{ count: 2, sides: 6 }] },
+      stub([0.5]),
+    )[0]!;
+    expect(ev.type).toBe('ResourceEffectApplied');
+    if (ev.type === 'ResourceEffectApplied') {
+      expect(ev.delta).toBe(-8); // -8 (drain)
+    }
+  });
+
+  it('il bonus piatto entra nel roll e nel delta', () => {
+    const s = withActors(actor('eroe'));
+    const ev = decide(
+      s,
+      { type: 'ApplyEffect', targetId: 'eroe', resource: 'hp', direction: 'restore', dice: [{ count: 1, sides: 6 }], bonus: 3 },
+      stub([0.5]), // 1d6 = 4, + bonus 3 = 7
+    )[0]!;
+    if (ev.type !== 'ResourceEffectApplied') throw new Error('atteso ResourceEffectApplied');
+    expect(ev.roll.modifierTotal).toBe(3);
+    expect(ev.roll.total).toBe(7);
+    expect(ev.delta).toBe(7);
+  });
+
+  it('magnitudine clampata a >=0: un bonus molto negativo non inverte la direzione del restore', () => {
+    const s = withActors(actor('eroe'));
+    const ev = decide(
+      s,
+      { type: 'ApplyEffect', targetId: 'eroe', resource: 'hp', direction: 'restore', dice: [{ count: 1, sides: 6 }], bonus: -100 },
+      stub([0.5]), // 1d6 = 4, + (-100) = -96 -> magnitudine max(0, -96) = 0
+    )[0]!;
+    if (ev.type !== 'ResourceEffectApplied') throw new Error('atteso ResourceEffectApplied');
+    expect(ev.delta).toBe(0); // restore non drena mai
+  });
+
+  it('lancia se l attore e sconosciuto, senza eventi', () => {
+    expect(() =>
+      decide(initialState, { type: 'ApplyEffect', targetId: 'ignoto', resource: 'hp', direction: 'restore', dice: [{ count: 1, sides: 6 }] }, stub([0.5])),
+    ).toThrow('Attore sconosciuto: ignoto');
+  });
+
+  it('lancia se la risorsa e sconosciuta, senza eventi', () => {
+    const s = withActors(actor('eroe'));
+    expect(() =>
+      decide(s, { type: 'ApplyEffect', targetId: 'eroe', resource: 'mana', direction: 'restore', dice: [{ count: 1, sides: 6 }] }, stub([0.5])),
+    ).toThrow('Risorsa sconosciuta: mana');
+  });
+});

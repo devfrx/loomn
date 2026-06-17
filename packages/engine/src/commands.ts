@@ -1,6 +1,6 @@
 import type { RandomSource } from './random';
 import type { Actor } from './actor';
-import type { Modifier } from './dice';
+import { rollExpression, type Modifier, type DieGroup, type RollExpr } from './dice';
 import { createEncounter, type ParticipantInput } from './encounter';
 import { performAttack } from './combat';
 import type { GameState, DomainEvent } from './events';
@@ -23,7 +23,8 @@ export type Command =
       damageResource: string;
       damageModifiers?: Modifier[];
     }
-  | { type: 'RequestCheck'; actorId: string; attribute?: string; skill?: string; difficulty: Difficulty };
+  | { type: 'RequestCheck'; actorId: string; attribute?: string; skill?: string; difficulty: Difficulty }
+  | { type: 'ApplyEffect'; targetId: string; resource: string; direction: 'restore' | 'drain'; dice: DieGroup[]; bonus?: number };
 
 /** Valida un comando contro lo stato e produce gli eventi risultanti.
  *  L'RNG è consumato dai comandi che lo richiedono (es. Attack). Funzione pura. */
@@ -107,6 +108,24 @@ export function decide(state: GameState, command: Command, rng: RandomSource): D
           ...(command.skill !== undefined ? { skill: command.skill } : {}),
         },
       ];
+    }
+    case 'ApplyEffect': {
+      const target = state.actors[command.targetId];
+      if (target === undefined) {
+        throw new Error(`Attore sconosciuto: ${command.targetId}`);
+      }
+      if (target.resources[command.resource] === undefined) {
+        throw new Error(`Risorsa sconosciuta: ${command.resource}`);
+      }
+      const expr: RollExpr = {
+        dice: command.dice,
+        modifiers: command.bonus !== undefined ? [{ value: command.bonus, source: 'effect' }] : [],
+        mode: 'effect',
+      };
+      const roll = rollExpression(expr, rng);
+      const magnitude = Math.max(0, roll.total); // restore non drena mai, e viceversa
+      const delta = command.direction === 'restore' ? magnitude : -magnitude;
+      return [{ type: 'ResourceEffectApplied', targetId: command.targetId, resource: command.resource, delta, roll }];
     }
     default: {
       const _exhaustive: never = command;

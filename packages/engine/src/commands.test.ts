@@ -481,3 +481,43 @@ describe('invariante phase=combat <=> encounter!=null', () => {
     expect(holds(s)).toBe(true);
   });
 });
+
+describe('decide(AddActor) — vocabolario e auto-fill', () => {
+  const VOCAB = createRuleset({
+    vocabulary: createVocabulary({
+      attributes: ['forza'], skills: ['arcano'], resources: ['hp'], defenses: [],
+      defaultResources: { hp: { current: 10, max: 10 } },
+    }),
+  });
+  const npc = (over: Partial<Actor> = {}): Actor => ({
+    id: 'png', name: 'PNG', kind: 'npc', attributes: {}, skills: {}, resources: {}, conditions: [], items: [],
+    progression: { xp: 0, level: 0 }, ...over,
+  });
+
+  it('rifiuta un attributo fuori vocabolario', () => {
+    expect(() => decide(initialState, { type: 'AddActor', actor: npc({ attributes: { magia: 2 } }) }, stub([0.5]), VOCAB)).toThrow(/magia/);
+  });
+
+  it('rifiuta una risorsa fuori vocabolario', () => {
+    expect(() => decide(initialState, { type: 'AddActor', actor: npc({ resources: { oro: { current: 1, max: 1 } } }) }, stub([0.5]), VOCAB)).toThrow(/oro/);
+  });
+
+  it('riempie hp dal template quando il modello non lo fornisce (combat-ready)', () => {
+    const events = decide(initialState, { type: 'AddActor', actor: npc({ resources: {} }) }, stub([0.5]), VOCAB);
+    const added = events[0];
+    if (added?.type !== 'ActorAdded') throw new Error('atteso ActorAdded');
+    expect(added.actor.resources.hp).toEqual({ current: 10, max: 10 });
+  });
+
+  it('le risorse fornite dal modello sovrascrivono il default', () => {
+    const events = decide(initialState, { type: 'AddActor', actor: npc({ resources: { hp: { current: 30, max: 30 } } }) }, stub([0.5]), VOCAB);
+    const added = events[0];
+    if (added?.type !== 'ActorAdded') throw new Error('atteso ActorAdded');
+    expect(added.actor.resources.hp).toEqual({ current: 30, max: 30 });
+  });
+
+  it('accetta attributi/abilita/risorse tutti in vocabolario', () => {
+    const events = decide(initialState, { type: 'AddActor', actor: npc({ attributes: { forza: 3 }, skills: { arcano: 1 } }) }, stub([0.5]), VOCAB);
+    expect(events).toHaveLength(1);
+  });
+});

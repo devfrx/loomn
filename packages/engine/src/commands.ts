@@ -34,6 +34,15 @@ export type Command =
   | { type: 'EnterPhase'; to: SoftPhase }
   | { type: 'EndEncounter' };
 
+// Lancia se key non e nel set, elencando i valori legali (l errore reiniettato fa auto-correggere
+// il loop agentico). Il vocabolario e iniettato: "legale" = membership, non per-attore.
+function requireMember(set: ReadonlySet<string>, key: string, kind: string): void {
+  if (!set.has(key)) {
+    const legal = [...set].join(', ') || '(nessuno)';
+    throw new Error(`${kind} sconosciuto: ${key}. Validi: ${legal}`);
+  }
+}
+
 // Action-set per fase (spec §5.5). Co-locato con Command/decide: la legalita di fase e una
 // proprieta del vocabolario di comandi. phase.ts resta puro (stati + archi).
 // Un Command non elencato in nessun set e phase-agnostico (default voluto, la maggioranza dei
@@ -56,11 +65,18 @@ export function decide(state: GameState, command: Command, rng: RandomSource, ru
     throw new Error(`Azione ${command.type} non disponibile in fase ${state.phase}`);
   }
   switch (command.type) {
-    case 'AddActor':
+    case 'AddActor': {
       if (state.actors[command.actor.id] !== undefined) {
         throw new Error(`Attore già presente: ${command.actor.id}`);
       }
-      return [{ type: 'ActorAdded', actor: command.actor }];
+      const vocab = ruleset.vocabulary;
+      for (const k of Object.keys(command.actor.attributes)) requireMember(vocab.attributes, k, 'Attributo');
+      for (const k of Object.keys(command.actor.skills)) requireMember(vocab.skills, k, 'Abilita');
+      for (const k of Object.keys(command.actor.resources)) requireMember(vocab.resources, k, 'Risorsa');
+      // Auto-fill combat-ready: le risorse mancanti dal template; quelle fornite sovrascrivono.
+      const resources = { ...vocab.defaultResources, ...command.actor.resources };
+      return [{ type: 'ActorAdded', actor: { ...command.actor, resources } }];
+    }
     case 'StartEncounter': {
       for (const p of command.participants) {
         if (state.actors[p.actorId] === undefined) {

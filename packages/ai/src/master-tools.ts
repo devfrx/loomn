@@ -144,11 +144,14 @@ function issuesOf(error: z.ZodError): string {
 // omogeneo (Record<string,ToolEntry>). Vincolare su S (non su z.ZodType<A>) e necessario per gli
 // schemi con input/output divergenti come llmNumber (z.preprocess: input unknown, output number):
 // z.ZodType<A> forzerebbe input=output=A e degraderebbe l output a unknown.
-function makeEntry<S extends z.ZodTypeAny>(
+// T (inferito dal literal commandType) lega il commandType al tipo prodotto da toCommand via
+// Extract<Command, {type:T}>: un commandType che non combacia col Command ritornato e un errore di
+// compilazione (niente divergenza silenziosa fra il tag usato per il filtro di fase e l intento).
+function makeEntry<S extends z.ZodTypeAny, T extends Command['type']>(
   description: string,
-  commandType: Command['type'],
+  commandType: T,
   schema: S,
-  toCommand: (args: z.infer<S>) => Command,
+  toCommand: (args: z.infer<S>) => Extract<Command, { type: T }>,
 ): ToolEntry {
   return {
     description,

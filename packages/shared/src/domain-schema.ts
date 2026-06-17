@@ -125,23 +125,54 @@ const encounterSchema = z.object({
   turnIndex: z.number(),
 });
 
+// difficulty: shared e FOGLIA (non importa engine) -> rispecchia i literal di Difficulty
+// dell engine. Il drift guard bidirezionale (sqlite-event-store) verifica l allineamento 1:1.
+const difficultySchema = z.enum(['trivial', 'easy', 'moderate', 'hard', 'formidable', 'legendary']);
+
+// CheckResolved ha campi opzionali TOP-LEVEL (attribute, skill): il .transform() li OMETTE
+// quando assenti, cosi il tipo inferito e assegnabile 1:1 a DomainEvent sotto
+// exactOptionalPropertyTypes. Ma .transform() produce un ZodEffects, e z.discriminatedUnion
+// accetta solo ZodObject -> questa variante vive come arm separato di z.union (stesso motivo
+// di commandSchema). Gli altri 8 eventi restano nella discriminatedUnion (errori precisi,
+// comportamento invariato).
+const checkResolvedEventSchema = z
+  .object({
+    type: z.literal('CheckResolved'),
+    actorId: z.string(),
+    attribute: z.string().optional(),
+    skill: z.string().optional(),
+    difficulty: difficultySchema,
+    result: checkResultSchema,
+  })
+  .transform((o) => ({
+    type: o.type,
+    actorId: o.actorId,
+    difficulty: o.difficulty,
+    result: o.result,
+    ...(o.attribute !== undefined ? { attribute: o.attribute } : {}),
+    ...(o.skill !== undefined ? { skill: o.skill } : {}),
+  }));
+
 /** Schema Zod dell unione DomainEvent del motore. Unica fonte di validazione al confine
  *  di persistenza (spec 4/12). */
-export const domainEventSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('ActorAdded'), actor: actorSchema }),
-  z.object({ type: z.literal('EncounterStarted'), encounter: encounterSchema }),
-  z.object({ type: z.literal('TurnEnded') }),
-  z.object({ type: z.literal('RoundAdvanced') }),
-  z.object({
-    type: z.literal('AttackResolved'),
-    attackerId: z.string(),
-    targetId: z.string(),
-    check: checkResultSchema,
-    hit: z.boolean(),
-  }),
-  z.object({ type: z.literal('DamageApplied'), targetId: z.string(), resource: z.string(), amount: z.number() }),
-  z.object({ type: z.literal('ActorDowned'), actorId: z.string() }),
-  z.object({ type: z.literal('NarrationRecorded'), playerAction: z.string(), narration: z.string() }),
+export const domainEventSchema = z.union([
+  z.discriminatedUnion('type', [
+    z.object({ type: z.literal('ActorAdded'), actor: actorSchema }),
+    z.object({ type: z.literal('EncounterStarted'), encounter: encounterSchema }),
+    z.object({ type: z.literal('TurnEnded') }),
+    z.object({ type: z.literal('RoundAdvanced') }),
+    z.object({
+      type: z.literal('AttackResolved'),
+      attackerId: z.string(),
+      targetId: z.string(),
+      check: checkResultSchema,
+      hit: z.boolean(),
+    }),
+    z.object({ type: z.literal('DamageApplied'), targetId: z.string(), resource: z.string(), amount: z.number() }),
+    z.object({ type: z.literal('ActorDowned'), actorId: z.string() }),
+    z.object({ type: z.literal('NarrationRecorded'), playerAction: z.string(), narration: z.string() }),
+  ]),
+  checkResolvedEventSchema,
 ]);
 
 /** Schema Zod di GameState, per validare gli snapshot persistiti. */

@@ -73,6 +73,48 @@ describe('domainEventSchema', () => {
   it('rifiuta un evento con un campo obbligatorio mancante', () => {
     expect(() => domainEventSchema.parse({ type: 'DamageApplied', targetId: 'goblin', resource: 'hp' })).toThrow();
   });
+
+  it('valida e fa round-trip di CheckResolved con enum difficolta e CheckResult annidato', () => {
+    const event = {
+      type: 'CheckResolved' as const,
+      actorId: 'pc-eldra',
+      attribute: 'forza',
+      difficulty: 'hard' as const,
+      result: {
+        dice: [{ sides: 20, value: 14 }],
+        modifierTotal: 3,
+        total: 17,
+        mode: 'check' as const,
+        dc: 20,
+        margin: -3,
+        outcome: 'failure' as const,
+      },
+    };
+    expect(domainEventSchema.parse(event)).toEqual(event);
+  });
+
+  it('omette attribute e skill assenti in CheckResolved (cast-free)', () => {
+    const event = {
+      type: 'CheckResolved' as const,
+      actorId: 'pc-eldra',
+      difficulty: 'easy' as const,
+      result: { dice: [{ sides: 20, value: 8 }], modifierTotal: 0, total: 8, mode: 'check' as const, dc: 10, margin: -2, outcome: 'failure' as const },
+    };
+    const parsed = domainEventSchema.parse(event);
+    expect('attribute' in parsed).toBe(false);
+    expect('skill' in parsed).toBe(false);
+  });
+
+  it('rifiuta una difficolta fuori band in CheckResolved', () => {
+    expect(() =>
+      domainEventSchema.parse({
+        type: 'CheckResolved',
+        actorId: 'pc-eldra',
+        difficulty: 'impossibile',
+        result: { dice: [], modifierTotal: 0, total: 0, mode: 'check', dc: 10, margin: -10, outcome: 'disaster' },
+      }),
+    ).toThrow();
+  });
 });
 
 describe('gameStateSchema', () => {

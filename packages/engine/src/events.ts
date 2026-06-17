@@ -1,5 +1,6 @@
 import type { Actor } from './actor';
 import type { CheckResult } from './check';
+import type { Difficulty } from './difficulty';
 import { adjustResource } from './resource';
 import { addCondition } from './condition';
 import { endTurn, nextRound, type Encounter } from './encounter';
@@ -12,7 +13,8 @@ export type DomainEvent =
   | { type: 'AttackResolved'; attackerId: string; targetId: string; check: CheckResult; hit: boolean }
   | { type: 'DamageApplied'; targetId: string; resource: string; amount: number }
   | { type: 'ActorDowned'; actorId: string }
-  | { type: 'NarrationRecorded'; playerAction: string; narration: string };
+  | { type: 'NarrationRecorded'; playerAction: string; narration: string }
+  | { type: 'CheckResolved'; actorId: string; attribute?: string; skill?: string; difficulty: Difficulty; result: CheckResult };
 
 export interface GameState {
   version: number;
@@ -51,6 +53,10 @@ export function applyEvent(state: GameState, event: DomainEvent): GameState {
     case 'RoundAdvanced':
       return { ...bumped, encounter: nextRound(requireEncounter(state)) };
     case 'AttackResolved':
+      return bumped;
+    case 'CheckResolved':
+      // Evento informativo: il fatto e gia risolto nel CheckResult (replay-safe, niente RNG).
+      // No-op di stato come AttackResolved: non muta actors/encounter, solo version++.
       return bumped;
     case 'NarrationRecorded':
       // Evento informativo: registra la prosa del Master nello stream (spec F4). No-op di

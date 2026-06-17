@@ -103,6 +103,23 @@ describe('applyEvent', () => {
     expect(s.version).toBe(base.version + 1);
   });
 
+  it('CheckResolved non cambia lo stato ma incrementa la versione', () => {
+    const base = withActors(actor('eroe'));
+    const result: CheckResult = {
+      dice: [{ sides: 20, value: 18 }],
+      modifierTotal: 3,
+      total: 21,
+      mode: 'check',
+      dc: 15,
+      margin: 6,
+      outcome: 'success',
+    };
+    const s = applyEvent(base, { type: 'CheckResolved', actorId: 'eroe', attribute: 'forza', difficulty: 'moderate', result });
+    expect(s.actors).toEqual(base.actors);
+    expect(s.encounter).toEqual(base.encounter);
+    expect(s.version).toBe(base.version + 1);
+  });
+
   it('lancia per DamageApplied su attore sconosciuto', () => {
     expect(() =>
       applyEvent(initialState, { type: 'DamageApplied', targetId: 'ignoto', resource: 'hp', amount: 1 }),

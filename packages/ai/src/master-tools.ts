@@ -45,6 +45,23 @@ function llmArray<S extends z.ZodTypeAny>(schema: S) {
   }, schema);
 }
 
+// Coercivo-intero: gemello di llmNumber per i campi che DEVONO essere interi (count/sides dei
+// dadi). Stessa politica strict: coerce SOLO stringhe numeriche, poi valida come intero >= min.
+// Stringa vuota/whitespace/non-numerica/decimale/null/mancante/non-finita -> RIFIUTATA
+// (z.number().int() rifiuta gia decimali, Infinity e NaN). Niente intero silenzioso: il codice
+// resta l arbitro. Factory perche il minimo varia per campo e va dentro lo schema avvolto.
+function llmInt(min: number) {
+  return z.preprocess((v) => {
+    if (typeof v === 'string') {
+      const trimmed = v.trim();
+      if (trimmed === '') return v; // resta stringa -> z.number la rifiuta
+      const n = Number(trimmed);
+      return Number.isNaN(n) ? v : n; // numerica -> numero; non-numerica -> resta stringa (rifiutata)
+    }
+    return v; // number passa; null/undefined arrivano a z.number e sono rifiutati
+  }, z.number().int().min(min));
+}
+
 const resourcePoolSchema = z.object({ current: llmNumber, max: llmNumber });
 
 const spawnNpcSchema = z.object({
@@ -79,6 +96,19 @@ const requestCheckSchema = z.object({
   attribute: z.string().min(1).optional(),
   skill: z.string().min(1).optional(),
   difficulty: z.enum(DIFFICULTIES), // enum auto-validante: l AI non puo inventare una difficolta
+});
+
+const dieGroupArgSchema = z.object({
+  count: llmInt(1), // almeno 1 dado
+  sides: llmInt(2), // almeno un d2
+});
+
+const applyEffectSchema = z.object({
+  targetId: z.string().min(1),
+  resource: z.string().min(1),
+  direction: z.enum(['restore', 'drain']), // enum auto-validante: l AI dichiara l intento, non il segno
+  dice: llmArray(z.array(dieGroupArgSchema).min(1)), // G6: accetta anche un array stringificato
+  bonus: llmNumber.optional(), // G1: accetta "2" oltre a 2
 });
 
 const endTurnSchema = z.object({});
@@ -144,6 +174,18 @@ const TOOLS: Record<string, ToolEntry> = {
       difficulty: a.difficulty,
       ...(a.attribute !== undefined ? { attribute: a.attribute } : {}),
       ...(a.skill !== undefined ? { skill: a.skill } : {}),
+    }),
+  ),
+  apply_effect: makeEntry(
+    'Applica una conseguenza su una risorsa di un attore: il motore tira l espressione di dadi e clampa la risorsa in modo deterministico. direction e restore (ripristina) o drain (prosciuga); i dadi sono {count,sides}.',
+    applyEffectSchema,
+    (a) => ({
+      type: 'ApplyEffect',
+      targetId: a.targetId,
+      resource: a.resource,
+      direction: a.direction,
+      dice: a.dice,
+      ...(a.bonus !== undefined ? { bonus: a.bonus } : {}),
     }),
   ),
   attack: makeEntry(

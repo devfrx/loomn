@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { masterToolDefs, resolveToolCall } from './master-tools';
 
 describe('masterToolDefs', () => {
-  it('espone i 6 strumenti con schemi JSON inline (niente ref)', () => {
+  it('espone i 7 strumenti con schemi JSON inline (niente ref)', () => {
     const defs = masterToolDefs();
     const names = defs.map((d) => d.name).sort();
-    expect(names).toEqual(['attack', 'end_turn', 'next_round', 'request_check', 'spawn_npc', 'start_encounter']);
+    expect(names).toEqual(['apply_effect', 'attack', 'end_turn', 'next_round', 'request_check', 'spawn_npc', 'start_encounter']);
     for (const d of defs) {
       expect(typeof d.description).toBe('string');
       expect((d.parameters as { type?: string }).type).toBe('object');
@@ -256,5 +256,123 @@ describe('resolveToolCall request_check', () => {
   it('rifiuta difficulty mancante', () => {
     const r = resolveToolCall('request_check', '{"actorId":"pc1"}');
     expect(r.ok).toBe(false);
+  });
+});
+
+describe('resolveToolCall apply_effect', () => {
+  it('mappa apply_effect valido a ApplyEffect (restore) con bonus', () => {
+    const r = resolveToolCall(
+      'apply_effect',
+      '{"targetId":"pc1","resource":"hp","direction":"restore","dice":[{"count":2,"sides":6}],"bonus":1}',
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error('atteso ok');
+    expect(r.command).toEqual({
+      type: 'ApplyEffect',
+      targetId: 'pc1',
+      resource: 'hp',
+      direction: 'restore',
+      dice: [{ count: 2, sides: 6 }],
+      bonus: 1,
+    });
+  });
+
+  it('omette bonus quando assente', () => {
+    const r = resolveToolCall(
+      'apply_effect',
+      '{"targetId":"pc1","resource":"hp","direction":"drain","dice":[{"count":1,"sides":8}]}',
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error('atteso ok');
+    expect(r.command).toEqual({
+      type: 'ApplyEffect',
+      targetId: 'pc1',
+      resource: 'hp',
+      direction: 'drain',
+      dice: [{ count: 1, sides: 8 }],
+    });
+    expect('bonus' in r.command).toBe(false);
+  });
+
+  it('coerce dice stringificato a array (G6)', () => {
+    const r = resolveToolCall(
+      'apply_effect',
+      '{"targetId":"pc1","resource":"hp","direction":"restore","dice":"[{\\"count\\":2,\\"sides\\":6}]"}',
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error('atteso ok');
+    if (r.command.type !== 'ApplyEffect') throw new Error('atteso ApplyEffect');
+    expect(r.command.dice).toEqual([{ count: 2, sides: 6 }]);
+  });
+
+  it('coerce count e sides stringa numerica a intero (llmInt + G1)', () => {
+    const r = resolveToolCall(
+      'apply_effect',
+      '{"targetId":"pc1","resource":"hp","direction":"restore","dice":[{"count":"2","sides":"6"}]}',
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error('atteso ok');
+    if (r.command.type !== 'ApplyEffect') throw new Error('atteso ApplyEffect');
+    expect(r.command.dice).toEqual([{ count: 2, sides: 6 }]);
+  });
+
+  it('coerce bonus stringa numerica (G1)', () => {
+    const r = resolveToolCall(
+      'apply_effect',
+      '{"targetId":"pc1","resource":"hp","direction":"restore","dice":[{"count":1,"sides":6}],"bonus":"2"}',
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error('atteso ok');
+    if (r.command.type !== 'ApplyEffect') throw new Error('atteso ApplyEffect');
+    expect(r.command.bonus).toBe(2);
+  });
+
+  it('rifiuta direction fuori enum', () => {
+    const r = resolveToolCall(
+      'apply_effect',
+      '{"targetId":"pc1","resource":"hp","direction":"heal","dice":[{"count":1,"sides":6}]}',
+    );
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('atteso errore');
+    expect(r.error).toContain('direction');
+  });
+
+  it('rifiuta dice vuoto (.min(1) sopravvive)', () => {
+    const r = resolveToolCall(
+      'apply_effect',
+      '{"targetId":"pc1","resource":"hp","direction":"restore","dice":[]}',
+    );
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('atteso errore');
+    expect(r.error).toContain('dice');
+  });
+
+  it('rifiuta sides non intero (decimale): llmInt e strict', () => {
+    const r = resolveToolCall(
+      'apply_effect',
+      '{"targetId":"pc1","resource":"hp","direction":"restore","dice":[{"count":1,"sides":6.5}]}',
+    );
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('atteso errore');
+    expect(r.error).toContain('sides');
+  });
+
+  it('rifiuta count sotto il minimo (count >= 1)', () => {
+    const r = resolveToolCall(
+      'apply_effect',
+      '{"targetId":"pc1","resource":"hp","direction":"restore","dice":[{"count":0,"sides":6}]}',
+    );
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('atteso errore');
+    expect(r.error).toContain('count');
+  });
+
+  it('mostra dice come array e direction come enum nello schema (coercizione trasparente)', () => {
+    const ae = masterToolDefs().find((d) => d.name === 'apply_effect');
+    if (ae === undefined) throw new Error('atteso apply_effect');
+    const props = (ae.parameters as { properties: Record<string, { type?: string; enum?: string[]; minItems?: number }> }).properties;
+    expect(props.dice?.type).toBe('array');
+    expect(props.dice?.minItems).toBe(1);
+    expect(props.direction?.enum).toEqual(['restore', 'drain']);
   });
 });

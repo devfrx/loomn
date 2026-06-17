@@ -372,7 +372,7 @@ describe('createCampaignService - reflect e serializzazione', () => {
     }
   });
 
-  it('reflect chiamato due volte con eventi aggiunti in mezzo non collide (segmentazione per scena)', async () => {
+  it('reflect ripetuto sullo stesso stream non collide: la seconda e un no-op, una terza riflette solo il nuovo', async () => {
     const port: StructuredOutputPort = {
       generate: async <T>(request: StructuredOutputRequest<T>): Promise<StructuredOutputResult<T>> => {
         if (request.schemaName === 'extract_facts') {
@@ -389,12 +389,17 @@ describe('createCampaignService - reflect e serializzazione', () => {
       const first = await service.reflect('sess-1');
       expect(first.factCount).toBe(1);
       expect(first.summarized).toBe(true);
-      // Aggiunge altri eventi tra le due reflect (incluso un PhaseChanged via start_encounter).
-      await service.dispatch({ type: 'StartEncounter', encounterId: 'enc1', participants: [{ actorId: 'goblin', zone: 'z1', initiative: 10 }] });
-      // Seconda reflect: NON deve lanciare (UNIQUE constraint) e riflette solo gli eventi nuovi.
+      // Seconda reflect SENZA nuovi eventi: col vecchio codice ri-coprirebbe lo stesso range di seq
+      // (UNIQUE constraint failed sugli id deterministici). Ora il watermark e gia oltre lo stream
+      // -> no-op, niente throw.
       const second = await service.reflect('sess-1');
-      expect(second.summarized).toBe(true);
-      expect(memory.eventStore.version()).toBeGreaterThan(1);
+      expect(second.factCount).toBe(0);
+      expect(second.summarized).toBe(false);
+      // Aggiunti eventi nuovi (incluso un PhaseChanged via start_encounter): una terza reflect
+      // riflette SOLO la scena nuova, senza collidere con le precedenti.
+      await service.dispatch({ type: 'StartEncounter', encounterId: 'enc1', participants: [{ actorId: 'goblin', zone: 'z1', initiative: 10 }] });
+      const third = await service.reflect('sess-1');
+      expect(third.summarized).toBe(true);
     } finally {
       memory.close();
     }

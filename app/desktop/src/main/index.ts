@@ -5,6 +5,7 @@ import {
   createMemorySystem,
   createCampaignService,
   createLanguageProvider,
+  devRuleset,
   type CampaignService,
   type MemorySystem,
 } from '@loomn/host';
@@ -177,6 +178,7 @@ void app.whenReady().then(() => {
     model: holder.model,
     structured: holder.structured,
     rng: createSeededRandom(DEV_SEED),
+    ruleset: devRuleset,
   });
 
   // Provider persistito (settings.json) -> ricostruisci all avvio (decifra la chiave con safeStorage).

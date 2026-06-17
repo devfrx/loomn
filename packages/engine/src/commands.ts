@@ -5,7 +5,8 @@ import { createEncounter, type ParticipantInput } from './encounter';
 import { performAttack } from './combat';
 import type { GameState, DomainEvent } from './events';
 import { actorCheck } from './actor-check';
-import { dcForDifficulty, type Difficulty } from './difficulty';
+import type { Difficulty } from './difficulty';
+import type { Ruleset } from './ruleset';
 import type { Quest, QuestOutcome } from './quest';
 import type { Phase } from './phase';
 import { canTransition, type SoftPhase } from './phase';
@@ -50,7 +51,7 @@ export function isCommandLegalInPhase(phase: Phase, type: Command['type']): bool
 
 /** Valida un comando contro lo stato e produce gli eventi risultanti.
  *  L'RNG è consumato dai comandi che lo richiedono (es. Attack). Funzione pura. */
-export function decide(state: GameState, command: Command, rng: RandomSource): DomainEvent[] {
+export function decide(state: GameState, command: Command, rng: RandomSource, ruleset: Ruleset): DomainEvent[] {
   if (!isCommandLegalInPhase(state.phase, command.type)) {
     throw new Error(`Azione ${command.type} non disponibile in fase ${state.phase}`);
   }
@@ -114,7 +115,7 @@ export function decide(state: GameState, command: Command, rng: RandomSource): D
         {
           actor,
           includeEquipped: true,
-          dc: dcForDifficulty(command.difficulty),
+          dc: ruleset.dcForDifficulty(command.difficulty),
           ...(command.attribute !== undefined ? { attribute: command.attribute } : {}),
           ...(command.skill !== undefined ? { skill: command.skill } : {}),
         },

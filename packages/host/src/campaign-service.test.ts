@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createSeededRandom, type Actor, type Command } from '@loomn/engine';
+import { createSeededRandom, createRuleset, createVocabulary, type Actor, type Command } from '@loomn/engine';
 import {
   type LanguageModel,
   type LlmMessage,
@@ -11,6 +11,16 @@ import {
 import { commandSchema } from '@loomn/shared';
 import { createMemorySystem } from './memory-system';
 import { createCampaignService, type CampaignServiceDeps } from './campaign-service';
+
+// Vocabolario di test: ampio fantasy, defaultResources VUOTO (non perturba i test di auto-fill del Task 4).
+const SERVICE_RULESET = createRuleset({
+  vocabulary: createVocabulary({
+    attributes: ['forza', 'destrezza', 'costituzione', 'intelligenza', 'saggezza', 'carisma'],
+    skills: ['atletica', 'furtivita', 'persuasione', 'intuito', 'arcano', 'percezione'],
+    resources: ['hp', 'mana', 'stamina'],
+    defenses: ['difesa', 'tempra', 'riflessi', 'volonta'],
+  }),
+});
 
 function actor(id: string, name: string): Actor {
   return {
@@ -81,6 +91,7 @@ function makeService(over: Partial<CampaignServiceDeps> = {}): {
     model: over.model ?? fakeModel([{ type: 'finish', reason: 'stop' }]),
     structured: over.structured ?? idlePort,
     rng: over.rng ?? createSeededRandom(1),
+    ruleset: SERVICE_RULESET,
   });
   return { service, memory };
 }
@@ -138,6 +149,7 @@ describe('createCampaignService - dispatch (write side)', () => {
         model: fakeModel([{ type: 'finish', reason: 'stop' }]),
         structured: idlePort,
         rng: createSeededRandom(1),
+        ruleset: SERVICE_RULESET,
       });
       await s1.dispatch({ type: 'AddActor', actor: actor('goblin', 'Goblin') });
       const s2 = createCampaignService({
@@ -145,6 +157,7 @@ describe('createCampaignService - dispatch (write side)', () => {
         model: fakeModel([{ type: 'finish', reason: 'stop' }]),
         structured: idlePort,
         rng: createSeededRandom(1),
+        ruleset: SERVICE_RULESET,
       });
       expect(s2.getReadModel().version).toBe(1);
       expect(s2.getReadModel().state.actors['goblin']?.name).toBe('Goblin');

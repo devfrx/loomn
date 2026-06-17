@@ -3,6 +3,13 @@ import type { Actor, Item } from './actor';
 import type { RandomSource } from './random';
 import { decide, isCommandLegalInPhase } from './commands';
 import { applyEvent, initialState, type GameState } from './events';
+import { createRuleset, createVocabulary } from './ruleset';
+
+// Vocabolario di test: copre TUTTI gli id usati nelle fixture di questo file (forza/hp/mana/difesa).
+// defaultResources VUOTO: l auto-fill di AddActor (Task 4) non deve perturbare i test esistenti.
+const TEST_RULESET = createRuleset({
+  vocabulary: createVocabulary({ attributes: ['forza'], skills: [], resources: ['hp', 'mana'], defenses: ['difesa'] }),
+});
 
 function actor(id: string): Actor {
   return {
@@ -36,12 +43,12 @@ const rng: RandomSource = { next: () => 0.5 };
 
 describe('decide AddActor', () => {
   it('emette ActorAdded', () => {
-    const events = decide(initialState, { type: 'AddActor', actor: actor('eroe') }, rng);
+    const events = decide(initialState, { type: 'AddActor', actor: actor('eroe') }, rng, TEST_RULESET);
     expect(events).toEqual([{ type: 'ActorAdded', actor: actor('eroe') }]);
   });
   it('lancia se l attore è già presente', () => {
     const s = withActors(actor('eroe'));
-    expect(() => decide(s, { type: 'AddActor', actor: actor('eroe') }, rng)).toThrow('già presente');
+    expect(() => decide(s, { type: 'AddActor', actor: actor('eroe') }, rng, TEST_RULESET)).toThrow('già presente');
   });
 });
 
@@ -59,6 +66,7 @@ describe('decide StartEncounter', () => {
         ],
       },
       rng,
+      TEST_RULESET,
     );
     expect(events).toHaveLength(2);
     const ev = events[0]!;
@@ -71,7 +79,7 @@ describe('decide StartEncounter', () => {
   it('lancia se un partecipante non esiste', () => {
     const s = withActors(actor('eroe'));
     expect(() =>
-      decide(s, { type: 'StartEncounter', encounterId: 'e', participants: [{ actorId: 'ignoto', zone: 'a', initiative: 5 }] }, rng),
+      decide(s, { type: 'StartEncounter', encounterId: 'e', participants: [{ actorId: 'ignoto', zone: 'a', initiative: 5 }] }, rng, TEST_RULESET),
     ).toThrow('Attore sconosciuto');
   });
 });
@@ -87,16 +95,16 @@ describe('decide EndTurn e NextRound', () => {
     return s;
   }
   it('EndTurn emette TurnEnded quando c è uno scontro', () => {
-    expect(decide(withEncounter(), { type: 'EndTurn' }, rng)).toEqual([{ type: 'TurnEnded' }]);
+    expect(decide(withEncounter(), { type: 'EndTurn' }, rng, TEST_RULESET)).toEqual([{ type: 'TurnEnded' }]);
   });
   it('EndTurn lancia fuori dalla fase combat', () => {
-    expect(() => decide(initialState, { type: 'EndTurn' }, rng)).toThrow('non disponibile in fase exploration');
+    expect(() => decide(initialState, { type: 'EndTurn' }, rng, TEST_RULESET)).toThrow('non disponibile in fase exploration');
   });
   it('NextRound emette RoundAdvanced', () => {
-    expect(decide(withEncounter(), { type: 'NextRound' }, rng)).toEqual([{ type: 'RoundAdvanced' }]);
+    expect(decide(withEncounter(), { type: 'NextRound' }, rng, TEST_RULESET)).toEqual([{ type: 'RoundAdvanced' }]);
   });
   it('NextRound lancia fuori dalla fase combat', () => {
-    expect(() => decide(initialState, { type: 'NextRound' }, rng)).toThrow('non disponibile in fase exploration');
+    expect(() => decide(initialState, { type: 'NextRound' }, rng, TEST_RULESET)).toThrow('non disponibile in fase exploration');
   });
 });
 
@@ -143,6 +151,7 @@ describe('decide Attack', () => {
         damageModifiers: [{ value: 2, source: 'forza' }],
       },
       stub([0.95, 0.5, 0.5]),
+      TEST_RULESET,
     );
     expect(events.map((e) => e.type)).toEqual(['AttackResolved', 'DamageApplied', 'ActorDowned']);
   });
@@ -153,13 +162,14 @@ describe('decide Attack', () => {
       s,
       { type: 'Attack', attackerId: 'eroe', targetId: 'goblin', attribute: 'forza', defense: 'difesa', defenseBase: 10, damageResource: 'hp' },
       stub([0]),
+      TEST_RULESET,
     );
     expect(events.map((e) => e.type)).toEqual(['AttackResolved']);
   });
 
   it('lancia se attaccante o bersaglio sono sconosciuti', () => {
     expect(() =>
-      decide(inCombat(initialState), { type: 'Attack', attackerId: 'x', targetId: 'y', defense: 'difesa', defenseBase: 10, damageResource: 'hp' }, stub([0.5])),
+      decide(inCombat(initialState), { type: 'Attack', attackerId: 'x', targetId: 'y', defense: 'difesa', defenseBase: 10, damageResource: 'hp' }, stub([0.5]), TEST_RULESET),
     ).toThrow('sconosciuto');
   });
 
@@ -171,6 +181,7 @@ describe('decide Attack', () => {
       s,
       { type: 'Attack', attackerId: 'eroe', targetId: 'orco', attribute: 'forza', defense: 'difesa', defenseBase: 10, damageResource: 'hp' },
       stub([0.95, 0.5, 0.5]),
+      TEST_RULESET,
     );
     expect(events.map((e) => e.type)).toEqual(['AttackResolved', 'DamageApplied']);
   });
@@ -181,6 +192,7 @@ describe('decide Attack', () => {
       s,
       { type: 'Attack', attackerId: 'eroe', targetId: 'goblin', attribute: 'forza', defense: 'difesa', defenseBase: 10, damageResource: 'hp' },
       stub([0.95, 0.5, 0.5]),
+      TEST_RULESET,
     );
     for (const e of events) {
       s = applyEvent(s, e);
@@ -196,6 +208,7 @@ describe('decide RequestCheck', () => {
       s,
       { type: 'RequestCheck', actorId: 'eroe', attribute: 'forza', difficulty: 'moderate' },
       stub([0.95]), // d20 = 20
+      TEST_RULESET,
     );
     expect(events).toHaveLength(1);
     const ev = events[0]!;
@@ -213,7 +226,7 @@ describe('decide RequestCheck', () => {
 
   it('omette attribute e skill quando assenti', () => {
     const s = withActors(hero());
-    const ev = decide(s, { type: 'RequestCheck', actorId: 'eroe', difficulty: 'easy' }, stub([0.5]))[0]!;
+    const ev = decide(s, { type: 'RequestCheck', actorId: 'eroe', difficulty: 'easy' }, stub([0.5]), TEST_RULESET)[0]!;
     expect(ev.type).toBe('CheckResolved');
     expect('attribute' in ev).toBe(false);
     expect('skill' in ev).toBe(false);
@@ -221,7 +234,7 @@ describe('decide RequestCheck', () => {
 
   it('lancia se l attore e sconosciuto, senza eventi', () => {
     expect(() =>
-      decide(initialState, { type: 'RequestCheck', actorId: 'ignoto', difficulty: 'hard' }, stub([0.5])),
+      decide(initialState, { type: 'RequestCheck', actorId: 'ignoto', difficulty: 'hard' }, stub([0.5]), TEST_RULESET),
     ).toThrow('Attore sconosciuto: ignoto');
   });
 });
@@ -233,6 +246,7 @@ describe('decide ApplyEffect', () => {
       s,
       { type: 'ApplyEffect', targetId: 'eroe', resource: 'hp', direction: 'restore', dice: [{ count: 2, sides: 6 }] },
       stub([0.5]), // ogni d6 = 4 -> 2d6 = 8
+      TEST_RULESET,
     );
     expect(events).toHaveLength(1);
     const ev = events[0]!;
@@ -252,6 +266,7 @@ describe('decide ApplyEffect', () => {
       s,
       { type: 'ApplyEffect', targetId: 'eroe', resource: 'hp', direction: 'drain', dice: [{ count: 2, sides: 6 }] },
       stub([0.5]),
+      TEST_RULESET,
     )[0]!;
     expect(ev.type).toBe('ResourceEffectApplied');
     if (ev.type === 'ResourceEffectApplied') {
@@ -265,6 +280,7 @@ describe('decide ApplyEffect', () => {
       s,
       { type: 'ApplyEffect', targetId: 'eroe', resource: 'hp', direction: 'restore', dice: [{ count: 1, sides: 6 }], bonus: 3 },
       stub([0.5]), // 1d6 = 4, + bonus 3 = 7
+      TEST_RULESET,
     )[0]!;
     if (ev.type !== 'ResourceEffectApplied') throw new Error('atteso ResourceEffectApplied');
     expect(ev.roll.modifierTotal).toBe(3);
@@ -278,6 +294,7 @@ describe('decide ApplyEffect', () => {
       s,
       { type: 'ApplyEffect', targetId: 'eroe', resource: 'hp', direction: 'restore', dice: [{ count: 1, sides: 6 }], bonus: -100 },
       stub([0.5]), // 1d6 = 4, + (-100) = -96 -> magnitudine max(0, -96) = 0
+      TEST_RULESET,
     )[0]!;
     if (ev.type !== 'ResourceEffectApplied') throw new Error('atteso ResourceEffectApplied');
     expect(ev.delta).toBe(0); // restore non drena mai
@@ -289,6 +306,7 @@ describe('decide ApplyEffect', () => {
       s,
       { type: 'ApplyEffect', targetId: 'eroe', resource: 'hp', direction: 'drain', dice: [{ count: 1, sides: 6 }], bonus: -100 },
       stub([0.5]), // 1d6 = 4, + (-100) = -96 -> magnitudine max(0, -96) = 0
+      TEST_RULESET,
     )[0]!;
     if (ev.type !== 'ResourceEffectApplied') throw new Error('atteso ResourceEffectApplied');
     expect(ev.delta + 0).toBe(0); // + 0 normalizza -0 a +0: drain clampato a esattamente 0 (mai positivo)
@@ -296,14 +314,14 @@ describe('decide ApplyEffect', () => {
 
   it('lancia se l attore e sconosciuto, senza eventi', () => {
     expect(() =>
-      decide(initialState, { type: 'ApplyEffect', targetId: 'ignoto', resource: 'hp', direction: 'restore', dice: [{ count: 1, sides: 6 }] }, stub([0.5])),
+      decide(initialState, { type: 'ApplyEffect', targetId: 'ignoto', resource: 'hp', direction: 'restore', dice: [{ count: 1, sides: 6 }] }, stub([0.5]), TEST_RULESET),
     ).toThrow('Attore sconosciuto: ignoto');
   });
 
   it('lancia se la risorsa e sconosciuta, senza eventi', () => {
     const s = withActors(actor('eroe'));
     expect(() =>
-      decide(s, { type: 'ApplyEffect', targetId: 'eroe', resource: 'mana', direction: 'restore', dice: [{ count: 1, sides: 6 }] }, stub([0.5])),
+      decide(s, { type: 'ApplyEffect', targetId: 'eroe', resource: 'mana', direction: 'restore', dice: [{ count: 1, sides: 6 }] }, stub([0.5]), TEST_RULESET),
     ).toThrow('Risorsa sconosciuta: mana');
   });
 });
@@ -314,6 +332,7 @@ describe('decide StartQuest', () => {
       initialState,
       { type: 'StartQuest', id: 'q1', title: 'Trova l amuleto', description: 'Per il Barone' },
       rng,
+      TEST_RULESET,
     );
     expect(events).toEqual([
       { type: 'QuestStarted', quest: { id: 'q1', title: 'Trova l amuleto', description: 'Per il Barone', status: 'active' } },
@@ -321,7 +340,7 @@ describe('decide StartQuest', () => {
   });
 
   it('omette description quando assente', () => {
-    const events = decide(initialState, { type: 'StartQuest', id: 'q1', title: 'Trova l amuleto' }, rng);
+    const events = decide(initialState, { type: 'StartQuest', id: 'q1', title: 'Trova l amuleto' }, rng, TEST_RULESET);
     expect(events).toHaveLength(1);
     const ev = events[0]!;
     if (ev.type !== 'QuestStarted') throw new Error('atteso QuestStarted');
@@ -334,7 +353,7 @@ describe('decide StartQuest', () => {
       type: 'QuestStarted',
       quest: { id: 'q1', title: 'X', status: 'active' },
     });
-    expect(() => decide(started, { type: 'StartQuest', id: 'q1', title: 'Y' }, rng)).toThrow('Quest già presente: q1');
+    expect(() => decide(started, { type: 'StartQuest', id: 'q1', title: 'Y' }, rng, TEST_RULESET)).toThrow('Quest già presente: q1');
   });
 });
 
@@ -344,19 +363,19 @@ describe('decide AdvanceQuest', () => {
   }
 
   it('quest attiva -> QuestAdvanced con lo stato richiesto', () => {
-    expect(decide(withQuest(), { type: 'AdvanceQuest', questId: 'q1', status: 'completed' }, rng)).toEqual([
+    expect(decide(withQuest(), { type: 'AdvanceQuest', questId: 'q1', status: 'completed' }, rng, TEST_RULESET)).toEqual([
       { type: 'QuestAdvanced', questId: 'q1', status: 'completed' },
     ]);
   });
 
   it('puo portare a failed', () => {
-    expect(decide(withQuest(), { type: 'AdvanceQuest', questId: 'q1', status: 'failed' }, rng)).toEqual([
+    expect(decide(withQuest(), { type: 'AdvanceQuest', questId: 'q1', status: 'failed' }, rng, TEST_RULESET)).toEqual([
       { type: 'QuestAdvanced', questId: 'q1', status: 'failed' },
     ]);
   });
 
   it('lancia su quest sconosciuta, senza eventi', () => {
-    expect(() => decide(initialState, { type: 'AdvanceQuest', questId: 'ignota', status: 'completed' }, rng)).toThrow(
+    expect(() => decide(initialState, { type: 'AdvanceQuest', questId: 'ignota', status: 'completed' }, rng, TEST_RULESET)).toThrow(
       'Quest sconosciuta: ignota',
     );
   });
@@ -364,15 +383,15 @@ describe('decide AdvanceQuest', () => {
   it('lancia su quest gia terminata, senza eventi', () => {
     let s = withQuest();
     s = applyEvent(s, { type: 'QuestAdvanced', questId: 'q1', status: 'completed' });
-    expect(() => decide(s, { type: 'AdvanceQuest', questId: 'q1', status: 'failed' }, rng)).toThrow(
+    expect(() => decide(s, { type: 'AdvanceQuest', questId: 'q1', status: 'failed' }, rng, TEST_RULESET)).toThrow(
       'Quest già terminata (completed): q1',
     );
   });
 
   it('ciclo decide->apply: start poi advance, lo stato riflette il terminale', () => {
     let s = initialState;
-    for (const e of decide(s, { type: 'StartQuest', id: 'q1', title: 'X' }, rng)) s = applyEvent(s, e);
-    for (const e of decide(s, { type: 'AdvanceQuest', questId: 'q1', status: 'completed' }, rng)) s = applyEvent(s, e);
+    for (const e of decide(s, { type: 'StartQuest', id: 'q1', title: 'X' }, rng, TEST_RULESET)) s = applyEvent(s, e);
+    for (const e of decide(s, { type: 'AdvanceQuest', questId: 'q1', status: 'completed' }, rng, TEST_RULESET)) s = applyEvent(s, e);
     expect(s.quests['q1']?.status).toBe('completed');
   });
 });
@@ -407,42 +426,42 @@ describe('decide gate di fase, EnterPhase, EndEncounter', () => {
   it('StartEncounter in combat e rifiutato (niente doppio scontro)', () => {
     const s = inCombat(withActors(actor('eroe')));
     expect(() =>
-      decide(s, { type: 'StartEncounter', encounterId: 'e2', participants: [{ actorId: 'eroe', zone: 'a', initiative: 5 }] }, rng),
+      decide(s, { type: 'StartEncounter', encounterId: 'e2', participants: [{ actorId: 'eroe', zone: 'a', initiative: 5 }] }, rng, TEST_RULESET),
     ).toThrow('non disponibile in fase combat');
   });
 
   it('EndEncounter in combat emette EncounterEnded e PhaseChanged verso exploration', () => {
     const s = inCombat(withActors(actor('eroe')));
-    expect(decide(s, { type: 'EndEncounter' }, rng)).toEqual([
+    expect(decide(s, { type: 'EndEncounter' }, rng, TEST_RULESET)).toEqual([
       { type: 'EncounterEnded', encounterId: 'e' },
       { type: 'PhaseChanged', from: 'combat', to: 'exploration' },
     ]);
   });
 
   it('EndEncounter fuori combat e rifiutato dal gate', () => {
-    expect(() => decide(initialState, { type: 'EndEncounter' }, rng)).toThrow('non disponibile in fase exploration');
+    expect(() => decide(initialState, { type: 'EndEncounter' }, rng, TEST_RULESET)).toThrow('non disponibile in fase exploration');
   });
 
   it('EndEncounter difende da uno stato incoerente combat-senza-scontro', () => {
     // Stato che viola l invariante (phase=combat ma encounter=null): impossibile da sequenze
     // legali, ma il guard difensivo in decide deve scattare comunque (defense in depth).
     const broken: GameState = { ...initialState, phase: 'combat' };
-    expect(() => decide(broken, { type: 'EndEncounter' }, rng)).toThrow('Nessuno scontro attivo');
+    expect(() => decide(broken, { type: 'EndEncounter' }, rng, TEST_RULESET)).toThrow('Nessuno scontro attivo');
   });
 
   it('EnterPhase tra fasi soft emette PhaseChanged', () => {
-    expect(decide(initialState, { type: 'EnterPhase', to: 'dialogue' }, rng)).toEqual([
+    expect(decide(initialState, { type: 'EnterPhase', to: 'dialogue' }, rng, TEST_RULESET)).toEqual([
       { type: 'PhaseChanged', from: 'exploration', to: 'dialogue' },
     ]);
   });
 
   it('EnterPhase verso la stessa fase e rifiutato', () => {
-    expect(() => decide(initialState, { type: 'EnterPhase', to: 'exploration' }, rng)).toThrow('Transizione di fase non valida');
+    expect(() => decide(initialState, { type: 'EnterPhase', to: 'exploration' }, rng, TEST_RULESET)).toThrow('Transizione di fase non valida');
   });
 
   it('EnterPhase in combat e rifiutato dal gate', () => {
     const s = inCombat(withActors(actor('eroe')));
-    expect(() => decide(s, { type: 'EnterPhase', to: 'downtime' }, rng)).toThrow('non disponibile in fase combat');
+    expect(() => decide(s, { type: 'EnterPhase', to: 'downtime' }, rng, TEST_RULESET)).toThrow('non disponibile in fase combat');
   });
 });
 
@@ -453,10 +472,10 @@ describe('invariante phase=combat <=> encounter!=null', () => {
   it('vale su initialState e lungo il ciclo di vita di uno scontro', () => {
     let s: GameState = withActors(actor('eroe'));
     expect(holds(s)).toBe(true); // exploration, nessuno scontro
-    for (const e of decide(s, { type: 'StartEncounter', encounterId: 'e', participants: [{ actorId: 'eroe', zone: 'a', initiative: 5 }] }, rng)) s = applyEvent(s, e);
+    for (const e of decide(s, { type: 'StartEncounter', encounterId: 'e', participants: [{ actorId: 'eroe', zone: 'a', initiative: 5 }] }, rng, TEST_RULESET)) s = applyEvent(s, e);
     expect(s.phase).toBe('combat');
     expect(holds(s)).toBe(true);
-    for (const e of decide(s, { type: 'EndEncounter' }, rng)) s = applyEvent(s, e);
+    for (const e of decide(s, { type: 'EndEncounter' }, rng, TEST_RULESET)) s = applyEvent(s, e);
     expect(s.phase).toBe('exploration');
     expect(s.encounter).toBeNull();
     expect(holds(s)).toBe(true);

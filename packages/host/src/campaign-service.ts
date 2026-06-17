@@ -13,6 +13,7 @@ import {
   type DomainEvent,
   type GameState,
   type RandomSource,
+  type Ruleset,
 } from '@loomn/engine';
 import { runMasterTurn, type LanguageModel, type StructuredOutputPort } from '@loomn/ai';
 import { runReflection } from '@loomn/memory';
@@ -28,6 +29,8 @@ export interface CampaignServiceDeps {
   structured: StructuredOutputPort;
   /** RNG seedato: decide lo consuma e registra i fatti risolti negli Event (replay senza RNG). */
   rng: RandomSource;
+  /** Ruleset iniettato (vocabolario + dcForDifficulty): passato a decide e runMasterTurn. */
+  ruleset: Ruleset;
 }
 
 /** Proiezione di sola lettura (read side, spec 5.2). Snapshot completo (delta rimandato, spec 13).
@@ -93,7 +96,7 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
     dispatch(command: Command): Promise<DispatchOutcome> {
       return enqueue(() => {
         const expected = state.version;
-        const events = decide(state, command, deps.rng);
+        const events = decide(state, command, deps.rng, deps.ruleset);
         deps.memory.eventStore.append(events, expected);
         for (const ev of events) state = applyEvent(state, ev);
         return { events, readModel: readModel() };
@@ -106,6 +109,7 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
         const result = await runMasterTurn({
           model: deps.model,
           rng: deps.rng,
+          ruleset: deps.ruleset,
           state,
           playerAction,
           assembleContext: deps.memory.assembleContext,

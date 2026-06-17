@@ -2,7 +2,7 @@
 // LanguageModel.stream -> tool-call -> Zod -> Command -> decide (RNG seedato) -> reinietta
 // gli Event REALI nello stesso turno -> il modello narra. Singolo turno agentico in
 // streaming (non due chiamate "risolvi->narra"). Il codice e l arbitro, l AI il narratore.
-import { decide, applyEvent, type Command, type DomainEvent, type GameState, type Phase, type RandomSource } from '@loomn/engine';
+import { decide, applyEvent, type Command, type DomainEvent, type GameState, type Phase, type RandomSource, type Ruleset } from '@loomn/engine';
 import { collectResponse, type LanguageModel, type LlmMessage } from './language-model';
 import { noopTracer, type TracingPort } from './tracing';
 import { masterToolDefs, resolveToolCall } from './master-tools';
@@ -59,6 +59,8 @@ export function buildMasterMessages(context: string, playerAction: string, phase
 export interface MasterTurnRequest {
   model: LanguageModel;
   rng: RandomSource;
+  /** Ruleset iniettato (vocabolario + dcForDifficulty), spec 5.3. Passato a decide. */
+  ruleset: Ruleset;
   state: GameState;
   playerAction: string;
   tracer?: TracingPort;
@@ -128,7 +130,7 @@ export async function runMasterTurn(request: MasterTurnRequest): Promise<MasterT
       let produced: DomainEvent[];
       try {
         // Il codice e l arbitro: decide consuma l RNG seedato e produce gli eventi reali.
-        produced = decide(state, resolution.command, request.rng);
+        produced = decide(state, resolution.command, request.rng, request.ruleset);
       } catch (e) {
         tracer.record({ kind: 'error', message: `decide(${call.name}): ${(e as Error).message}` });
         resultLines.push(`${call.name}: RIFIUTATO dal motore (${(e as Error).message}).`);

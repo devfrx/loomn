@@ -3,6 +3,8 @@ import {
   initialState,
   applyEvent,
   createSeededRandom,
+  createRuleset,
+  createVocabulary,
   type Actor,
   type DomainEvent,
   type StoredEvent,
@@ -19,6 +21,16 @@ import {
 import { runReflection } from '@loomn/memory';
 import { createMemorySystem } from './memory-system';
 import { reflectionDepsFor } from './reflection-ports';
+
+// Vocabolario di test: ampio fantasy, defaultResources VUOTO (non perturba i test di auto-fill del Task 4).
+const WIRING_RULESET = createRuleset({
+  vocabulary: createVocabulary({
+    attributes: ['forza', 'destrezza', 'costituzione', 'intelligenza', 'saggezza', 'carisma'],
+    skills: ['atletica', 'furtivita', 'persuasione', 'intuito', 'arcano', 'percezione'],
+    resources: ['hp', 'mana', 'stamina'],
+    defenses: ['difesa', 'tempra', 'riflessi', 'volonta'],
+  }),
+});
 
 function actor(id: string, name: string): Actor {
   return {
@@ -60,6 +72,7 @@ describe('wiring - assembler reale iniettato in runMasterTurn', () => {
       const result = await runMasterTurn({
         model,
         rng: createSeededRandom(1),
+        ruleset: WIRING_RULESET,
         state,
         playerAction: 'Osservo il goblin.',
         assembleContext: sys.assembleContext,

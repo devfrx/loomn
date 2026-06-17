@@ -171,7 +171,7 @@ describe('commandSchema', () => {
 
   it('rifiuta ApplyEffect con direction sconosciuta', () => {
     expect(() =>
-      commandSchema.parse({ type: 'ApplyEffect', targetId: 'b', resource: 'hp', direction: 'boost', dice: [] }),
+      commandSchema.parse({ type: 'ApplyEffect', targetId: 'b', resource: 'hp', direction: 'boost', dice: [{ count: 1, sides: 6 }] }),
     ).toThrow();
   });
 
@@ -179,6 +179,10 @@ describe('commandSchema', () => {
     const parsed = commandSchema.parse({ type: 'StartQuest', id: 'q1', title: 'La gemma perduta' });
     expect(parsed).toEqual({ type: 'StartQuest', id: 'q1', title: 'La gemma perduta' });
     expect('description' in parsed).toBe(false);
+  });
+
+  it('rifiuta StartQuest senza title', () => {
+    expect(() => commandSchema.parse({ type: 'StartQuest', id: 'q1' })).toThrow();
   });
 
   it('valida AdvanceQuest con status terminale', () => {

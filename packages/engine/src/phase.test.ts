@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PHASES, SOFT_PHASES, INITIAL_PHASE, canTransition, type Phase } from './phase';
+import { PHASES, SOFT_PHASES, INITIAL_PHASE, canTransition } from './phase';
 
 describe('costanti di fase', () => {
   it('PHASES contiene le quattro fasi', () => {
@@ -7,7 +7,6 @@ describe('costanti di fase', () => {
   });
   it('SOFT_PHASES sono le tre non-combat e non contengono combat', () => {
     expect(SOFT_PHASES).toEqual(['exploration', 'dialogue', 'downtime']);
-    expect((SOFT_PHASES as readonly string[]).includes('combat')).toBe(false);
   });
   it('INITIAL_PHASE e exploration', () => {
     expect(INITIAL_PHASE).toBe('exploration');
@@ -24,8 +23,7 @@ describe('canTransition', () => {
     expect(canTransition('combat', 'downtime')).toBe(false);
   });
   it('da una fase non-combat ogni altra fase e raggiungibile', () => {
-    const soft: Phase[] = ['exploration', 'dialogue', 'downtime'];
-    for (const from of soft) {
+    for (const from of SOFT_PHASES) {
       for (const to of PHASES) {
         expect(canTransition(from, to)).toBe(from !== to);
       }

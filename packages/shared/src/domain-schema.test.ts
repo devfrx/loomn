@@ -176,14 +176,14 @@ describe('domainEventSchema', () => {
 
 describe('gameStateSchema', () => {
   it('fa round-trip di uno stato con encounter null e non null', () => {
-    const s1 = { version: 2, actors: { eroe: fullActor }, encounter: null, quests: {}, phase: 'exploration' as const };
+    const s1 = { version: 2, actors: { eroe: fullActor }, encounter: null, quests: {}, phase: 'exploration' };
     expect(gameStateSchema.parse(s1)).toEqual(s1);
     const s2 = {
       version: 3,
       actors: { eroe: fullActor },
       encounter: { id: 'e', participants: [{ actorId: 'eroe', zone: 'a', initiative: 10, actedThisRound: false }], round: 1, turnIndex: 0 },
       quests: {},
-      phase: 'exploration' as const,
+      phase: 'exploration',
     };
     expect(gameStateSchema.parse(s2)).toEqual(s2);
   });
@@ -194,7 +194,7 @@ describe('gameStateSchema', () => {
       actors: { eroe: fullActor },
       encounter: null,
       quests: { q1: { id: 'q1', title: 'Trova l amuleto', status: 'active' as const } },
-      phase: 'exploration' as const,
+      phase: 'exploration',
     };
     expect(gameStateSchema.parse(s)).toEqual(s);
   });

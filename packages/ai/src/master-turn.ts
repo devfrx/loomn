@@ -2,7 +2,7 @@
 // LanguageModel.stream -> tool-call -> Zod -> Command -> decide (RNG seedato) -> reinietta
 // gli Event REALI nello stesso turno -> il modello narra. Singolo turno agentico in
 // streaming (non due chiamate "risolvi->narra"). Il codice e l arbitro, l AI il narratore.
-import { decide, applyEvent, type Command, type DomainEvent, type GameState, type RandomSource } from '@loomn/engine';
+import { decide, applyEvent, type Command, type DomainEvent, type GameState, type Phase, type RandomSource } from '@loomn/engine';
 import { collectResponse, type LanguageModel, type LlmMessage } from './language-model';
 import { noopTracer, type TracingPort } from './tracing';
 import { masterToolDefs, resolveToolCall } from './master-tools';
@@ -35,10 +35,22 @@ export function assembleContextStub(state: GameState): string {
  *  coincide con quella di assembleContextStub, che resta il default. */
 export type AssembleContext = (state: GameState) => string;
 
-/** Costruisce i messaggi iniziali del turno: ruolo/regole + contesto + azione del giocatore. */
-export function buildMasterMessages(context: string, playerAction: string): LlmMessage[] {
+const PHASE_GUIDANCE: Record<Phase, string> = {
+  exploration: 'Fase: esplorazione. Descrivi luoghi e dettagli sensoriali; per iniziare uno scontro usa start_encounter.',
+  dialogue: 'Fase: dialogo. Interpreta i PNG in prima persona; dai peso alle scelte sociali.',
+  combat: 'Fase: combattimento. Sii tattico e conciso; usa attack/end_turn/next_round e chiudi con end_encounter quando lo scontro e risolto.',
+  downtime: 'Fase: tempo libero. Ritmo riflessivo: recupero, preparativi, relazioni.',
+};
+
+/** Linea-guida di strategia per la fase data (spec §5.5). Unita pura, riusabile. */
+export function phaseGuidance(phase: Phase): string {
+  return PHASE_GUIDANCE[phase];
+}
+
+/** Costruisce i messaggi iniziali del turno: ruolo/regole + frammento di fase + contesto + azione del giocatore. */
+export function buildMasterMessages(context: string, playerAction: string, phase: Phase): LlmMessage[] {
   return [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: `${SYSTEM_PROMPT}\n${phaseGuidance(phase)}` },
     { role: 'system', content: context },
     { role: 'user', content: playerAction },
   ];
@@ -77,16 +89,16 @@ function summarizeCalls(names: string[]): string {
 export async function runMasterTurn(request: MasterTurnRequest): Promise<MasterTurnResult> {
   const tracer = request.tracer ?? noopTracer;
   const maxIterations = request.maxIterations ?? 6;
-  const toolDefs = masterToolDefs(request.state.phase);
 
   let state = request.state;
   const events: DomainEvent[] = [];
   const invocations: ToolInvocation[] = [];
   const assemble = request.assembleContext ?? assembleContextStub;
-  const messages: LlmMessage[] = buildMasterMessages(assemble(state), request.playerAction);
+  const messages: LlmMessage[] = buildMasterMessages(assemble(state), request.playerAction, state.phase);
   let narration = '';
 
   for (let iter = 0; iter < maxIterations; iter++) {
+    const toolDefs = masterToolDefs(state.phase);
     const res = await collectResponse(request.model.stream({ messages, tools: toolDefs, toolChoice: 'auto' }));
     tracer.record({
       kind: 'response',

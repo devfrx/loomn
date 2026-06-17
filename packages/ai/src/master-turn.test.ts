@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { replay, createSeededRandom, type Actor, type DomainEvent, type Item } from '@loomn/engine';
-import { runMasterTurn, assembleContextStub } from './master-turn';
+import { runMasterTurn, assembleContextStub, buildMasterMessages, phaseGuidance } from './master-turn';
 import type { LanguageModel, LlmRequest, LlmStreamEvent } from './language-model';
 import { createRecordingTracer } from './tracing';
 
@@ -185,5 +185,44 @@ describe('iniezione del Context Assembler', () => {
     const model = fakeModel(() => text('ok'));
     const res = await runMasterTurn({ model, rng: createSeededRandom(1), state: baseState, playerAction: 'Guardo intorno.' });
     expect(res.transcript[1]?.content).toBe(assembleContextStub(baseState));
+  });
+});
+
+describe('phaseGuidance e buildMasterMessages', () => {
+  it('phaseGuidance ritorna una linea non vuota per ogni fase', () => {
+    for (const p of ['exploration', 'dialogue', 'combat', 'downtime'] as const) {
+      expect(phaseGuidance(p).length).toBeGreaterThan(0);
+    }
+  });
+  it('buildMasterMessages inietta il frammento della fase nel system prompt', () => {
+    const msgs = buildMasterMessages('CTX', 'azione', 'combat');
+    expect(msgs[0]?.role).toBe('system');
+    expect(msgs[0]?.content).toContain(phaseGuidance('combat'));
+    expect(msgs[1]?.content).toBe('CTX');
+    expect(msgs[2]?.content).toBe('azione');
+  });
+});
+
+describe('filtro tool per-iterazione', () => {
+  it('flusso start_encounter -> attack: i tool di combat compaiono dopo la transizione', async () => {
+    const seen: string[][] = [];
+    const model = fakeModel((req, i) => {
+      seen.push((req.tools ?? []).map((t) => t.name));
+      if (i === 0) {
+        return toolCall(
+          'start_encounter',
+          '{"encounterId":"e","participants":[{"actorId":"pc1","zone":"a","initiative":10},{"actorId":"g1","zone":"a","initiative":5}]}',
+        );
+      }
+      if (i === 1) return toolCall('attack', ATTACK_ARGS);
+      return text('Lo scontro infuria.');
+    });
+    const res = await runMasterTurn({ model, rng: createSeededRandom(42), state: baseState, playerAction: 'Sorprendo il goblin!' });
+    expect(seen[0]).toContain('start_encounter');
+    expect(seen[0]).not.toContain('attack');
+    expect(seen[1]).toContain('attack');
+    expect(seen[1]).not.toContain('start_encounter');
+    expect(res.events.some((e) => e.type === 'PhaseChanged' && e.to === 'combat')).toBe(true);
+    expect(res.events.some((e) => e.type === 'AttackResolved')).toBe(true);
   });
 });

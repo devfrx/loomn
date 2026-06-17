@@ -171,6 +171,13 @@ export const domainEventSchema = z.union([
     z.object({ type: z.literal('DamageApplied'), targetId: z.string(), resource: z.string(), amount: z.number() }),
     z.object({ type: z.literal('ActorDowned'), actorId: z.string() }),
     z.object({ type: z.literal('NarrationRecorded'), playerAction: z.string(), narration: z.string() }),
+    z.object({
+      type: z.literal('ResourceEffectApplied'),
+      targetId: z.string(),
+      resource: z.string(),
+      delta: z.number(),
+      roll: z.object({ ...rollResultFields }),
+    }),
   ]),
   checkResolvedEventSchema,
 ]);

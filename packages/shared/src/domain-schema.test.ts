@@ -115,6 +115,33 @@ describe('domainEventSchema', () => {
       }),
     ).toThrow();
   });
+
+  it('valida e fa round-trip di ResourceEffectApplied con roll annidato', () => {
+    const event = {
+      type: 'ResourceEffectApplied' as const,
+      targetId: 'pc-eldra',
+      resource: 'hp',
+      delta: 7,
+      roll: {
+        dice: [{ sides: 6, value: 4 }, { sides: 6, value: 2 }],
+        modifierTotal: 1,
+        total: 7,
+        mode: 'effect' as const,
+      },
+    };
+    expect(domainEventSchema.parse(event)).toEqual(event);
+  });
+
+  it('rifiuta ResourceEffectApplied con un campo obbligatorio mancante (delta)', () => {
+    expect(() =>
+      domainEventSchema.parse({
+        type: 'ResourceEffectApplied',
+        targetId: 'pc-eldra',
+        resource: 'hp',
+        roll: { dice: [{ sides: 6, value: 4 }], modifierTotal: 0, total: 4, mode: 'effect' },
+      }),
+    ).toThrow();
+  });
 });
 
 describe('gameStateSchema', () => {

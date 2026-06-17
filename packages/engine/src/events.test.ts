@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Actor } from './actor';
 import type { CheckResult } from './check';
+import type { RollResult } from './dice';
 import { createEncounter } from './encounter';
 import { applyEvent, replay, initialState, type DomainEvent, type GameState } from './events';
 
@@ -118,6 +119,21 @@ describe('applyEvent', () => {
     expect(s.actors).toEqual(base.actors);
     expect(s.encounter).toEqual(base.encounter);
     expect(s.version).toBe(base.version + 1);
+  });
+
+  it('ResourceEffectApplied con delta positivo ripristina la risorsa clampando a max', () => {
+    const base = withActors(actor('eroe', 4)); // hp 4/10
+    const roll: RollResult = { dice: [{ sides: 6, value: 6 }], modifierTotal: 0, total: 6, mode: 'effect' };
+    const s = applyEvent(base, { type: 'ResourceEffectApplied', targetId: 'eroe', resource: 'hp', delta: 8, roll });
+    expect(s.actors['eroe']?.resources['hp']?.current).toBe(10); // 4 + 8 = 12 -> clamp a max 10
+    expect(s.version).toBe(base.version + 1);
+  });
+
+  it('ResourceEffectApplied con delta negativo prosciuga la risorsa clampando a 0', () => {
+    const base = withActors(actor('eroe', 3)); // hp 3/10
+    const roll: RollResult = { dice: [{ sides: 6, value: 5 }], modifierTotal: 0, total: 5, mode: 'effect' };
+    const s = applyEvent(base, { type: 'ResourceEffectApplied', targetId: 'eroe', resource: 'hp', delta: -5, roll });
+    expect(s.actors['eroe']?.resources['hp']?.current).toBe(0); // 3 - 5 = -2 -> clamp a 0
   });
 
   it('lancia per DamageApplied su attore sconosciuto', () => {

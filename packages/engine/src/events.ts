@@ -1,5 +1,6 @@
 import type { Actor } from './actor';
 import type { CheckResult } from './check';
+import type { RollResult } from './dice';
 import type { Difficulty } from './difficulty';
 import { adjustResource } from './resource';
 import { addCondition } from './condition';
@@ -14,7 +15,8 @@ export type DomainEvent =
   | { type: 'DamageApplied'; targetId: string; resource: string; amount: number }
   | { type: 'ActorDowned'; actorId: string }
   | { type: 'NarrationRecorded'; playerAction: string; narration: string }
-  | { type: 'CheckResolved'; actorId: string; attribute?: string; skill?: string; difficulty: Difficulty; result: CheckResult };
+  | { type: 'CheckResolved'; actorId: string; attribute?: string; skill?: string; difficulty: Difficulty; result: CheckResult }
+  | { type: 'ResourceEffectApplied'; targetId: string; resource: string; delta: number; roll: RollResult };
 
 export interface GameState {
   version: number;
@@ -65,6 +67,13 @@ export function applyEvent(state: GameState, event: DomainEvent): GameState {
       return bumped;
     case 'DamageApplied': {
       const target = adjustResource(requireActor(state, event.targetId), event.resource, -event.amount);
+      return { ...bumped, actors: { ...state.actors, [event.targetId]: target } };
+    }
+    case 'ResourceEffectApplied': {
+      // Il delta e gia risolto e firmato nell evento (replay-safe, niente RNG nel proiettore).
+      // adjustResource clampa current in [0, max], come DamageApplied. Il roll e provenienza,
+      // non viene rigiocato.
+      const target = adjustResource(requireActor(state, event.targetId), event.resource, event.delta);
       return { ...bumped, actors: { ...state.actors, [event.targetId]: target } };
     }
     case 'ActorDowned': {

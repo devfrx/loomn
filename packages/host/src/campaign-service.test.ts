@@ -442,3 +442,82 @@ describe('createCampaignService - reflect e serializzazione', () => {
     }
   });
 });
+
+describe('createCampaignService - read on-demand (narrazione / canon / L2)', () => {
+  it('getNarrationHistory ritorna le voci newest-first', async () => {
+    const model = scriptedModel([
+      [{ type: 'text', delta: 'Entri nella locanda.' }, { type: 'finish', reason: 'stop' }],
+      [{ type: 'text', delta: 'Il locandiere ti saluta.' }, { type: 'finish', reason: 'stop' }],
+    ]);
+    const { service, memory } = makeService({ model });
+    try {
+      await service.runTurn('Entro.');
+      await service.runTurn('Saluto.');
+      const h = service.getNarrationHistory();
+      expect(h.entries.map((e) => e.seq)).toEqual([2, 1]);
+      expect(h.entries[0]?.narration).toBe('Il locandiere ti saluta.');
+      expect(h.entries[0]?.playerAction).toBe('Saluto.');
+      expect(h.hasMore).toBe(false);
+    } finally {
+      memory.close();
+    }
+  });
+
+  it('getNarrationHistory rispetta limit e segnala hasMore, e pagina con before', async () => {
+    const model = scriptedModel([
+      [{ type: 'text', delta: 'Prima.' }, { type: 'finish', reason: 'stop' }],
+      [{ type: 'text', delta: 'Seconda.' }, { type: 'finish', reason: 'stop' }],
+    ]);
+    const { service, memory } = makeService({ model });
+    try {
+      await service.runTurn('a1.');
+      await service.runTurn('a2.');
+      const page1 = service.getNarrationHistory({ limit: 1 });
+      expect(page1.entries.map((e) => e.seq)).toEqual([2]);
+      expect(page1.hasMore).toBe(true);
+      const page2 = service.getNarrationHistory({ before: 2 });
+      expect(page2.entries.map((e) => e.seq)).toEqual([1]);
+      expect(page2.hasMore).toBe(false);
+    } finally {
+      memory.close();
+    }
+  });
+
+  it('getNarrationHistory su stream senza narrazione e vuota', async () => {
+    const { service, memory } = makeService();
+    try {
+      await service.dispatch({ type: 'AddActor', actor: actor('goblin', 'Goblin') });
+      const h = service.getNarrationHistory();
+      expect(h.entries).toEqual([]);
+      expect(h.hasMore).toBe(false);
+    } finally {
+      memory.close();
+    }
+  });
+
+  it('getCanon ritorna i fatti attivi di default e tutti con includeRetracted', () => {
+    const { service, memory } = makeService();
+    try {
+      memory.ledger.record({ id: 'f1', subject: 'krix', predicate: 'serve', object: 'vhalmar', eventSeq: 1 });
+      memory.ledger.record({ id: 'f2', subject: 'porta', predicate: 'e', object: 'chiusa', eventSeq: 2 });
+      memory.ledger.retract('f2');
+      expect(service.getCanon().map((f) => f.id)).toEqual(['f1']);
+      expect(service.getCanon({ includeRetracted: true }).map((f) => f.id)).toEqual(['f1', 'f2']);
+      expect(service.getCanon({ subject: 'krix' }).map((f) => f.id)).toEqual(['f1']);
+    } finally {
+      memory.close();
+    }
+  });
+
+  it('getSummaries ritorna tutti i riassunti e filtra per level', () => {
+    const { service, memory } = makeService();
+    try {
+      memory.summaries.record({ id: 's1', level: 'scene', scope: 'sess-1', text: 'scena', importance: 5, salience: 0.5, createdAt: 1000, eventSeqFrom: 1, eventSeqTo: 3 });
+      memory.summaries.record({ id: 's2', level: 'session', scope: 'sess-1', text: 'sessione', importance: 7, salience: 0.6, createdAt: 1001, eventSeqFrom: 4, eventSeqTo: 9 });
+      expect(service.getSummaries().map((s) => s.id)).toEqual(['s1', 's2']);
+      expect(service.getSummaries({ level: 'scene' }).map((s) => s.id)).toEqual(['s1']);
+    } finally {
+      memory.close();
+    }
+  });
+});

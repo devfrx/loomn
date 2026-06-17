@@ -17,6 +17,7 @@ import {
 } from '@loomn/engine';
 import { runMasterTurn, type LanguageModel, type StructuredOutputPort } from '@loomn/ai';
 import { runScenesReflection } from '@loomn/memory';
+import type { CanonFact, CanonFactFilter, Summary, SummaryFilter } from '@loomn/memory';
 import type { MemorySystem } from './memory-system';
 import { reflectionDepsFor } from './reflection-ports';
 
@@ -61,6 +62,30 @@ export interface ReflectOutcome {
   summarized: boolean;
 }
 
+/** Una voce della storia di narrazione (evento NarrationRecorded col suo seq di stream). */
+export interface NarrationEntry {
+  seq: number;
+  playerAction: string;
+  narration: string;
+}
+
+/** Pagina di storia di narrazione, newest-first (cursor-by-seq). */
+export interface NarrationHistory {
+  entries: NarrationEntry[];
+  hasMore: boolean;
+}
+
+/** Cursor-by-seq: `before` -> voci con seq < before; `limit` (default 50) limita la finestra. */
+export interface NarrationHistoryQuery {
+  before?: number;
+  limit?: number;
+}
+
+/** Filtro canon + includeRetracted (default false = solo attivi). */
+export interface CanonQuery extends CanonFactFilter {
+  includeRetracted?: boolean;
+}
+
 export interface CampaignService {
   /** Proiezione corrente (in-memory, sempre allineata all event store). */
   getReadModel(): ReadModel;
@@ -72,6 +97,13 @@ export interface CampaignService {
   /** Reflection (spec 6.1, item 6): riflette in modo incrementale le scene non ancora riflesse
    *  (segmentate ai confini di fase), avanzando il watermark; lo `scope` etichetta i riassunti. */
   reflect(scope: string): Promise<ReflectOutcome>;
+  /** Storia di narrazione (eventi NarrationRecorded) paginata cursor-by-seq, newest-first.
+   *  Read puro (non accodato): legge lo stream committato. */
+  getNarrationHistory(query?: NarrationHistoryQuery): NarrationHistory;
+  /** Canon ledger L1.5: fatti attivi (default) o tutti (includeRetracted), filtrabili. */
+  getCanon(query?: CanonQuery): CanonFact[];
+  /** Riassunti L2 filtrabili per livello/scope. */
+  getSummaries(filter?: SummaryFilter): Summary[];
 }
 
 export function createCampaignService(deps: CampaignServiceDeps): CampaignService {
@@ -151,6 +183,31 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
         const summarized = results.some((r) => r.summary !== null);
         return { factCount, summarized };
       });
+    },
+
+    // Read on-demand (spec 5.2). NON accodati: la coda FIFO serializza solo le mutazioni; questi
+    // leggono stato SQLite gia committato (vista coerente anche durante un turno async).
+    getNarrationHistory(query: NarrationHistoryQuery = {}): NarrationHistory {
+      const limit = query.limit ?? 50;
+      const before = query.before;
+      const all: NarrationEntry[] = [];
+      for (const s of deps.memory.eventStore.load()) {
+        if (s.event.type === 'NarrationRecorded') {
+          all.push({ seq: s.seq, playerAction: s.event.playerAction, narration: s.event.narration });
+        }
+      }
+      const eligible = before !== undefined ? all.filter((e) => e.seq < before) : all;
+      const window = eligible.slice(-limit); // le `limit` piu recenti (ancora ascendenti)
+      return { entries: window.reverse(), hasMore: eligible.length > window.length };
+    },
+
+    getCanon(query: CanonQuery = {}): CanonFact[] {
+      const { includeRetracted, ...filter } = query;
+      return includeRetracted ? deps.memory.ledger.all(filter) : deps.memory.ledger.active(filter);
+    },
+
+    getSummaries(filter: SummaryFilter = {}): Summary[] {
+      return deps.memory.summaries.list(filter);
     },
   };
 }

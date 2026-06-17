@@ -110,7 +110,7 @@ describe('schemi run-turn / provider / reflect / status', () => {
 
 describe('readModelPushSchema (snapshot read-side version e state)', () => {
   it('valida uno snapshot con stato vuoto', () => {
-    const push = readModelPushSchema.parse({ version: 0, state: { version: 0, actors: {}, encounter: null, quests: {} } });
+    const push = readModelPushSchema.parse({ version: 0, state: { version: 0, actors: {}, encounter: null, quests: {}, phase: 'exploration' } });
     expect(push.version).toBe(0);
     expect(push.state.actors).toEqual({});
   });

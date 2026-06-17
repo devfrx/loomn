@@ -3,6 +3,7 @@ import type { CheckResult } from './check';
 import type { RollResult } from './dice';
 import type { Difficulty } from './difficulty';
 import type { Quest, QuestOutcome } from './quest';
+import type { Phase } from './phase';
 import { adjustResource } from './resource';
 import { addCondition } from './condition';
 import { endTurn, nextRound, type Encounter } from './encounter';
@@ -26,9 +27,10 @@ export interface GameState {
   actors: Record<string, Actor>;
   encounter: Encounter | null;
   quests: Record<string, Quest>;
+  phase: Phase;
 }
 
-export const initialState: GameState = { version: 0, actors: {}, encounter: null, quests: {} };
+export const initialState: GameState = { version: 0, actors: {}, encounter: null, quests: {}, phase: 'exploration' };
 
 function requireActor(state: GameState, id: string): Actor {
   const a = state.actors[id];

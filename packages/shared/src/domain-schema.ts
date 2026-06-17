@@ -134,6 +134,10 @@ const difficultySchema = z.enum(['trivial', 'easy', 'moderate', 'hard', 'formida
 const questStatusSchema = z.enum(['active', 'completed', 'failed']);
 const questOutcomeSchema = z.enum(['completed', 'failed']);
 
+// Fasi di gioco (§5.5): shared e FOGLIA (non importa engine) -> rispecchia i literal di Phase
+// dell engine. Il drift guard bidirezionale (sqlite-event-store) verifica l allineamento 1:1.
+const phaseSchema = z.enum(['exploration', 'dialogue', 'combat', 'downtime']);
+
 // description opzionale: il .transform() la OMETTE quando assente, cosi il tipo inferito e
 // assegnabile 1:1 a Quest sotto exactOptionalPropertyTypes (pattern di dieGroupSchema). La
 // transform e NIDIFICATA dentro `quest`, quindi l evento QuestStarted resta un ZodObject e puo'
@@ -212,6 +216,7 @@ export const gameStateSchema = z.object({
   actors: z.record(z.string(), actorSchema),
   encounter: encounterSchema.nullable(),
   quests: z.record(z.string(), questSchema),
+  phase: phaseSchema,
 });
 
 // --- Command (intenzione, spec 5.1): schema Zod del payload IPC non fidato (renderer->main, spec 4).

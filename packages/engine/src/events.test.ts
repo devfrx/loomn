@@ -184,6 +184,10 @@ describe('applyEvent', () => {
     expect(initialState.quests).toEqual({});
   });
 
+  it('initialState parte in fase exploration', () => {
+    expect(initialState.phase).toBe('exploration');
+  });
+
   it('lancia per DamageApplied su attore sconosciuto', () => {
     expect(() =>
       applyEvent(initialState, { type: 'DamageApplied', targetId: 'ignoto', resource: 'hp', amount: 1 }),

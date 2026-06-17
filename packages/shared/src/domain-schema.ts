@@ -138,6 +138,10 @@ const questOutcomeSchema = z.enum(['completed', 'failed']);
 // dell engine. Il drift guard bidirezionale (sqlite-event-store) verifica l allineamento 1:1.
 const phaseSchema = z.enum(['exploration', 'dialogue', 'combat', 'downtime']);
 
+// Fasi soft (§5.5): le uniche proponibili con EnterPhase (combat e modale, vi si entra con
+// StartEncounter). shared e FOGLIA -> rispecchia i literal di SoftPhase dell engine.
+const softPhaseSchema = z.enum(['exploration', 'dialogue', 'downtime']);
+
 // description opzionale: il .transform() la OMETTE quando assente, cosi il tipo inferito e
 // assegnabile 1:1 a Quest sotto exactOptionalPropertyTypes (pattern di dieGroupSchema). La
 // transform e NIDIFICATA dentro `quest`, quindi l evento QuestStarted resta un ZodObject e puo'
@@ -261,6 +265,59 @@ const attackCommandSchema = z
     ...(o.damageModifiers !== undefined ? { damageModifiers: o.damageModifiers } : {}),
   }));
 
+// I 3 Command con opzionali (RequestCheck/ApplyEffect/StartQuest) usano .transform() per OMETTERE
+// gli opzionali assenti -> tipo inferito assegnabile 1:1 a Command sotto exactOptionalPropertyTypes
+// (pattern di attackCommandSchema). z.union accetta i ZodEffects del transform. Le difficolta/esiti/
+// fasi sono enum auto-validanti (l untrusted renderer non puo emettere un valore fuori vocabolario).
+
+const requestCheckCommandSchema = z
+  .object({
+    type: z.literal('RequestCheck'),
+    actorId: z.string(),
+    attribute: z.string().optional(),
+    skill: z.string().optional(),
+    difficulty: difficultySchema,
+  })
+  .transform((o) => ({
+    type: o.type,
+    actorId: o.actorId,
+    difficulty: o.difficulty,
+    ...(o.attribute !== undefined ? { attribute: o.attribute } : {}),
+    ...(o.skill !== undefined ? { skill: o.skill } : {}),
+  }));
+
+const applyEffectCommandSchema = z
+  .object({
+    type: z.literal('ApplyEffect'),
+    targetId: z.string(),
+    resource: z.string(),
+    direction: z.enum(['restore', 'drain']),
+    dice: z.array(dieGroupSchema),
+    bonus: z.number().optional(),
+  })
+  .transform((o) => ({
+    type: o.type,
+    targetId: o.targetId,
+    resource: o.resource,
+    direction: o.direction,
+    dice: o.dice,
+    ...(o.bonus !== undefined ? { bonus: o.bonus } : {}),
+  }));
+
+const startQuestCommandSchema = z
+  .object({
+    type: z.literal('StartQuest'),
+    id: z.string(),
+    title: z.string(),
+    description: z.string().optional(),
+  })
+  .transform((o) => ({
+    type: o.type,
+    id: o.id,
+    title: o.title,
+    ...(o.description !== undefined ? { description: o.description } : {}),
+  }));
+
 /** Schema Zod dell unione Command del motore (spec 5.1). Validazione del payload IPC non fidato
  *  (renderer->main, spec 4). L inferenza e cast-free assegnabile 1:1 a Command (provato in host). */
 export const commandSchema = z.union([
@@ -273,4 +330,10 @@ export const commandSchema = z.union([
   z.object({ type: z.literal('EndTurn') }),
   z.object({ type: z.literal('NextRound') }),
   attackCommandSchema,
+  requestCheckCommandSchema,
+  applyEffectCommandSchema,
+  startQuestCommandSchema,
+  z.object({ type: z.literal('AdvanceQuest'), questId: z.string(), status: questOutcomeSchema }),
+  z.object({ type: z.literal('EnterPhase'), to: softPhaseSchema }),
+  z.object({ type: z.literal('EndEncounter') }),
 ]);

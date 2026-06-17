@@ -103,4 +103,105 @@ describe('commandSchema', () => {
       commandSchema.parse({ type: 'StartEncounter', participants: [{ actorId: 'x', zone: 'A', initiative: 1 }] }),
     ).toThrow();
   });
+
+  it('valida RequestCheck minimale e OMETTE attribute e skill assenti', () => {
+    const parsed = commandSchema.parse({ type: 'RequestCheck', actorId: 'a', difficulty: 'moderate' });
+    expect(parsed).toEqual({ type: 'RequestCheck', actorId: 'a', difficulty: 'moderate' });
+    expect('attribute' in parsed).toBe(false);
+    expect('skill' in parsed).toBe(false);
+  });
+
+  it('valida RequestCheck completo con attribute e skill', () => {
+    const parsed = commandSchema.parse({
+      type: 'RequestCheck',
+      actorId: 'a',
+      attribute: 'destrezza',
+      skill: 'furtivita',
+      difficulty: 'hard',
+    });
+    expect(parsed).toEqual({
+      type: 'RequestCheck',
+      actorId: 'a',
+      attribute: 'destrezza',
+      skill: 'furtivita',
+      difficulty: 'hard',
+    });
+  });
+
+  it('rifiuta RequestCheck con difficulty fuori vocabolario', () => {
+    expect(() => commandSchema.parse({ type: 'RequestCheck', actorId: 'a', difficulty: 'impossibile' })).toThrow();
+  });
+
+  it('valida ApplyEffect e OMETTE bonus assente', () => {
+    const parsed = commandSchema.parse({
+      type: 'ApplyEffect',
+      targetId: 'b',
+      resource: 'hp',
+      direction: 'restore',
+      dice: [{ count: 1, sides: 6 }],
+    });
+    expect(parsed).toEqual({
+      type: 'ApplyEffect',
+      targetId: 'b',
+      resource: 'hp',
+      direction: 'restore',
+      dice: [{ count: 1, sides: 6 }],
+    });
+    expect('bonus' in parsed).toBe(false);
+  });
+
+  it('valida ApplyEffect con bonus e direction drain', () => {
+    const parsed = commandSchema.parse({
+      type: 'ApplyEffect',
+      targetId: 'b',
+      resource: 'mana',
+      direction: 'drain',
+      dice: [{ count: 2, sides: 8, tag: 'fuoco' }],
+      bonus: 3,
+    });
+    expect(parsed).toEqual({
+      type: 'ApplyEffect',
+      targetId: 'b',
+      resource: 'mana',
+      direction: 'drain',
+      dice: [{ count: 2, sides: 8, tag: 'fuoco' }],
+      bonus: 3,
+    });
+  });
+
+  it('rifiuta ApplyEffect con direction sconosciuta', () => {
+    expect(() =>
+      commandSchema.parse({ type: 'ApplyEffect', targetId: 'b', resource: 'hp', direction: 'boost', dice: [] }),
+    ).toThrow();
+  });
+
+  it('valida StartQuest e OMETTE description assente', () => {
+    const parsed = commandSchema.parse({ type: 'StartQuest', id: 'q1', title: 'La gemma perduta' });
+    expect(parsed).toEqual({ type: 'StartQuest', id: 'q1', title: 'La gemma perduta' });
+    expect('description' in parsed).toBe(false);
+  });
+
+  it('valida AdvanceQuest con status terminale', () => {
+    expect(commandSchema.parse({ type: 'AdvanceQuest', questId: 'q1', status: 'completed' })).toEqual({
+      type: 'AdvanceQuest',
+      questId: 'q1',
+      status: 'completed',
+    });
+  });
+
+  it('rifiuta AdvanceQuest con status non terminale', () => {
+    expect(() => commandSchema.parse({ type: 'AdvanceQuest', questId: 'q1', status: 'active' })).toThrow();
+  });
+
+  it('valida EnterPhase verso una fase soft', () => {
+    expect(commandSchema.parse({ type: 'EnterPhase', to: 'dialogue' })).toEqual({ type: 'EnterPhase', to: 'dialogue' });
+  });
+
+  it('rifiuta EnterPhase verso combat (non e una fase soft)', () => {
+    expect(() => commandSchema.parse({ type: 'EnterPhase', to: 'combat' })).toThrow();
+  });
+
+  it('valida EndEncounter', () => {
+    expect(commandSchema.parse({ type: 'EndEncounter' })).toEqual({ type: 'EndEncounter' });
+  });
 });

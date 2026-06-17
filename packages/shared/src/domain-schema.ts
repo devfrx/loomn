@@ -129,6 +129,28 @@ const encounterSchema = z.object({
 // dell engine. Il drift guard bidirezionale (sqlite-event-store) verifica l allineamento 1:1.
 const difficultySchema = z.enum(['trivial', 'easy', 'moderate', 'hard', 'formidable', 'legendary']);
 
+// Stati delle quest: shared e FOGLIA (non importa engine) -> rispecchia i literal di QuestStatus/
+// QuestOutcome. Il drift guard bidirezionale (sqlite-event-store) verifica l allineamento 1:1.
+const questStatusSchema = z.enum(['active', 'completed', 'failed']);
+const questOutcomeSchema = z.enum(['completed', 'failed']);
+
+// description opzionale: il .transform() la OMETTE quando assente, cosi il tipo inferito e
+// assegnabile 1:1 a Quest sotto exactOptionalPropertyTypes (pattern di dieGroupSchema). La
+// transform e NIDIFICATA dentro `quest`, quindi l evento QuestStarted resta un ZodObject e puo'
+// stare nella discriminatedUnion (come actorSchema, che contiene transform annidate).
+const questSchema = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    description: z.string().optional(),
+    status: questStatusSchema,
+  })
+  .transform((o) =>
+    o.description === undefined
+      ? { id: o.id, title: o.title, status: o.status }
+      : { id: o.id, title: o.title, status: o.status, description: o.description },
+  );
+
 // CheckResolved ha campi opzionali TOP-LEVEL (attribute, skill): il .transform() li OMETTE
 // quando assenti, cosi il tipo inferito e assegnabile 1:1 a DomainEvent sotto
 // exactOptionalPropertyTypes. Ma .transform() produce un ZodEffects, e z.discriminatedUnion
@@ -178,6 +200,8 @@ export const domainEventSchema = z.union([
       delta: z.number(),
       roll: z.object({ ...rollResultFields }),
     }),
+    z.object({ type: z.literal('QuestStarted'), quest: questSchema }),
+    z.object({ type: z.literal('QuestAdvanced'), questId: z.string(), status: questOutcomeSchema }),
   ]),
   checkResolvedEventSchema,
 ]);
@@ -187,6 +211,7 @@ export const gameStateSchema = z.object({
   version: z.number(),
   actors: z.record(z.string(), actorSchema),
   encounter: encounterSchema.nullable(),
+  quests: z.record(z.string(), questSchema),
 });
 
 // --- Command (intenzione, spec 5.1): schema Zod del payload IPC non fidato (renderer->main, spec 4).

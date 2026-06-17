@@ -142,17 +142,52 @@ describe('domainEventSchema', () => {
       }),
     ).toThrow();
   });
+
+  it('fa round-trip di QuestStarted con description', () => {
+    const event = {
+      type: 'QuestStarted' as const,
+      quest: { id: 'q1', title: 'Trova l amuleto', description: 'Recuperalo per il Barone', status: 'active' as const },
+    };
+    expect(domainEventSchema.parse(event)).toEqual(event);
+  });
+
+  it('fa round-trip di QuestStarted senza description (omessa, non undefined)', () => {
+    const event = {
+      type: 'QuestStarted' as const,
+      quest: { id: 'q1', title: 'Trova l amuleto', status: 'active' as const },
+    };
+    const parsed = domainEventSchema.parse(event);
+    expect(parsed).toEqual(event);
+    if (parsed.type !== 'QuestStarted') throw new Error('atteso QuestStarted');
+    expect('description' in parsed.quest).toBe(false);
+  });
+
+  it('fa round-trip di QuestAdvanced', () => {
+    const event = { type: 'QuestAdvanced' as const, questId: 'q1', status: 'completed' as const };
+    expect(domainEventSchema.parse(event)).toEqual(event);
+  });
 });
 
 describe('gameStateSchema', () => {
   it('fa round-trip di uno stato con encounter null e non null', () => {
-    const s1 = { version: 2, actors: { eroe: fullActor }, encounter: null };
+    const s1 = { version: 2, actors: { eroe: fullActor }, encounter: null, quests: {} };
     expect(gameStateSchema.parse(s1)).toEqual(s1);
     const s2 = {
       version: 3,
       actors: { eroe: fullActor },
       encounter: { id: 'e', participants: [{ actorId: 'eroe', zone: 'a', initiative: 10, actedThisRound: false }], round: 1, turnIndex: 0 },
+      quests: {},
     };
     expect(gameStateSchema.parse(s2)).toEqual(s2);
+  });
+
+  it('fa round-trip di uno stato con quests non vuoto', () => {
+    const s = {
+      version: 4,
+      actors: { eroe: fullActor },
+      encounter: null,
+      quests: { q1: { id: 'q1', title: 'Trova l amuleto', status: 'active' as const } },
+    };
+    expect(gameStateSchema.parse(s)).toEqual(s);
   });
 });

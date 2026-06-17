@@ -89,7 +89,7 @@ describe('createCampaignService - dispatch (write side)', () => {
   it('all avvio la proiezione e vuota (versione 0)', () => {
     const { service, memory } = makeService();
     try {
-      expect(service.getReadModel()).toEqual({ version: 0, state: { version: 0, actors: {}, encounter: null } });
+      expect(service.getReadModel()).toEqual({ version: 0, state: { version: 0, actors: {}, encounter: null, quests: {} } });
     } finally {
       memory.close();
     }

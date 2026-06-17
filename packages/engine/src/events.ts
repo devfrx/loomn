@@ -2,6 +2,7 @@ import type { Actor } from './actor';
 import type { CheckResult } from './check';
 import type { RollResult } from './dice';
 import type { Difficulty } from './difficulty';
+import type { Quest, QuestOutcome } from './quest';
 import { adjustResource } from './resource';
 import { addCondition } from './condition';
 import { endTurn, nextRound, type Encounter } from './encounter';
@@ -16,15 +17,18 @@ export type DomainEvent =
   | { type: 'ActorDowned'; actorId: string }
   | { type: 'NarrationRecorded'; playerAction: string; narration: string }
   | { type: 'CheckResolved'; actorId: string; attribute?: string; skill?: string; difficulty: Difficulty; result: CheckResult }
-  | { type: 'ResourceEffectApplied'; targetId: string; resource: string; delta: number; roll: RollResult };
+  | { type: 'ResourceEffectApplied'; targetId: string; resource: string; delta: number; roll: RollResult }
+  | { type: 'QuestStarted'; quest: Quest }
+  | { type: 'QuestAdvanced'; questId: string; status: QuestOutcome };
 
 export interface GameState {
   version: number;
   actors: Record<string, Actor>;
   encounter: Encounter | null;
+  quests: Record<string, Quest>;
 }
 
-export const initialState: GameState = { version: 0, actors: {}, encounter: null };
+export const initialState: GameState = { version: 0, actors: {}, encounter: null, quests: {} };
 
 function requireActor(state: GameState, id: string): Actor {
   const a = state.actors[id];
@@ -75,6 +79,15 @@ export function applyEvent(state: GameState, event: DomainEvent): GameState {
       // non viene rigiocato.
       const target = adjustResource(requireActor(state, event.targetId), event.resource, event.delta);
       return { ...bumped, actors: { ...state.actors, [event.targetId]: target } };
+    }
+    case 'QuestStarted':
+      return { ...bumped, quests: { ...state.quests, [event.quest.id]: event.quest } };
+    case 'QuestAdvanced': {
+      const quest = state.quests[event.questId];
+      if (quest === undefined) {
+        throw new Error(`Quest sconosciuta: ${event.questId}`);
+      }
+      return { ...bumped, quests: { ...state.quests, [event.questId]: { ...quest, status: event.status } } };
     }
     case 'ActorDowned': {
       const actor = requireActor(state, event.actorId);

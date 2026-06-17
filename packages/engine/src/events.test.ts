@@ -152,6 +152,37 @@ describe('applyEvent', () => {
     ).toThrow('Risorsa sconosciuta: mana');
   });
 
+  it('QuestStarted aggiunge la quest attiva e incrementa la versione', () => {
+    const s = applyEvent(initialState, {
+      type: 'QuestStarted',
+      quest: { id: 'q1', title: 'Trova l amuleto', status: 'active' },
+    });
+    expect(s.quests['q1']).toEqual({ id: 'q1', title: 'Trova l amuleto', status: 'active' });
+    expect(s.actors).toEqual(initialState.actors);
+    expect(s.encounter).toEqual(initialState.encounter);
+    expect(s.version).toBe(1);
+  });
+
+  it('QuestAdvanced aggiorna lo stato della quest', () => {
+    const started = applyEvent(initialState, {
+      type: 'QuestStarted',
+      quest: { id: 'q1', title: 'Trova l amuleto', status: 'active' },
+    });
+    const s = applyEvent(started, { type: 'QuestAdvanced', questId: 'q1', status: 'completed' });
+    expect(s.quests['q1']?.status).toBe('completed');
+    expect(s.version).toBe(2);
+  });
+
+  it('QuestAdvanced lancia su quest sconosciuta', () => {
+    expect(() =>
+      applyEvent(initialState, { type: 'QuestAdvanced', questId: 'ignota', status: 'completed' }),
+    ).toThrow('Quest sconosciuta: ignota');
+  });
+
+  it('initialState ha quests vuoto', () => {
+    expect(initialState.quests).toEqual({});
+  });
+
   it('lancia per DamageApplied su attore sconosciuto', () => {
     expect(() =>
       applyEvent(initialState, { type: 'DamageApplied', targetId: 'ignoto', resource: 'hp', amount: 1 }),
@@ -178,5 +209,15 @@ describe('replay', () => {
     expect(s.version).toBe(3);
     expect(s.actors['goblin']?.resources['hp']?.current).toBe(0);
     expect(s.actors['goblin']?.conditions.some((c) => c.key === 'morente')).toBe(true);
+  });
+
+  it('ricostruisce una quest fino allo stato terminale', () => {
+    const events: DomainEvent[] = [
+      { type: 'QuestStarted', quest: { id: 'q1', title: 'Salva il villaggio', status: 'active' } },
+      { type: 'QuestAdvanced', questId: 'q1', status: 'failed' },
+    ];
+    const s = replay(events);
+    expect(s.version).toBe(2);
+    expect(s.quests['q1']?.status).toBe('failed');
   });
 });

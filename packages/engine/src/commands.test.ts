@@ -299,3 +299,72 @@ describe('decide ApplyEffect', () => {
     ).toThrow('Risorsa sconosciuta: mana');
   });
 });
+
+describe('decide StartQuest', () => {
+  it('emette QuestStarted attiva con description', () => {
+    const events = decide(
+      initialState,
+      { type: 'StartQuest', id: 'q1', title: 'Trova l amuleto', description: 'Per il Barone' },
+      rng,
+    );
+    expect(events).toEqual([
+      { type: 'QuestStarted', quest: { id: 'q1', title: 'Trova l amuleto', description: 'Per il Barone', status: 'active' } },
+    ]);
+  });
+
+  it('omette description quando assente', () => {
+    const events = decide(initialState, { type: 'StartQuest', id: 'q1', title: 'Trova l amuleto' }, rng);
+    expect(events).toHaveLength(1);
+    const ev = events[0]!;
+    if (ev.type !== 'QuestStarted') throw new Error('atteso QuestStarted');
+    expect(ev.quest).toEqual({ id: 'q1', title: 'Trova l amuleto', status: 'active' });
+    expect('description' in ev.quest).toBe(false);
+  });
+
+  it('lancia su id gia presente, senza eventi', () => {
+    const started = applyEvent(initialState, {
+      type: 'QuestStarted',
+      quest: { id: 'q1', title: 'X', status: 'active' },
+    });
+    expect(() => decide(started, { type: 'StartQuest', id: 'q1', title: 'Y' }, rng)).toThrow('Quest già presente: q1');
+  });
+});
+
+describe('decide AdvanceQuest', () => {
+  function withQuest(): GameState {
+    return applyEvent(initialState, { type: 'QuestStarted', quest: { id: 'q1', title: 'X', status: 'active' } });
+  }
+
+  it('quest attiva -> QuestAdvanced con lo stato richiesto', () => {
+    expect(decide(withQuest(), { type: 'AdvanceQuest', questId: 'q1', status: 'completed' }, rng)).toEqual([
+      { type: 'QuestAdvanced', questId: 'q1', status: 'completed' },
+    ]);
+  });
+
+  it('puo portare a failed', () => {
+    expect(decide(withQuest(), { type: 'AdvanceQuest', questId: 'q1', status: 'failed' }, rng)).toEqual([
+      { type: 'QuestAdvanced', questId: 'q1', status: 'failed' },
+    ]);
+  });
+
+  it('lancia su quest sconosciuta, senza eventi', () => {
+    expect(() => decide(initialState, { type: 'AdvanceQuest', questId: 'ignota', status: 'completed' }, rng)).toThrow(
+      'Quest sconosciuta: ignota',
+    );
+  });
+
+  it('lancia su quest gia terminata, senza eventi', () => {
+    let s = withQuest();
+    s = applyEvent(s, { type: 'QuestAdvanced', questId: 'q1', status: 'completed' });
+    expect(() => decide(s, { type: 'AdvanceQuest', questId: 'q1', status: 'failed' }, rng)).toThrow(
+      'Quest già terminata',
+    );
+  });
+
+  it('ciclo decide->apply: start poi advance, lo stato riflette il terminale', () => {
+    let s = initialState;
+    for (const e of decide(s, { type: 'StartQuest', id: 'q1', title: 'X' }, rng)) s = applyEvent(s, e);
+    for (const e of decide(s, { type: 'AdvanceQuest', questId: 'q1', status: 'completed' }, rng)) s = applyEvent(s, e);
+    expect(s.quests['q1']?.status).toBe('completed');
+  });
+});

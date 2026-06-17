@@ -6,6 +6,7 @@ import { performAttack } from './combat';
 import type { GameState, DomainEvent } from './events';
 import { actorCheck } from './actor-check';
 import { dcForDifficulty, type Difficulty } from './difficulty';
+import type { Quest, QuestOutcome } from './quest';
 
 export type Command =
   | { type: 'AddActor'; actor: Actor }
@@ -24,7 +25,9 @@ export type Command =
       damageModifiers?: Modifier[];
     }
   | { type: 'RequestCheck'; actorId: string; attribute?: string; skill?: string; difficulty: Difficulty }
-  | { type: 'ApplyEffect'; targetId: string; resource: string; direction: 'restore' | 'drain'; dice: DieGroup[]; bonus?: number };
+  | { type: 'ApplyEffect'; targetId: string; resource: string; direction: 'restore' | 'drain'; dice: DieGroup[]; bonus?: number }
+  | { type: 'StartQuest'; id: string; title: string; description?: string }
+  | { type: 'AdvanceQuest'; questId: string; status: QuestOutcome };
 
 /** Valida un comando contro lo stato e produce gli eventi risultanti.
  *  L'RNG è consumato dai comandi che lo richiedono (es. Attack). Funzione pura. */
@@ -126,6 +129,28 @@ export function decide(state: GameState, command: Command, rng: RandomSource): D
       const magnitude = Math.max(0, roll.total); // restore non drena mai, e viceversa
       const delta = command.direction === 'restore' ? magnitude : -magnitude;
       return [{ type: 'ResourceEffectApplied', targetId: command.targetId, resource: command.resource, delta, roll }];
+    }
+    case 'StartQuest': {
+      if (state.quests[command.id] !== undefined) {
+        throw new Error(`Quest già presente: ${command.id}`);
+      }
+      const quest: Quest = {
+        id: command.id,
+        title: command.title,
+        status: 'active',
+        ...(command.description !== undefined ? { description: command.description } : {}),
+      };
+      return [{ type: 'QuestStarted', quest }];
+    }
+    case 'AdvanceQuest': {
+      const quest = state.quests[command.questId];
+      if (quest === undefined) {
+        throw new Error(`Quest sconosciuta: ${command.questId}`);
+      }
+      if (quest.status !== 'active') {
+        throw new Error(`Quest già terminata (${quest.status}): ${command.questId}`);
+      }
+      return [{ type: 'QuestAdvanced', questId: command.questId, status: command.status }];
     }
     default: {
       const _exhaustive: never = command;

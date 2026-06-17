@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { replay, createSeededRandom, type Actor, type DomainEvent, type Item } from '@loomn/engine';
+import { replay, createSeededRandom, PHASES, type Actor, type DomainEvent, type Item } from '@loomn/engine';
 import { runMasterTurn, assembleContextStub, buildMasterMessages, phaseGuidance } from './master-turn';
 import type { LanguageModel, LlmRequest, LlmStreamEvent } from './language-model';
 import { createRecordingTracer } from './tracing';
@@ -190,7 +190,7 @@ describe('iniezione del Context Assembler', () => {
 
 describe('phaseGuidance e buildMasterMessages', () => {
   it('phaseGuidance ritorna una linea non vuota per ogni fase', () => {
-    for (const p of ['exploration', 'dialogue', 'combat', 'downtime'] as const) {
+    for (const p of PHASES) {
       expect(phaseGuidance(p).length).toBeGreaterThan(0);
     }
   });

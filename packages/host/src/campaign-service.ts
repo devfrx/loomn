@@ -69,7 +69,8 @@ export interface CampaignService {
   dispatch(command: Command): Promise<DispatchOutcome>;
   /** Turno agentico (spec 5.4) dietro il servizio: assembler reale iniettato, Event reali persistiti. */
   runTurn(playerAction: string): Promise<TurnOutcome>;
-  /** Reflection (spec 6.1) sull intero stream corrente come una scena (scope). */
+  /** Reflection (spec 6.1, item 6): riflette in modo incrementale le scene non ancora riflesse
+   *  (segmentate ai confini di fase), avanzando il watermark; lo `scope` etichetta i riassunti. */
   reflect(scope: string): Promise<ReflectOutcome>;
 }
 

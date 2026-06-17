@@ -67,7 +67,22 @@ function renderL1(state: GameState): string {
     state.encounter === null
       ? 'Nessuno scontro attivo.'
       : `Scontro ${state.encounter.id}: round ${state.encounter.round}, turno ${state.encounter.turnIndex}.`;
-  return `Stato attuale (L1):\n${list}\n${enc}`;
+  const stateBlock = `Stato attuale (L1):\n${list}\n${enc}`;
+
+  // Quest ATTIVE in L1 (spec 6: le quest sono fatti meccanici autorevoli). Solo se presenti, cosi
+  // lo stato senza quest rende identico a prima. Le terminate escono: la loro conclusione e narrata
+  // -> finisce in L1.5/L2 (F4). Fa parte di L1 (priorita 2), quindi mai tagliato dal budget.
+  const activeQuests = Object.values(state.quests)
+    .filter((q) => q.status === 'active')
+    .sort((a, b) => byId(a.id, b.id));
+  const questBlock =
+    activeQuests.length > 0
+      ? `Quest attive (L1):\n${activeQuests
+          .map((q) => `- ${q.title} (id=${q.id})${q.description !== undefined ? `: ${q.description}` : ''}`)
+          .join('\n')}`
+      : '';
+
+  return [stateBlock, questBlock].filter((b) => b.length > 0).join('\n\n');
 }
 
 function renderFact(f: CanonFact): string {

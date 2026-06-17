@@ -171,3 +171,67 @@ describe('compatibilita col punto di iniezione di ai', () => {
     }
   });
 });
+
+describe('blocco quest in L1', () => {
+  function withQuests(quests: GameState['quests']): GameState {
+    return { ...HERO_STATE, quests };
+  }
+  function assemble(state: GameState): string {
+    const { db, close } = openDatabase(':memory:');
+    try {
+      const ledger = createCanonLedger(db);
+      const summaries = createSummaryStore(db);
+      return createContextAssembler({ ledger, summaries, clock: fixedClock(0) }, { tokenBudget: 1000 })(state);
+    } finally {
+      close();
+    }
+  }
+
+  it('rende le quest attive ordinate per id, con e senza description', () => {
+    const ctx = assemble(
+      withQuests({
+        qb: { id: 'qb', title: 'Salva il villaggio', status: 'active' },
+        qa: { id: 'qa', title: 'Trova l amuleto', description: 'Per il Barone', status: 'active' },
+      }),
+    );
+    expect(ctx).toContain('Quest attive (L1)');
+    expect(ctx).toContain('- Trova l amuleto (id=qa): Per il Barone');
+    expect(ctx).toContain('- Salva il villaggio (id=qb)');
+    // ordinate per id: qa prima di qb
+    expect(ctx.indexOf('id=qa')).toBeLessThan(ctx.indexOf('id=qb'));
+  });
+
+  it('non rende un blocco quest se non ci sono quest attive (solo terminate)', () => {
+    const ctx = assemble(
+      withQuests({
+        q1: { id: 'q1', title: 'Completata', status: 'completed' },
+        q2: { id: 'q2', title: 'Fallita', status: 'failed' },
+      }),
+    );
+    expect(ctx).not.toContain('Quest attive (L1)');
+    expect(ctx).not.toContain('Completata');
+  });
+
+  it('non rende un blocco quest quando quests e vuoto (stato esistente invariato)', () => {
+    expect(assemble(HERO_STATE)).not.toContain('Quest attive (L1)');
+  });
+
+  it('il blocco quest fa parte di L1: non viene tagliato con budget 0', () => {
+    const ctx = assemble(withQuests({ q1: { id: 'q1', title: 'Urgente', status: 'active' } }));
+    const ctx0 = (() => {
+      const { db, close } = openDatabase(':memory:');
+      try {
+        const ledger = createCanonLedger(db);
+        const summaries = createSummaryStore(db);
+        return createContextAssembler({ ledger, summaries, clock: fixedClock(0) }, { tokenBudget: 0 })(
+          { ...HERO_STATE, quests: { q1: { id: 'q1', title: 'Urgente', status: 'active' } } },
+        );
+      } finally {
+        close();
+      }
+    })();
+    expect(ctx).toContain('Urgente');
+    expect(ctx0).toContain('Quest attive (L1)');
+    expect(ctx0).toContain('Urgente');
+  });
+});

@@ -24,6 +24,7 @@ export {
 export { scoreSalience, type SalienceInput } from './salience';
 export { type Clock } from './clock';
 export { segmentScenes } from './scene-segmentation';
+export { createReflectionCursor, type ReflectionCursor } from './reflection-cursor';
 export {
   runReflection,
   type FactExtractor,

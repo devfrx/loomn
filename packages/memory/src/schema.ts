@@ -38,3 +38,11 @@ export const summaries = sqliteTable('summaries', {
   eventSeqFrom: integer('event_seq_from').notNull(),
   eventSeqTo: integer('event_seq_to').notNull(),
 });
+
+// Watermark di riflessione (item 6): fino a che `seq` lo stream e stato riflesso. Riga
+// SINGLETON (id sempre 0): c e una sola frontiera di riflessione per stream (gli id dei
+// fatti/summary sono globali, non per-scope). Proiezione memory, NON evento di dominio.
+export const reflectionCursor = sqliteTable('reflection_cursor', {
+  id: integer('id').primaryKey(),
+  reflectedThroughSeq: integer('reflected_through_seq').notNull(),
+});

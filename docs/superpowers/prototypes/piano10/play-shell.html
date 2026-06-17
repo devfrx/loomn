@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Loomn — prototipo play-shell</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Newsreader:opsz,ital,wght@6..72,0,400;6..72,0,500;6..72,1,400&family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0c0d10; --ink-edge:#070809;
+    --panel:#15171c; --panel-hi:#191c22; --raise:#1f232a;
+    --line:rgba(233,229,218,0.08); --line-2:rgba(233,229,218,0.14);
+    --text:#e9e5da; --text-2:#9b988f; --text-3:#6b6962;
+    --brass:#c8a45c; --brass-hi:#e3c684; --brass-dim:rgba(200,164,92,0.12);
+    --clay:#c0694f; --sage:#7fa07e; --steel:#6f8fb0;
+    --ok:#86b48a; --bad:#c5635b;
+    --accent:var(--brass); --accent-dim:var(--brass-dim);
+    --f-display:'Fraunces',Georgia,serif;
+    --f-read:'Newsreader',Georgia,serif;
+    --f-ui:'Archivo','Helvetica Neue',sans-serif;
+    --f-mono:'JetBrains Mono',ui-monospace,monospace;
+    --r:15px; --r-sm:11px; --r-xs:8px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--f-ui); color:var(--text);
+    background:
+      radial-gradient(120% 90% at 50% -10%, #16181d 0%, var(--ink) 42%, var(--ink-edge) 100%) fixed;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    overflow:hidden;
+  }
+  body::after{
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:9; opacity:.045; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+  .app{display:grid; grid-template-columns:66px 1fr; height:100vh; padding:14px; gap:14px}
+
+  /* ---- nav rail ---- */
+  .rail{display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 0;
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+    box-shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 18px 40px -22px rgba(0,0,0,.7)}
+  .brand-mark{font-family:var(--f-display); font-weight:600; font-size:20px; color:var(--text);
+    width:40px;height:40px;display:grid;place-items:center; margin-bottom:10px;
+    border:1px solid var(--line-2); border-radius:12px; background:linear-gradient(180deg,#1c1f25,#15171b)}
+  .rail .sp{flex:1}
+  .nav-btn{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;color:var(--text-3);
+    border:1px solid transparent; cursor:pointer; transition:.18s; background:transparent}
+  .nav-btn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.6}
+  .nav-btn:hover{color:var(--text-2); background:var(--panel-hi); border-color:var(--line)}
+  .nav-btn.active{color:var(--accent); background:var(--accent-dim); border-color:rgba(200,164,92,.25)}
+
+  .stage{display:flex; flex-direction:column; gap:14px; min-width:0}
+
+  /* ---- topbar ---- */
+  .topbar{display:flex; align-items:center; gap:18px; height:54px; padding:0 18px;
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+    box-shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 18px 40px -22px rgba(0,0,0,.7)}
+  .wordmark{font-family:var(--f-display); font-size:21px; font-weight:600; letter-spacing:.01em}
+  .wordmark .dot{color:var(--accent)}
+  .camp{font-size:12.5px;color:var(--text-2); padding-left:16px; border-left:1px solid var(--line-2);
+    display:flex;flex-direction:column;line-height:1.25}
+  .camp b{color:var(--text); font-weight:500; font-size:13px; font-family:var(--f-display)}
+  .phases{display:flex; gap:2px; margin-left:auto; background:#101216; padding:4px; border-radius:12px; border:1px solid var(--line)}
+  .phase{font-size:12px;color:var(--text-3); padding:6px 12px; border-radius:9px; cursor:pointer; transition:.16s;
+    letter-spacing:.02em; border:1px solid transparent; white-space:nowrap}
+  .phase:hover{color:var(--text-2)}
+  .phase.on{color:var(--accent); background:var(--accent-dim); border-color:rgba(200,164,92,.22)}
+  .provider{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--text-2);
+    font-family:var(--f-mono); padding:6px 11px; border:1px solid var(--line); border-radius:10px; background:#101216}
+  .led{width:7px;height:7px;border-radius:50%;background:var(--ok); box-shadow:0 0 0 3px rgba(134,180,138,.14)}
+  .gear{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;color:var(--text-3);
+    border:1px solid var(--line); cursor:pointer; transition:.16s; background:#101216}
+  .gear:hover{color:var(--text); border-color:var(--line-2)}
+  .gear svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6}
+
+  /* ---- main grid ---- */
+  .grid{flex:1; display:grid; grid-template-columns:1fr 376px; gap:14px; min-height:0}
+  .side{display:flex;flex-direction:column;gap:14px; min-height:0}
+
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+    box-shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 22px 48px -26px rgba(0,0,0,.75);
+    display:flex; flex-direction:column; min-height:0; opacity:0; transform:translateY(10px);
+    animation:rise .6s cubic-bezier(.2,.7,.2,1) forwards}
+  .narrative{animation-delay:.02s}
+  .sheet{animation-delay:.12s} .encounter{animation-delay:.12s} .dice{animation-delay:.2s}
+  @keyframes rise{to{opacity:1;transform:none}}
+
+  .p-head{display:flex;align-items:center;gap:12px; padding:15px 18px 13px; border-bottom:1px solid var(--line)}
+  .eyebrow{font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--text-3);font-weight:600}
+  .p-title{font-family:var(--f-display); font-size:17px; font-weight:500; color:var(--text); line-height:1.2}
+  .p-meta{margin-left:auto;font-family:var(--f-mono);font-size:11px;color:var(--text-3)}
+
+  /* ---- narrative ---- */
+  .stream{flex:1; overflow-y:auto; padding:22px 26px 10px; display:flex; flex-direction:column; gap:20px}
+  .stream::-webkit-scrollbar{width:10px} .stream::-webkit-scrollbar-thumb{background:#23262d;border-radius:8px;border:3px solid var(--panel)}
+  .beat .who{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:7px}
+  .beat.master p{font-family:var(--f-read); font-size:17px; line-height:1.72; color:var(--text); font-weight:400}
+  .beat.master p + p{margin-top:11px}
+  .beat.master.lead p:first-of-type::first-letter{
+    font-family:var(--f-display); font-weight:600; font-size:3.1em; float:left; line-height:.84;
+    padding:6px 10px 0 0; color:var(--accent)}
+  .beat.player{align-self:flex-end; max-width:78%}
+  .beat.player .who{color:var(--text-3); text-align:right}
+  .beat.player .bubble{font-family:var(--f-ui); font-size:14px; line-height:1.55; color:var(--text);
+    background:var(--panel-hi); border:1px solid var(--line-2); padding:11px 15px; border-radius:13px 13px 4px 13px}
+  .check{display:inline-flex;align-items:center;gap:9px;margin:3px 0; padding:7px 12px; border-radius:10px;
+    background:var(--accent-dim); border:1px solid rgba(200,164,92,.24); font-family:var(--f-mono); font-size:12px; color:var(--text)}
+  .check b{color:var(--brass-hi);font-weight:500} .check .out{color:var(--ok);font-weight:500}
+
+  .dock{border-top:1px solid var(--line); padding:13px 16px; display:flex; flex-direction:column; gap:10px}
+  .chips{display:flex;gap:7px}
+  .chip{font-size:11.5px;color:var(--text-2); padding:5px 11px;border:1px solid var(--line); border-radius:20px;
+    cursor:pointer; transition:.15s; background:#101216}
+  .chip:hover{color:var(--text); border-color:var(--accent); background:var(--accent-dim)}
+  .compose{display:flex;gap:10px;align-items:flex-end}
+  .compose textarea{flex:1; resize:none; height:46px; background:#0f1115; color:var(--text); font-family:var(--f-ui);
+    font-size:14px; line-height:1.4; border:1px solid var(--line-2); border-radius:12px; padding:13px 15px; outline:none; transition:.16s}
+  .compose textarea::placeholder{color:var(--text-3)}
+  .compose textarea:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim)}
+  .send{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;cursor:pointer;
+    background:linear-gradient(180deg,#d8b76b,#b88f43); color:#1a140a; border:none; transition:.15s; flex:none}
+  .send:hover{filter:brightness(1.08)} .send svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.9}
+
+  /* ---- scheda ---- */
+  .sheet .body{padding:16px 18px; display:flex;flex-direction:column;gap:16px; overflow-y:auto}
+  .attrs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .attr{background:#101216;border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 8px;text-align:center}
+  .attr .lab{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);margin-bottom:4px}
+  .attr .val{font-family:var(--f-mono);font-size:19px;color:var(--text);line-height:1}
+  .attr .mod{font-family:var(--f-mono);font-size:10.5px;color:var(--accent);margin-top:3px}
+  .res{display:flex;flex-direction:column;gap:11px}
+  .bar-row .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+  .bar-row .name{font-size:11.5px;color:var(--text-2)}
+  .bar-row .num{font-family:var(--f-mono);font-size:11.5px;color:var(--text)}
+  .track{height:7px;border-radius:6px;background:#0e1014;border:1px solid var(--line);overflow:hidden}
+  .fill{height:100%;border-radius:6px}
+  .conds{display:flex;gap:7px;flex-wrap:wrap;padding-top:2px}
+  .cond{font-size:11px;color:var(--text-2);padding:4px 10px;border-radius:18px;border:1px solid var(--line-2);background:#101216}
+  .cond.warn{color:var(--clay);border-color:rgba(192,105,79,.4)}
+
+  /* ---- encounter (combat) ---- */
+  .init{display:flex;flex-direction:column;gap:6px}
+  .turn{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:var(--r-sm);border:1px solid var(--line);background:#101216}
+  .turn.act{border-color:rgba(200,164,92,.32);background:var(--accent-dim)}
+  .turn .ord{font-family:var(--f-mono);font-size:11px;color:var(--text-3);width:16px}
+  .turn .nm{font-size:13px;color:var(--text);flex:1}
+  .turn.act .nm{color:var(--brass-hi)}
+  .turn .ini{font-family:var(--f-mono);font-size:12px;color:var(--text-2)}
+  .turn .hp{width:46px;height:5px;border-radius:5px;background:#0e1014;border:1px solid var(--line);overflow:hidden}
+  .zones{display:flex;gap:8px}
+  .zone{flex:1;text-align:center;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);
+    padding:9px 4px;border:1px dashed var(--line-2);border-radius:var(--r-sm)}
+  .zone.here{color:var(--accent);border-color:rgba(200,164,92,.4);border-style:solid;background:var(--accent-dim)}
+  .zone b{display:block;font-family:var(--f-ui);font-size:12px;color:var(--text);margin-top:4px;text-transform:none;letter-spacing:0}
+
+  /* ---- dice ---- */
+  .dice{flex:none}
+  .dice-stage{height:172px;position:relative;background:radial-gradient(60% 80% at 50% 38%, #181b21 0%, #111318 70%, #0e1014 100%);
+    border-bottom:1px solid var(--line)}
+  .dice-stage canvas{display:block;width:100%;height:100%}
+  .roll-out{display:flex;align-items:center;gap:14px;padding:14px 18px}
+  .roll-big{font-family:var(--f-mono);font-size:34px;color:var(--text);line-height:1;font-weight:500}
+  .roll-lab{display:flex;flex-direction:column;gap:3px}
+  .roll-lab .expr{font-family:var(--f-mono);font-size:11.5px;color:var(--text-2)}
+  .roll-lab .out{font-size:12px;color:var(--ok)}
+  .roll-foot{display:flex;align-items:center;gap:10px;padding:0 18px 15px}
+  .note{font-size:10.5px;color:var(--text-3);flex:1;line-height:1.4}
+  .roll-btn{font-family:var(--f-ui);font-size:12px;color:var(--text);padding:8px 15px;border-radius:10px;
+    border:1px solid var(--line-2);background:#101216;cursor:pointer;transition:.15s}
+  .roll-btn:hover{border-color:var(--accent);color:var(--brass-hi);background:var(--accent-dim)}
+
+  .combat-only{display:none}
+  [data-phase="combat"]{--accent:var(--clay); --accent-dim:rgba(192,105,79,.13)}
+  [data-phase="combat"] .exploration-only{display:none}
+  [data-phase="combat"] .combat-only{display:flex}
+  [data-phase="dialogue"]{--accent:#cbb07a; --accent-dim:rgba(203,176,122,.12)}
+  [data-phase="downtime"]{--accent:#8aa0a8; --accent-dim:rgba(138,160,168,.12)}
+  .send{transition:.15s, background .3s}
+</style>
+</head>
+<body>
+<h1 class="sr-only">Loomn — schermata di gioco</h1>
+<div class="app" data-phase="exploration" id="app">
+
+  <aside class="rail" aria-label="navigazione">
+    <div class="brand-mark">L</div>
+    <button class="nav-btn active" title="gioco" aria-label="gioco"><svg viewBox="0 0 24 24"><path d="M5 4l14 8-14 8V4z"/></svg></button>
+    <button class="nav-btn" title="diario" aria-label="diario"><svg viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3V4z"/><path d="M8 4v13"/></svg></button>
+    <button class="nav-btn" title="scheda" aria-label="scheda"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></button>
+    <button class="nav-btn" title="compagnia" aria-label="compagnia"><svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="3.2"/><circle cx="17" cy="10" r="2.6"/><path d="M3 20c0-3 3-4.5 6-4.5s6 1.5 6 4.5"/></svg></button>
+    <div class="sp"></div>
+    <button class="nav-btn" title="impostazioni" aria-label="impostazioni"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg></button>
+  </aside>
+
+  <div class="stage">
+    <header class="topbar">
+      <div class="wordmark">Loomn<span class="dot">.</span></div>
+      <div class="camp"><b>Le Ceneri di Valenmoor</b><span>capitolo II · sessione 7</span></div>
+      <nav class="phases" id="phases">
+        <div class="phase on" data-p="exploration">esplorazione</div>
+        <div class="phase" data-p="dialogue">dialogo</div>
+        <div class="phase" data-p="combat">combattimento</div>
+        <div class="phase" data-p="downtime">quiete</div>
+      </nav>
+      <div class="provider"><span class="led"></span>LM Studio · llama-3.1-8b</div>
+      <div class="gear" title="impostazioni"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg></div>
+    </header>
+
+    <main class="grid">
+      <section class="panel narrative" aria-label="narrazione">
+        <div class="p-head">
+          <span class="eyebrow">scena</span>
+          <span class="p-title">Il mercato sommerso di Caldera</span>
+          <span class="p-meta" id="phase-meta">esplorazione · turno 14</span>
+        </div>
+        <div class="stream" id="stream">
+          <div class="beat master lead">
+            <div class="who">Master</div>
+            <p>Le lanterne a olio ondeggiano sopra i banchi, e il loro riflesso si frantuma nell'acqua nera che scorre tra le passerelle. Un mercante dagli occhi cerchiati di stanchezza ti studia mentre nascondi la mano sotto il mantello — sa che non sei qui per comprare spezie.</p>
+            <p>Oltre il suo banco, una porta socchiusa lascia filtrare voci concitate e il tintinnio inconfondibile di monete contate in fretta.</p>
+          </div>
+          <div class="beat player">
+            <div class="who">Tu</div>
+            <div class="bubble">Mi avvicino fingendo di esaminare la merce e tendo l'orecchio verso la porta.</div>
+          </div>
+          <div class="beat master">
+            <div class="who">Master</div>
+            <span class="check"><b>Percezione</b> · 1d20+3 <b>= 17</b> · <span class="out">successo</span></span>
+            <p>Trattieni il fiato. Tra una frase e l'altra cogli un nome che non avresti dovuto sentire: <em>Vhalmar</em>. Qualcuno, là dietro, sta saldando un debito che credevi sepolto con tuo fratello.</p>
+          </div>
+        </div>
+        <div class="dock">
+          <div class="chips">
+            <div class="chip">esamina</div><div class="chip">parla</div><div class="chip">muoviti furtivo</div><div class="chip">tira: Inganno</div>
+          </div>
+          <div class="compose">
+            <textarea placeholder="Cosa fai?"></textarea>
+            <button class="send" aria-label="invia azione"><svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg></button>
+          </div>
+        </div>
+      </section>
+
+      <div class="side">
+        <section class="panel sheet exploration-only" aria-label="scheda personaggio">
+          <div class="p-head"><span class="eyebrow">scheda</span><span class="p-title">Kaelen Vurr</span><span class="p-meta">PG · liv. 3</span></div>
+          <div class="body">
+            <div class="attrs">
+              <div class="attr"><div class="lab">forza</div><div class="val">14</div><div class="mod">+2</div></div>
+              <div class="attr"><div class="lab">destr.</div><div class="val">16</div><div class="mod">+3</div></div>
+              <div class="attr"><div class="lab">mente</div><div class="val">12</div><div class="mod">+1</div></div>
+              <div class="attr"><div class="lab">tempra</div><div class="val">13</div><div class="mod">+1</div></div>
+            </div>
+            <div class="res">
+              <div class="bar-row"><div class="top"><span class="name">Vita</span><span class="num">32 / 40</span></div><div class="track"><div class="fill" style="width:80%;background:linear-gradient(90deg,#a8513c,#c0694f)"></div></div></div>
+              <div class="bar-row"><div class="top"><span class="name">Vigore</span><span class="num">18 / 24</span></div><div class="track"><div class="fill" style="width:75%;background:linear-gradient(90deg,#5f8060,#7fa07e)"></div></div></div>
+              <div class="bar-row"><div class="top"><span class="name">Concentrazione</span><span class="num">9 / 12</span></div><div class="track"><div class="fill" style="width:75%;background:linear-gradient(90deg,#4f6f90,#6f8fb0)"></div></div></div>
+            </div>
+            <div class="conds"><span class="cond">vigile</span><span class="cond warn">affaticato</span></div>
+          </div>
+        </section>
+
+        <section class="panel encounter combat-only" aria-label="scontro">
+          <div class="p-head"><span class="eyebrow">scontro</span><span class="p-title">Round 2</span><span class="p-meta">turno di Kaelen</span></div>
+          <div class="body">
+            <div class="init">
+              <div class="turn act"><span class="ord">1</span><span class="nm">Kaelen Vurr</span><span class="ini">19</span><span class="hp"><span style="display:block;height:100%;width:80%;background:#c0694f"></span></span></div>
+              <div class="turn"><span class="ord">2</span><span class="nm">Bruto del molo</span><span class="ini">14</span><span class="hp"><span style="display:block;height:100%;width:55%;background:#9b6b63"></span></span></div>
+              <div class="turn"><span class="ord">3</span><span class="nm">Lira la svelta</span><span class="ini">11</span><span class="hp"><span style="display:block;height:100%;width:95%;background:#7fa07e"></span></span></div>
+            </div>
+            <div class="zones">
+              <div class="zone here">ingaggiato<b>Kaelen · Bruto</b></div>
+              <div class="zone">vicino<b>Lira</b></div>
+              <div class="zone">lontano<b>—</b></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel dice" aria-label="dadi">
+          <div class="p-head"><span class="eyebrow">dadi</span><span class="p-title">d20</span><span class="p-meta" id="dice-tag">prova</span></div>
+          <div class="dice-stage" id="dice-stage"></div>
+          <div class="roll-out">
+            <div class="roll-big" id="roll-big">17</div>
+            <div class="roll-lab"><span class="expr" id="roll-expr">Percezione · 1d20+3</span><span class="out" id="roll-outcome">successo</span></div>
+          </div>
+          <div class="roll-foot">
+            <span class="note">Il motore decide l'esito · il 3D è cosmetico e atterra sul risultato predeterminato.</span>
+            <button class="roll-btn" id="roll-btn">tira di prova</button>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+<script>
+(function(){
+  // phase switching — re-themes the shell and swaps the right-column panels (C-adaptive demo)
+  var app=document.getElementById('app'), meta=document.getElementById('phase-meta');
+  var labels={exploration:'esplorazione · turno 14',dialogue:'dialogo · turno 14',combat:'combattimento · round 2',downtime:'quiete · campo notturno'};
+  document.getElementById('phases').addEventListener('click',function(e){
+    var t=e.target.closest('.phase'); if(!t) return;
+    app.setAttribute('data-phase',t.dataset.p);
+    [].forEach.call(this.children,function(c){c.classList.toggle('on',c===t)});
+    meta.textContent=labels[t.dataset.p];
+    if(window.__diceTint) window.__diceTint(t.dataset.p);
+  });
+
+  // demo rolls — predetermined results; the 3D only animates toward them
+  var demos=[
+    {n:17,expr:'Percezione · 1d20+3',out:'successo',cls:'out',tag:'prova'},
+    {n:23,expr:'Inganno · 1d20+5',out:'successo critico',cls:'out',tag:'prova'},
+    {n:8, expr:'Schivata · 1d20+1', out:'fallimento',cls:'',tag:'difesa'},
+    {n:14,expr:'Atletica · 1d20+2', out:'successo con costo',cls:'',tag:'prova'}
+  ], di=0;
+  var big=document.getElementById('roll-big'),expr=document.getElementById('roll-expr'),
+      oc=document.getElementById('roll-outcome'),tag=document.getElementById('dice-tag');
+  function applyDemo(d){
+    big.textContent=d.n; expr.textContent=d.expr; tag.textContent=d.tag;
+    oc.textContent=d.out; oc.style.color = d.cls==='out' ? 'var(--ok)' : 'var(--text-2)';
+  }
+
+  // ---- WebGL d20 ----
+  var stage=document.getElementById('dice-stage');
+  if(!window.THREE){
+    stage.innerHTML='<div style="display:grid;place-items:center;height:100%;color:#6b6962;font-family:var(--f-mono);font-size:12px">d20</div>';
+  } else {
+    var W=stage.clientWidth,H=stage.clientHeight;
+    var renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+    renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(W,H);
+    stage.appendChild(renderer.domElement);
+    var scene=new THREE.Scene();
+    var cam=new THREE.PerspectiveCamera(40,W/H,0.1,100); cam.position.set(0,0,7);
+
+    var mat=new THREE.MeshStandardMaterial({color:0xcdb98c,metalness:0.34,roughness:0.46,flatShading:true});
+    var geo=new THREE.IcosahedronGeometry(1.78,0);
+    var die=new THREE.Mesh(geo,mat); scene.add(die);
+    var edges=new THREE.LineSegments(new THREE.EdgesGeometry(geo),
+      new THREE.LineBasicMaterial({color:0x6a5a36,transparent:true,opacity:0.5})); die.add(edges);
+
+    var key=new THREE.DirectionalLight(0xfff0d6,2.1); key.position.set(3,5,4); scene.add(key);
+    var rim=new THREE.DirectionalLight(0x9fb6d6,0.9); rim.position.set(-4,-2,-3); scene.add(rim);
+    var amb=new THREE.AmbientLight(0x404654,0.7); scene.add(amb);
+    var glow=new THREE.PointLight(0xc8a45c,0.0,12); glow.position.set(-2,1,3); scene.add(glow);
+
+    // soft contact shadow
+    var shTex=(function(){var c=document.createElement('canvas');c.width=c.height=128;var g=c.getContext('2d');
+      var rad=g.createRadialGradient(64,64,4,64,64,62);rad.addColorStop(0,'rgba(0,0,0,.55)');rad.addColorStop(1,'rgba(0,0,0,0)');
+      g.fillStyle=rad;g.fillRect(0,0,128,128);return new THREE.CanvasTexture(c);})();
+    var shadow=new THREE.Mesh(new THREE.PlaneGeometry(5.2,2.4),
+      new THREE.MeshBasicMaterial({map:shTex,transparent:true,depthWrite:false}));
+    shadow.position.set(0,-2.05,0); shadow.rotation.x=-0.9; scene.add(shadow);
+
+    var spin={x:0.0024,y:0.0032}, rolling=false, t0=0, dur=0, from=new THREE.Quaternion(), to=new THREE.Quaternion(), tmpE=new THREE.Euler();
+    function easeOut(x){return 1-Math.pow(1-x,3);}
+    function roll(){
+      rolling=true; t0=performance.now(); dur=1150;
+      from.copy(die.quaternion);
+      tmpE.set(Math.random()*Math.PI*2+6, Math.random()*Math.PI*2+6, Math.random()*Math.PI*2);
+      to.setFromEuler(tmpE);
+      glow.intensity=1.2;
+    }
+    window.__diceTint=function(p){
+      var col=p==='combat'?0xc0694f:p==='dialogue'?0xcbb07a:p==='downtime'?0x8aa0a8:0xc8a45c;
+      glow.color.setHex(col); key.intensity=2.1;
+    };
+    function frame(now){
+      requestAnimationFrame(frame);
+      if(rolling){
+        var k=Math.min(1,(now-t0)/dur), e=easeOut(k);
+        die.quaternion.slerpQuaternions(from,to,e);
+        glow.intensity=1.2*(1-e);
+        if(k>=1) rolling=false;
+      } else {
+        die.rotation.x+=spin.x; die.rotation.y+=spin.y;
+      }
+      die.position.y=Math.sin(now*0.0013)*0.06;
+      renderer.render(scene,cam);
+    }
+    requestAnimationFrame(frame);
+    addEventListener('resize',function(){W=stage.clientWidth;H=stage.clientHeight;cam.aspect=W/H;cam.updateProjectionMatrix();renderer.setSize(W,H);});
+
+    document.getElementById('roll-btn').addEventListener('click',function(){
+      di=(di+1)%demos.length; applyDemo(demos[di]); roll();
+    });
+    setTimeout(roll,420);
+  }
+})();
+</script>
+</body>
+</html>

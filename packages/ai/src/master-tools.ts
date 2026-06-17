@@ -4,8 +4,8 @@
 // shared): sono il contratto fra il modello e l engine, di proprieta del contesto AI.
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
-import type { Command } from '@loomn/engine';
-import { DIFFICULTIES, QUEST_OUTCOMES } from '@loomn/engine';
+import type { Command, Phase } from '@loomn/engine';
+import { DIFFICULTIES, QUEST_OUTCOMES, SOFT_PHASES, isCommandLegalInPhase } from '@loomn/engine';
 import type { LlmToolDef } from './language-model';
 import { parseJson } from './json-repair';
 
@@ -122,11 +122,17 @@ const advanceQuestSchema = z.object({
 const endTurnSchema = z.object({});
 const nextRoundSchema = z.object({});
 
+const enterPhaseSchema = z.object({
+  to: z.enum(SOFT_PHASES), // enum auto-validante: niente combat, niente fasi inventate
+});
+const endEncounterSchema = z.object({});
+
 // --- registro: ogni voce e gia type-erased ma costruita su uno schema concreto ---
 
 interface ToolEntry {
   description: string;
   jsonSchema: Record<string, unknown>;
+  commandType: Command['type'];
   resolve(json: unknown): { ok: true; command: Command } | { ok: false; error: string };
 }
 
@@ -140,11 +146,13 @@ function issuesOf(error: z.ZodError): string {
 // z.ZodType<A> forzerebbe input=output=A e degraderebbe l output a unknown.
 function makeEntry<S extends z.ZodTypeAny>(
   description: string,
+  commandType: Command['type'],
   schema: S,
   toCommand: (args: z.infer<S>) => Command,
 ): ToolEntry {
   return {
     description,
+    commandType,
     jsonSchema: zodToJsonSchema(schema, { target: 'openApi3', $refStrategy: 'none' }) as Record<string, unknown>,
     resolve(json) {
       const v = schema.safeParse(json);
@@ -157,6 +165,7 @@ function makeEntry<S extends z.ZodTypeAny>(
 const TOOLS: Record<string, ToolEntry> = {
   spawn_npc: makeEntry(
     'Crea e aggiunge un nuovo PNG al mondo (diventa canone). Usa id univoci.',
+    'AddActor',
     spawnNpcSchema,
     (a) => ({
       type: 'AddActor',
@@ -175,6 +184,7 @@ const TOOLS: Record<string, ToolEntry> = {
   ),
   request_check: makeEntry(
     'Chiede una prova di abilita: il motore tira e applica i gradi di successo in modo deterministico. La difficolta e qualitativa (trivial..legendary), non un numero.',
+    'RequestCheck',
     requestCheckSchema,
     (a) => ({
       type: 'RequestCheck',
@@ -186,6 +196,7 @@ const TOOLS: Record<string, ToolEntry> = {
   ),
   apply_effect: makeEntry(
     'Applica una conseguenza su una risorsa di un attore: il motore tira l espressione di dadi e clampa la risorsa in modo deterministico. direction e restore (ripristina) o drain (prosciuga); i dadi sono {count,sides}.',
+    'ApplyEffect',
     applyEffectSchema,
     (a) => ({
       type: 'ApplyEffect',
@@ -198,6 +209,7 @@ const TOOLS: Record<string, ToolEntry> = {
   ),
   start_quest: makeEntry(
     'Avvia una nuova quest (obiettivo del giocatore). Usa id univoci. description e lo statement dell obiettivo.',
+    'StartQuest',
     startQuestSchema,
     (a) => ({
       type: 'StartQuest',
@@ -208,11 +220,13 @@ const TOOLS: Record<string, ToolEntry> = {
   ),
   advance_quest: makeEntry(
     'Porta una quest esistente al suo esito: completed (riuscita) o failed (fallita). Il motore rifiuta una quest inesistente o gia terminata.',
+    'AdvanceQuest',
     advanceQuestSchema,
     (a) => ({ type: 'AdvanceQuest', questId: a.questId, status: a.status }),
   ),
   attack: makeEntry(
     'Dichiara un attacco: il motore tira la prova e applica il danno in modo deterministico.',
+    'Attack',
     attackSchema,
     (a) => ({
       type: 'Attack',
@@ -227,22 +241,38 @@ const TOOLS: Record<string, ToolEntry> = {
   ),
   start_encounter: makeEntry(
     'Avvia uno scontro con i partecipanti indicati (devono gia esistere come attori).',
+    'StartEncounter',
     startEncounterSchema,
     (a) => ({ type: 'StartEncounter', encounterId: a.encounterId, participants: a.participants }),
   ),
-  end_turn: makeEntry('Termina il turno corrente nello scontro attivo.', endTurnSchema, () => ({ type: 'EndTurn' })),
-  next_round: makeEntry('Avanza al round successivo dello scontro attivo.', nextRoundSchema, () => ({
+  end_turn: makeEntry('Termina il turno corrente nello scontro attivo.', 'EndTurn', endTurnSchema, () => ({ type: 'EndTurn' })),
+  next_round: makeEntry('Avanza al round successivo dello scontro attivo.', 'NextRound', nextRoundSchema, () => ({
     type: 'NextRound',
   })),
+  enter_phase: makeEntry(
+    'Cambia la fase narrativa di gioco: exploration (esplorazione), dialogue (dialogo) o downtime (tempo libero). Per iniziare un combattimento usa invece start_encounter.',
+    'EnterPhase',
+    enterPhaseSchema,
+    (a) => ({ type: 'EnterPhase', to: a.to }),
+  ),
+  end_encounter: makeEntry(
+    'Termina lo scontro attivo e torna alla fase di esplorazione. Usalo quando il combattimento e risolto.',
+    'EndEncounter',
+    endEncounterSchema,
+    () => ({ type: 'EndEncounter' }),
+  ),
 };
 
 export type ToolResolution =
   | { ok: true; toolName: string; command: Command }
   | { ok: false; toolName: string; error: string };
 
-/** Definizioni degli strumenti da passare al modello (LlmToolDef[]). */
-export function masterToolDefs(): LlmToolDef[] {
-  return Object.entries(TOOLS).map(([name, t]) => ({ name, description: t.description, parameters: t.jsonSchema }));
+/** Definizioni degli strumenti ABILITATI nella fase corrente: consuma lo stesso
+ *  isCommandLegalInPhase dell engine (single source of truth, niente mappa duplicata). */
+export function masterToolDefs(phase: Phase): LlmToolDef[] {
+  return Object.entries(TOOLS)
+    .filter(([, t]) => isCommandLegalInPhase(phase, t.commandType))
+    .map(([name, t]) => ({ name, description: t.description, parameters: t.jsonSchema }));
 }
 
 /** Parsa+valida gli argomenti grezzi di una tool-call e li mappa a un Command, oppure spiega l errore. */

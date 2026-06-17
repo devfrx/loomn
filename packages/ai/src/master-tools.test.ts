@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { masterToolDefs, resolveToolCall } from './master-tools';
 
 describe('masterToolDefs', () => {
-  it('espone i 9 strumenti con schemi JSON inline (niente ref)', () => {
-    const defs = masterToolDefs();
+  it('in combat espone i 9 strumenti di combat con schemi JSON inline (niente ref)', () => {
+    const defs = masterToolDefs('combat');
     const names = defs.map((d) => d.name).sort();
     expect(names).toEqual([
-      'advance_quest', 'apply_effect', 'attack', 'end_turn', 'next_round',
-      'request_check', 'spawn_npc', 'start_encounter', 'start_quest',
+      'advance_quest', 'apply_effect', 'attack', 'end_encounter', 'end_turn',
+      'next_round', 'request_check', 'spawn_npc', 'start_quest',
     ]);
     for (const d of defs) {
       expect(typeof d.description).toBe('string');
@@ -16,10 +16,18 @@ describe('masterToolDefs', () => {
     }
   });
 
+  it('in una fase soft espone i 7 strumenti non-combat (start_encounter/enter_phase, niente attack)', () => {
+    const names = masterToolDefs('exploration').map((d) => d.name).sort();
+    expect(names).toEqual([
+      'advance_quest', 'apply_effect', 'enter_phase', 'request_check',
+      'spawn_npc', 'start_encounter', 'start_quest',
+    ]);
+  });
+
   // G6: la coercizione array (z.preprocess) deve restare trasparente allo schema JSON mostrato
   // al modello — advertizziamo participants come array, non come string (come per G1 sui number).
   it('mostra participants come array nello schema di start_encounter (preprocess trasparente)', () => {
-    const se = masterToolDefs().find((d) => d.name === 'start_encounter');
+    const se = masterToolDefs('exploration').find((d) => d.name === 'start_encounter');
     if (se === undefined) throw new Error('atteso start_encounter');
     const participants = (se.parameters as { properties: Record<string, { type?: string; minItems?: number }> })
       .properties.participants;
@@ -381,7 +389,7 @@ describe('resolveToolCall apply_effect', () => {
   });
 
   it('mostra dice come array di interi e direction come enum nello schema (coercizione trasparente)', () => {
-    const ae = masterToolDefs().find((d) => d.name === 'apply_effect');
+    const ae = masterToolDefs('exploration').find((d) => d.name === 'apply_effect');
     if (ae === undefined) throw new Error('atteso apply_effect');
     const props = (ae.parameters as {
       properties: Record<string, {
@@ -440,9 +448,30 @@ describe('resolveToolCall advance_quest', () => {
   });
 
   it('mostra status come enum [completed, failed] nello schema', () => {
-    const aq = masterToolDefs().find((d) => d.name === 'advance_quest');
+    const aq = masterToolDefs('exploration').find((d) => d.name === 'advance_quest');
     if (aq === undefined) throw new Error('atteso advance_quest');
     const status = (aq.parameters as { properties: Record<string, { enum?: string[] }> }).properties.status;
     expect(status?.enum).toEqual(['completed', 'failed']);
+  });
+});
+
+describe('tool di fase enter_phase / end_encounter', () => {
+  it('enter_phase mappa a EnterPhase con la fase richiesta', () => {
+    const r = resolveToolCall('enter_phase', '{"to":"dialogue"}');
+    expect(r).toEqual({ ok: true, toolName: 'enter_phase', command: { type: 'EnterPhase', to: 'dialogue' } });
+  });
+  it('enter_phase rifiuta una fase fuori enum (anche combat)', () => {
+    expect(resolveToolCall('enter_phase', '{"to":"combat"}').ok).toBe(false);
+    expect(resolveToolCall('enter_phase', '{"to":"sognante"}').ok).toBe(false);
+  });
+  it('end_encounter mappa a EndEncounter', () => {
+    const r = resolveToolCall('end_encounter', '{}');
+    expect(r).toEqual({ ok: true, toolName: 'end_encounter', command: { type: 'EndEncounter' } });
+  });
+  it('lo schema di enter_phase mostra solo le fasi soft', () => {
+    const ep = masterToolDefs('exploration').find((d) => d.name === 'enter_phase');
+    if (ep === undefined) throw new Error('atteso enter_phase');
+    const to = (ep.parameters as { properties: Record<string, { enum?: string[] }> }).properties.to;
+    expect(to?.enum).toEqual(['exploration', 'dialogue', 'downtime']);
   });
 });

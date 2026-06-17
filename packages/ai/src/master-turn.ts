@@ -77,7 +77,7 @@ function summarizeCalls(names: string[]): string {
 export async function runMasterTurn(request: MasterTurnRequest): Promise<MasterTurnResult> {
   const tracer = request.tracer ?? noopTracer;
   const maxIterations = request.maxIterations ?? 6;
-  const toolDefs = masterToolDefs();
+  const toolDefs = masterToolDefs(request.state.phase);
 
   let state = request.state;
   const events: DomainEvent[] = [];

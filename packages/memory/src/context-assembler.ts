@@ -57,10 +57,15 @@ function sceneSubjects(state: GameState): Set<string> {
 
 function renderL1(state: GameState): string {
   const actors = Object.values(state.actors).map((a) => {
-    const res = Object.entries(a.resources)
-      .map(([k, p]) => `${k} ${p.current}/${p.max}`)
-      .join(', ');
-    return `- ${a.name} (${a.kind}, id=${a.id})${res.length > 0 ? `: ${res}` : ''}`;
+    const res = Object.entries(a.resources).map(([k, p]) => `${k} ${p.current}/${p.max}`).join(', ');
+    const attrs = Object.entries(a.attributes).map(([k, v]) => `${k} ${v}`).join(', ');
+    const sk = Object.entries(a.skills).map(([k, v]) => `${k} ${v}`).join(', ');
+    const parts = [
+      res.length > 0 ? `risorse: ${res}` : '',
+      attrs.length > 0 ? `attr: ${attrs}` : '',
+      sk.length > 0 ? `abil: ${sk}` : '',
+    ].filter((p) => p.length > 0);
+    return `- ${a.name} (${a.kind}, id=${a.id})${parts.length > 0 ? `: ${parts.join(' | ')}` : ''}`;
   });
   const list = actors.length > 0 ? actors.join('\n') : '- (nessun attore)';
   const enc =

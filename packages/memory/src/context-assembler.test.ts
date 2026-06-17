@@ -71,7 +71,7 @@ describe('createContextAssembler (read path combinato, sqlite reale)', () => {
       const ctx = createContextAssembler({ ledger, summaries, clock: fixedClock(5 * HOUR) }, { tokenBudget: 1000 })(HERO_STATE);
 
       expect(ctx).toContain('Stato attuale (L1)');
-      expect(ctx).toContain('Eroe (pc, id=pc1): hp 10/12');
+      expect(ctx).toContain('Eroe (pc, id=pc1): risorse: hp 10/12');
       expect(ctx).toContain('Fatti canonici (L1.5)');
       expect(ctx).toContain('Eroe ha_ucciso Guardia#3');
       expect(ctx).not.toContain('Re ha_promesso');
@@ -149,6 +149,39 @@ describe('createContextAssembler (read path combinato, sqlite reale)', () => {
       summaries.record(summary({ id: 's2', text: 'B', salience: 0.5, createdAt: 100 }));
       const make = () => createContextAssembler({ ledger, summaries, clock: fixedClock(200) }, { tokenBudget: 1000 })(HERO_STATE);
       expect(make()).toBe(make());
+    } finally {
+      close();
+    }
+  });
+
+  it('L1 espone attributi e abilita per-attore', () => {
+    const { db, close } = openDatabase(':memory:');
+    try {
+      const ledger = createCanonLedger(db);
+      const summaries = createSummaryStore(db);
+      const state: GameState = {
+        version: 1,
+        encounter: null,
+        quests: {},
+        phase: 'exploration',
+        actors: {
+          hero: {
+            id: 'hero',
+            name: 'Guerriero',
+            kind: 'pc',
+            attributes: { forza: 3 },
+            skills: { arcano: 2 },
+            resources: { hp: { current: 20, max: 20 } },
+            conditions: [],
+            items: [],
+            progression: { xp: 0, level: 0 },
+          },
+        },
+      };
+      const out = createContextAssembler({ ledger, summaries, clock: fixedClock(0) }, { tokenBudget: 1000 })(state);
+      expect(out).toContain('forza 3');
+      expect(out).toContain('arcano 2');
+      expect(out).toContain('hp 20/20');
     } finally {
       close();
     }

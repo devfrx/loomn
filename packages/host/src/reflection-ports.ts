@@ -4,6 +4,7 @@
 // uno schema Zod; reflectionDepsFor li monta su ledger/summaries/clock del MemorySystem, pronto
 // per runReflection. (Il read path e gia composto da MemorySystem.assembleContext.)
 import { z } from 'zod';
+import { llmArray, coerceNumericString } from '@loomn/ai';
 import type { LlmMessage, StructuredOutputPort } from '@loomn/ai';
 import type { StoredEvent } from '@loomn/engine';
 import type {
@@ -16,20 +17,31 @@ import type {
 } from '@loomn/memory';
 import type { MemorySystem } from './memory-system';
 
+// importance: intero 1..10 coerciuto (G1, pattern numeri-come-stringhe). Una sola definizione,
+// due usi (DRY). coerceNumericString resta STRICT: "abc"/vuoto/null -> rifiutato, niente 0 silenzioso.
+// Cast esplicito: z.preprocess produce ZodEffects<ZodNumber, number, unknown>; il tipo di output e
+// number, ma TypeScript non riesce a inferirlo attraverso z.object e StructuredOutputPort<T> con
+// exactOptionalPropertyTypes. Il cast e sicuro: la validazione Zod avviene a runtime.
+const importanceSchema = z.preprocess(coerceNumericString, z.number().int().min(1).max(10)) as z.ZodType<number>;
+
 const extractedFactSchema = z.object({
   subject: z.string().min(1),
   predicate: z.string().min(1),
   object: z.string().min(1),
-  functional: z.boolean(),
-  importance: z.number().int().min(1).max(10),
+  functional: z.boolean(), // boolean puro: i booleani-come-stringhe non sono mai stati osservati (YAGNI)
+  importance: importanceSchema,
 });
 
-const factsResultSchema = z.object({ facts: z.array(extractedFactSchema) });
+// facts: il modello debole lo stringifica ("[{...}]") -> llmArray lo JSON.parse-a prima di validare
+// (G6 portato sul write-path, F3/G5). Strict: stringa-non-JSON / JSON-non-array -> rifiutato.
+// Cast: llmArray produce ZodEffects con tipo output corretto ma TypeScript perde l inferenza
+// attraverso port.generate<T>. Cast sicuro: Zod valida a runtime.
+const factsResultSchema = z.object({ facts: llmArray(z.array(extractedFactSchema)) }) as z.ZodType<{ facts: ExtractedFact[] }>;
 
 const sceneDraftSchema = z.object({
   text: z.string().min(1),
-  importance: z.number().int().min(1).max(10),
-});
+  importance: importanceSchema,
+}) as z.ZodType<SceneSummaryDraft>;
 
 const EXTRACT_SYSTEM =
   'Sei un analista narrativo. Dalla scena (eventi del motore e narrazione del Master) estrai i ' +

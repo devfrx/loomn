@@ -129,3 +129,70 @@ describe('reflectionDepsFor', () => {
     }
   });
 });
+
+describe('coercizione del write-path (F3/G5)', () => {
+  it('coerce facts stringificato (array JSON come stringa) e ritorna i fatti', async () => {
+    // Il modello debole stringifica l array: facts arriva come stringa JSON, non come array.
+    const args = JSON.stringify({
+      facts: JSON.stringify([
+        { subject: 'Krix', predicate: 'serve', object: 'Barone Vhalmar', functional: true, importance: 8 },
+      ]),
+    });
+    const model = fakeModel([
+      { type: 'tool-call', id: 't1', name: 'extract_facts', arguments: args },
+      { type: 'finish', reason: 'tool_calls' },
+    ]);
+    const extractor = createLlmFactExtractor(createStructuredOutput(model));
+    const facts = await extractor.extract({ events: sceneEvents, scope: 'sess-1' });
+    expect(facts).toEqual([
+      { subject: 'Krix', predicate: 'serve', object: 'Barone Vhalmar', functional: true, importance: 8 },
+    ]);
+  });
+
+  it('coerce importance stringa numerica a intero nell estrazione', async () => {
+    const args = JSON.stringify({
+      facts: [{ subject: 'Krix', predicate: 'serve', object: 'Barone', functional: true, importance: '8' }],
+    });
+    const model = fakeModel([
+      { type: 'tool-call', id: 't1', name: 'extract_facts', arguments: args },
+      { type: 'finish', reason: 'tool_calls' },
+    ]);
+    const extractor = createLlmFactExtractor(createStructuredOutput(model));
+    const facts = await extractor.extract({ events: sceneEvents, scope: 'sess-1' });
+    expect(facts[0]?.importance).toBe(8);
+  });
+
+  it('coerce importance stringa numerica nel riassunto', async () => {
+    const args = JSON.stringify({ text: 'Krix serve il Barone.', importance: '6' });
+    const model = fakeModel([
+      { type: 'tool-call', id: 't1', name: 'summarize_scene', arguments: args },
+      { type: 'finish', reason: 'tool_calls' },
+    ]);
+    const summarizer = createLlmSummarizer(createStructuredOutput(model));
+    const draft = await summarizer.summarize({ events: sceneEvents, scope: 'sess-1' });
+    expect(draft).toEqual({ text: 'Krix serve il Barone.', importance: 6 });
+  });
+
+  it('rifiuta facts stringa non-JSON (niente array silenzioso): strict come G6', async () => {
+    const args = JSON.stringify({ facts: 'non sono un array' });
+    const model = fakeModel([
+      { type: 'tool-call', id: 't1', name: 'extract_facts', arguments: args },
+      { type: 'finish', reason: 'tool_calls' },
+    ]);
+    // strategies:[function-call] pinna il gate dello schema (niente fallback che maschera il rifiuto).
+    const extractor = createLlmFactExtractor(createStructuredOutput(model, { strategies: ['function-call'] }));
+    await expect(extractor.extract({ events: sceneEvents, scope: 'sess-1' })).rejects.toThrow();
+  });
+
+  it('rifiuta importance stringa non-numerica (niente intero silenzioso): strict come G1', async () => {
+    const args = JSON.stringify({
+      facts: [{ subject: 'Krix', predicate: 'serve', object: 'Barone', functional: true, importance: 'abc' }],
+    });
+    const model = fakeModel([
+      { type: 'tool-call', id: 't1', name: 'extract_facts', arguments: args },
+      { type: 'finish', reason: 'tool_calls' },
+    ]);
+    const extractor = createLlmFactExtractor(createStructuredOutput(model, { strategies: ['function-call'] }));
+    await expect(extractor.extract({ events: sceneEvents, scope: 'sess-1' })).rejects.toThrow();
+  });
+});

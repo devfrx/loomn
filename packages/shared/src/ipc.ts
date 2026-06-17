@@ -162,9 +162,9 @@ export const summarySchema = z.object({
   text: z.string(),
   importance: z.number(),
   salience: z.number(),
-  createdAt: z.number(),
-  eventSeqFrom: z.number(),
-  eventSeqTo: z.number(),
+  createdAt: z.number().int().nonnegative(),
+  eventSeqFrom: z.number().int().nonnegative(),
+  eventSeqTo: z.number().int().nonnegative(),
 });
 export type SummaryDto = z.infer<typeof summarySchema>;
 

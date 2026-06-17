@@ -145,6 +145,7 @@ describe('canali read on-demand (narrazione / canon / L2)', () => {
   it('narrationHistoryRequest accetta before e limit opzionali', () => {
     expect(narrationHistoryRequestSchema.parse({})).toEqual({});
     expect(narrationHistoryRequestSchema.parse({ before: 10, limit: 20 })).toEqual({ before: 10, limit: 20 });
+    expect(() => narrationHistoryRequestSchema.parse({ before: 0 })).toThrow();
   });
 
   it('narrationHistoryResult ok porta entries e hasMore', () => {
@@ -176,6 +177,7 @@ describe('canali read on-demand (narrazione / canon / L2)', () => {
   it('summariesRequest accetta level e scope opzionali', () => {
     expect(summariesRequestSchema.parse({})).toEqual({});
     expect(summariesRequestSchema.parse({ level: 'scene', scope: 'sess-1' })).toEqual({ level: 'scene', scope: 'sess-1' });
+    expect(() => summariesRequestSchema.parse({ level: 'week' })).toThrow();
   });
 
   it('summariesResult ok porta i summaries', () => {

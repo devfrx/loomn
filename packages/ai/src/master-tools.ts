@@ -5,6 +5,7 @@
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import type { Command } from '@loomn/engine';
+import { DIFFICULTIES } from '@loomn/engine';
 import type { LlmToolDef } from './language-model';
 import { parseJson } from './json-repair';
 
@@ -73,6 +74,13 @@ const startEncounterSchema = z.object({
   ),
 });
 
+const requestCheckSchema = z.object({
+  actorId: z.string().min(1),
+  attribute: z.string().min(1).optional(),
+  skill: z.string().min(1).optional(),
+  difficulty: z.enum(DIFFICULTIES), // enum auto-validante: l AI non puo inventare una difficolta
+});
+
 const endTurnSchema = z.object({});
 const nextRoundSchema = z.object({});
 
@@ -125,6 +133,17 @@ const TOOLS: Record<string, ToolEntry> = {
         items: [],
         progression: { xp: 0, level: 0 },
       },
+    }),
+  ),
+  request_check: makeEntry(
+    'Chiede una prova di abilita: il motore tira e applica i gradi di successo in modo deterministico. La difficolta e qualitativa (trivial..legendary), non un numero.',
+    requestCheckSchema,
+    (a) => ({
+      type: 'RequestCheck',
+      actorId: a.actorId,
+      difficulty: a.difficulty,
+      ...(a.attribute !== undefined ? { attribute: a.attribute } : {}),
+      ...(a.skill !== undefined ? { skill: a.skill } : {}),
     }),
   ),
   attack: makeEntry(

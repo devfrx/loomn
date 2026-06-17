@@ -5,7 +5,7 @@ describe('masterToolDefs', () => {
   it('espone i 5 strumenti con schemi JSON inline (niente ref)', () => {
     const defs = masterToolDefs();
     const names = defs.map((d) => d.name).sort();
-    expect(names).toEqual(['attack', 'end_turn', 'next_round', 'spawn_npc', 'start_encounter']);
+    expect(names).toEqual(['attack', 'end_turn', 'next_round', 'request_check', 'spawn_npc', 'start_encounter']);
     for (const d of defs) {
       expect(typeof d.description).toBe('string');
       expect((d.parameters as { type?: string }).type).toBe('object');
@@ -226,5 +226,35 @@ describe('coercizione argomenti array (G6)', () => {
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('atteso errore');
     expect(r.error).toContain('participants');
+  });
+});
+
+describe('resolveToolCall request_check', () => {
+  it('mappa request_check valido a RequestCheck', () => {
+    const r = resolveToolCall('request_check', '{"actorId":"pc1","attribute":"forza","difficulty":"hard"}');
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error('atteso ok');
+    expect(r.command).toEqual({ type: 'RequestCheck', actorId: 'pc1', attribute: 'forza', difficulty: 'hard' });
+  });
+
+  it('omette attribute e skill quando assenti', () => {
+    const r = resolveToolCall('request_check', '{"actorId":"pc1","difficulty":"easy"}');
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error('atteso ok');
+    expect(r.command).toEqual({ type: 'RequestCheck', actorId: 'pc1', difficulty: 'easy' });
+    expect('attribute' in r.command).toBe(false);
+    expect('skill' in r.command).toBe(false);
+  });
+
+  it('rifiuta una difficolta fuori band', () => {
+    const r = resolveToolCall('request_check', '{"actorId":"pc1","difficulty":"impossibile"}');
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('atteso errore');
+    expect(r.error).toContain('difficulty');
+  });
+
+  it('rifiuta difficulty mancante', () => {
+    const r = resolveToolCall('request_check', '{"actorId":"pc1"}');
+    expect(r.ok).toBe(false);
   });
 });

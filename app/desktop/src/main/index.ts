@@ -15,12 +15,18 @@ import {
   runTurnRequestSchema,
   providerConfigSchema,
   reflectRequestSchema,
+  narrationHistoryRequestSchema,
+  canonRequestSchema,
+  summariesRequestSchema,
   type DispatchResult,
   type RunTurnResult,
   type ProviderResult,
   type ReflectResult,
   type StatusResult,
   type ReadModelPush,
+  type NarrationHistoryResult,
+  type CanonResult,
+  type SummariesResult,
 } from '@loomn/shared';
 import { createProviderHolder, type ProviderHolder } from './provider-holder';
 import { loadProviderConfig, saveProviderConfig } from './settings';
@@ -69,7 +75,7 @@ function registerHandlers(service: CampaignService): void {
     try {
       const out = await service.dispatch(parsed.data);
       pushReadModel(service);
-      return { ok: true, version: out.readModel.version };
+      return { ok: true, version: out.readModel.version, events: out.events };
     } catch (err) {
       return { ok: false, error: errorMessage(err) };
     }
@@ -81,7 +87,7 @@ function registerHandlers(service: CampaignService): void {
     try {
       const out = await service.runTurn(parsed.data.playerAction);
       pushReadModel(service);
-      return { ok: true, narration: out.narration, version: out.readModel.version };
+      return { ok: true, narration: out.narration, version: out.readModel.version, events: out.events };
     } catch (err) {
       return { ok: false, error: errorMessage(err) };
     }
@@ -118,6 +124,57 @@ function registerHandlers(service: CampaignService): void {
       providerConfigured: holder.isConfigured(),
     }),
   );
+
+  ipcMain.handle(IPC_CHANNELS.narrationHistory, (_e, raw): NarrationHistoryResult => {
+    const parsed = narrationHistoryRequestSchema.safeParse(raw);
+    if (!parsed.success) return { ok: false, error: `Richiesta non valida: ${parsed.error.message}` };
+    try {
+      const { before, limit } = parsed.data;
+      const h = service.getNarrationHistory({
+        ...(before !== undefined ? { before } : {}),
+        ...(limit !== undefined ? { limit } : {}),
+      });
+      return { ok: true, entries: h.entries, hasMore: h.hasMore };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.canon, (_e, raw): CanonResult => {
+    const parsed = canonRequestSchema.safeParse(raw);
+    if (!parsed.success) return { ok: false, error: `Richiesta non valida: ${parsed.error.message}` };
+    try {
+      const { includeRetracted, subject, predicate, object: obj } = parsed.data;
+      return {
+        ok: true,
+        facts: service.getCanon({
+          ...(includeRetracted !== undefined ? { includeRetracted } : {}),
+          ...(subject !== undefined ? { subject } : {}),
+          ...(predicate !== undefined ? { predicate } : {}),
+          ...(obj !== undefined ? { object: obj } : {}),
+        }),
+      };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.summaries, (_e, raw): SummariesResult => {
+    const parsed = summariesRequestSchema.safeParse(raw);
+    if (!parsed.success) return { ok: false, error: `Richiesta non valida: ${parsed.error.message}` };
+    try {
+      const { level, scope } = parsed.data;
+      return {
+        ok: true,
+        summaries: service.getSummaries({
+          ...(level !== undefined ? { level } : {}),
+          ...(scope !== undefined ? { scope } : {}),
+        }),
+      };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  });
 }
 
 function createWindow(service: CampaignService): BrowserWindow {

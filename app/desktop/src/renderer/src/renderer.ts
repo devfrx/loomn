@@ -48,6 +48,16 @@ async function runSelfTest(phase: string): Promise<void> {
         },
       });
       check(d.ok && d.version === 1, 'dispatch AddActor porta a versione 1');
+      check(d.ok && d.events.some((e) => e.type === 'ActorAdded'), 'dispatch espone gli events (ActorAdded)');
+
+      const hist = await window.loomn.getNarrationHistory({});
+      check(hist.ok && hist.entries.length === 0 && hist.hasMore === false, 'narration history vuota a inizio');
+
+      const canon = await window.loomn.getCanon({});
+      check(canon.ok && canon.facts.length === 0, 'canon vuoto a inizio');
+
+      const sums = await window.loomn.getSummaries({});
+      check(sums.ok && sums.summaries.length === 0, 'summaries vuoti a inizio');
 
       const sp = await window.loomn.setProvider({
         baseUrl: 'http://localhost:1234/v1',

@@ -208,7 +208,7 @@ for (let iter = 0; iter < maxIterations; iter++) {
 }
 ```
 
-**Frammento di prompt per-fase** (asse 4a): è dove le 4 fasi guadagnano identità distinta (il command-gating è binario). Un `Record<Phase, string>` di brevi linee-guida composto col `SYSTEM_PROMPT` base.
+**Frammento di prompt per-fase** (asse 4a): è dove le 4 fasi guadagnano identità distinta (il command-gating è binario). I dati sono un `Record<Phase, string>` interno; l'**unità modulare** è la funzione pura esportata `phaseGuidance(phase)` (testabile in isolamento e riusabile — vedi sotto il seam additivo).
 ```ts
 const PHASE_GUIDANCE: Record<Phase, string> = {
   exploration: 'Fase: esplorazione. Descrivi luoghi e dettagli sensoriali; per iniziare uno scontro usa start_encounter.',
@@ -216,15 +216,17 @@ const PHASE_GUIDANCE: Record<Phase, string> = {
   combat:      'Fase: combattimento. Sii tattico e conciso; usa attack/end_turn/next_round e chiudi con end_encounter quando lo scontro e risolto.',
   downtime:    'Fase: tempo libero. Ritmo riflessivo: recupero, preparativi, relazioni.',
 };
+export function phaseGuidance(phase: Phase): string { return PHASE_GUIDANCE[phase]; }
+
 export function buildMasterMessages(context: string, playerAction: string, phase: Phase): LlmMessage[] {
   return [
-    { role: 'system', content: `${SYSTEM_PROMPT}\n${PHASE_GUIDANCE[phase]}` },
+    { role: 'system', content: `${SYSTEM_PROMPT}\n${phaseGuidance(phase)}` },
     { role: 'system', content: context },
     { role: 'user', content: playerAction },
   ];
 }
 ```
-Il frammento riflette la fase a **inizio turno** (`request.state.phase`); il re-framing del prompt **per-iterazione** (se la fase cambia a metà turno) è un deferral §8 — il filtro dei tool è invece per-iterazione perché è meccanicamente necessario. Coerente con spec §6.2 (la "fase" è priorità 1 *con ruolo/regole* = il livello system prompt), quindi vive in `ai` e **non** tocca il Context Assembler di `@loomn/memory`.
+Il frammento riflette la fase a **inizio turno** (`request.state.phase`). **Nessun buco di consapevolezza a metà turno:** se la fase cambia durante il turno, l'evento `PhaseChanged{from,to}` è già **reiniettato** nel loop col `JSON.stringify` generico esistente (come ogni evento) → il modello *sa* di aver cambiato fase. L'unico deferral è il **re-nudge di tono** (ri-iniettare la linea-guida tattica della nuova fase): è YAGNI finché la slice non mostra un lag di tono, e il seam è **puramente additivo** — la stessa `phaseGuidance(phase)` si inietta nel messaggio di reiniezione (`master-turn.ts:133-136`) quando un evento del batch è un `PhaseChanged`. Il filtro dei tool è invece per-iterazione perché è meccanicamente necessario (flusso start_encounter→attack). Coerente con spec §6.2 (la "fase" è priorità 1 *con ruolo/regole* = il livello system prompt), quindi vive in `ai` e **non** tocca il Context Assembler di `@loomn/memory`.
 
 **Flusso del turno** (`master-turn.ts`): gli Event reali (`PhaseChanged`/`EncounterEnded`) sono reiniettati col `JSON.stringify` generico esistente — il modello li narra, come per gli eventi di SP1/SP2/SP3. Nessun altro cambiamento al loop.
 
@@ -250,7 +252,7 @@ Gli eventi `PhaseChanged` sono **confini di scena veri** nello stream canonico: 
 ## 8. Fuori ambito (dichiarato — nessun debito silenzioso)
 
 - **Segmentazione `reflect` per scena:** item 6 del backlog (SP4 fornisce solo il substrato, §7).
-- **Re-framing del prompt per-iterazione:** se la fase cambia a metà turno, il frammento di prompt resta quello di inizio turno (il filtro dei tool è invece già per-iterazione). Additivo se mai servisse.
+- **Re-nudge di tono per-iterazione:** se la fase cambia a metà turno, il *fatto* è già reiniettato (`PhaseChanged` nello stream → il modello lo vede); solo la ri-iniezione della **linea-guida di tono** è rimandata. Seam additivo già pronto: iniettare `phaseGuidance(phase)` nel messaggio di reiniezione quando il batch contiene un `PhaseChanged`. Validare prima con la slice (YAGNI), zero rework.
 - **Attacco fuori-combat / helper "ambush" (start+attack in un colpo):** YAGNI; l'attacco fuori combat è già incanalato via `start_encounter` (§4).
 - **Sotto-fasi / azioni di combat granulari** (movimento per zone come fase, fasi di reazione): l'`Encounter` resta il modello del combat; non se ne fanno sotto-fasi FSM.
 - **Transizioni di combat→fase soft diversa da exploration** (es. il nemico si arrende → dialogo diretto): `end_encounter` torna sempre a `exploration`; l'AI può poi `enter_phase('dialogue')`. Una uscita parametrica è additiva se mai servisse.
@@ -273,7 +275,7 @@ Gli eventi `PhaseChanged` sono **confini di scena veri** nello stream canonico: 
   - `masterToolDefs('combat')` espone i combat-only + i phase-agnostic, **non** start_encounter/enter_phase; `masterToolDefs('exploration')` espone start_encounter/enter_phase + phase-agnostic, **non** attack/end_turn/next_round/end_encounter. Conteggi per fase pinnati.
   - `enter_phase` mappa a `EnterPhase`; `to` fuori enum (es. `'combat'`, `'paused'`) rifiutato da Zod. `end_encounter` mappa a `EndEncounter`.
   - lo schema di `enter_phase` mostra l'enum soft (no `combat`).
-  - `buildMasterMessages(ctx, action, phase)` inietta il frammento per-fase giusto nel system prompt.
+  - `phaseGuidance(phase)` ritorna la linea-guida attesa per ogni fase; `buildMasterMessages(ctx, action, phase)` inietta il frammento giusto nel system prompt.
   - `runMasterTurn`: il flusso `start_encounter`→`attack` in iterazioni successive funziona (i tool di combat compaiono dopo la transizione); fake model + RNG seedato, determinismo invariato.
 - **shared** (`domain-schema.test.ts`): round-trip di `PhaseChanged`/`EncounterEnded` in `domainEventSchema`; round-trip di un `GameState` con `phase` non-default in `gameStateSchema`; il tipo inferito resta assegnabile a `DomainEvent`/`GameState` (drift guard); `phase` fuori enum rifiutato.
 

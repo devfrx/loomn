@@ -71,7 +71,13 @@ export async function runReflection(deps: ReflectionDeps, input: ReflectionInput
   const from = Math.min(...seqs);
   const to = Math.max(...seqs);
 
+  // Entrambe le chiamate LLM PRIMA di qualunque scrittura: la scena diventa ATOMICA contro un
+  // fallimento di extract/summarize (niente fatti scritti senza summary -> niente collisione su
+  // un retry, item 6). L output e identico: lo snapshot di ricorrenza resta calcolato sul ledger
+  // PRIMA delle scritture di questa scena.
   const extracted = await deps.extractor.extract(input);
+  const draft = await deps.summarizer.summarize(input);
+
   // Ricorrenza = fatti attivi del soggetto PRIMA di questa Reflection, presa come SNAPSHOT
   // (un solo conteggio per soggetto, prima di ogni scrittura): cosi piu fatti dello stesso
   // soggetto nello stesso batch condividono la stessa baseline e la salienza NON dipende
@@ -102,7 +108,6 @@ export async function runReflection(deps: ReflectionDeps, input: ReflectionInput
     facts.push({ ...factInput, status: 'active' });
   });
 
-  const draft = await deps.summarizer.summarize(input);
   const summary: Summary = {
     id: `s-scene-${from}-${to}`,
     level: 'scene',

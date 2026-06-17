@@ -107,4 +107,14 @@ describe('runReflection', () => {
     expect(res.facts.map((f) => f.id)).toEqual(['f-5-7-0', 'f-5-7-1']);
     expect(ledger.active({ predicate: 'possiede' }).map((f) => f.salience)).toEqual([0.5, 0.5]);
   });
+
+  it('se il summarizer lancia, nessun fatto viene scritto (atomicita della scena)', async () => {
+    const facts: ExtractedFact[] = [{ subject: 'pc1', predicate: 'ha_ucciso', object: 'Oste', functional: false, importance: 9 }];
+    const { d, ledger } = setup(facts, { text: 'x', importance: 5 }, 1);
+    const throwingSummarizer: Summarizer = { summarize: () => Promise.reject(new Error('summarize fallita')) };
+    const deps = { ...d, summarizer: throwingSummarizer };
+    await expect(runReflection(deps, { events, scope: 'sess1' })).rejects.toThrow('summarize fallita');
+    // Atomicita: il summarizer lancia DOPO extract ma PRIMA di scrivere i fatti -> ledger vuoto.
+    expect(ledger.active()).toEqual([]);
+  });
 });

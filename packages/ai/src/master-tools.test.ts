@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { masterToolDefs, resolveToolCall } from './master-tools';
 
 describe('masterToolDefs', () => {
-  it('espone i 5 strumenti con schemi JSON inline (niente ref)', () => {
+  it('espone i 6 strumenti con schemi JSON inline (niente ref)', () => {
     const defs = masterToolDefs();
     const names = defs.map((d) => d.name).sort();
     expect(names).toEqual(['attack', 'end_turn', 'next_round', 'request_check', 'spawn_npc', 'start_encounter']);

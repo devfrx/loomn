@@ -546,6 +546,12 @@ describe('decide(Attack) — vocabolario', () => {
     ).toThrow(/magia/);
   });
 
+  it('rifiuta una skill fuori vocabolario', () => {
+    expect(() =>
+      decide(combatState(), { type: 'Attack', attackerId: 'eroe', targetId: 'goblin', attribute: 'forza', skill: 'ignoto', defense: 'difesa', defenseBase: 10, damageResource: 'hp' }, stub([0.5]), BVOCAB),
+    ).toThrow(/ignoto/);
+  });
+
   it('accetta un attacco interamente in vocabolario', () => {
     const events = decide(combatState(), { type: 'Attack', attackerId: 'eroe', targetId: 'goblin', attribute: 'forza', defense: 'difesa', defenseBase: 10, damageResource: 'hp' }, stub([0.95, 0.5, 0.5]), BVOCAB);
     expect(events.length).toBeGreaterThanOrEqual(1);

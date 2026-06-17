@@ -8,56 +8,9 @@ import type { Command, Phase, Vocabulary } from '@loomn/engine';
 import { DIFFICULTIES, QUEST_OUTCOMES, SOFT_PHASES, isCommandLegalInPhase } from '@loomn/engine';
 import type { LlmToolDef } from './language-model';
 import { parseJson } from './json-repair';
+import { llmNumber, llmArray, llmInt } from './coercion';
 
 // --- schemi degli argomenti (Zod) ---
-
-// Coerce SOLO una stringa numerica trimmata a numero; lascia tutto il resto invariato (lo schema
-// numerico a valle rifiuta vuoto/non-numerico/null/mancante). Politica di coercizione condivisa da
-// llmNumber e llmInt: la regola vive in un solo posto (G1). Resta STRICT: niente 0/garbage silenzioso.
-function coerceNumericString(v: unknown): unknown {
-  if (typeof v === 'string') {
-    const trimmed = v.trim();
-    if (trimmed === '') return v; // resta stringa -> lo schema numerico la rifiuta
-    const n = Number(trimmed);
-    return Number.isNaN(n) ? v : n; // numerica -> numero; non-numerica -> resta stringa (rifiutata)
-  }
-  return v; // number passa; null/undefined arrivano allo schema e sono rifiutati
-}
-
-// Gli LLM stringificano i numeri di routine ("defenseBase":"10") e cosi avevano bloccato
-// il combattimento nella slice (finding G1). Coerciamo le stringhe numeriche a numero, ma
-// restiamo STRICT: stringa vuota/whitespace/non-numerica/null/mancante e RIFIUTATA (niente
-// 0 silenzioso). Il codice resta l arbitro: un campo numerico assente non diventa uno zero.
-// Coercivo (G1): una stringa numerica diventa numero finito; tutto il resto e rifiutato.
-// .finite() chiude anche "Infinity"/"-Infinity".
-const llmNumber = z.preprocess(coerceNumericString, z.number().finite());
-
-// Gli LLM stringificano anche gli argomenti ARRAY ("participants":"[{...}]") e cosi avevano
-// impedito l avvio dello scontro nella slice (finding G6). Coerciamo una stringa JSON-array
-// ad array delegando poi allo schema reale, ma restiamo STRICT come llmNumber: una stringa
-// non-JSON o un JSON che non e un array resta com e e lo schema array sottostante la rifiuta
-// (niente array silenzioso). Il vincolo .min(1) vive nello schema avvolto e resta in vigore.
-function llmArray<S extends z.ZodTypeAny>(schema: S) {
-  return z.preprocess((v) => {
-    if (typeof v === 'string') {
-      const trimmed = v.trim();
-      if (trimmed === '') return v; // resta stringa -> lo schema array la rifiuta
-      try {
-        return JSON.parse(trimmed) as unknown; // array -> validato; oggetto/numero -> rifiutato a valle
-      } catch {
-        return v; // non-JSON -> resta stringa (rifiutata)
-      }
-    }
-    return v; // array passa; null/undefined arrivano allo schema e sono rifiutati
-  }, schema);
-}
-
-// Coercivo-intero: gemello di llmNumber per i campi che DEVONO essere interi (count/sides dei
-// dadi). z.number().int() rifiuta gia decimali, Infinity e NaN; .min(min) il sotto-minimo. Factory perche il
-// minimo varia per campo e va dentro lo schema avvolto dal preprocess (un ZodEffects non concatena .int()).
-function llmInt(min: number) {
-  return z.preprocess(coerceNumericString, z.number().int().min(min));
-}
 
 // Campo-riferimento vincolato al vocabolario: set non vuoto -> z.enum (il modello non puo emettere
 // un id fuori-vocabolario, JSON {enum:[...]}); set vuoto -> z.string() (non blocca finche un modulo

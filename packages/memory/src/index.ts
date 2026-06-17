@@ -27,6 +27,7 @@ export { segmentScenes } from './scene-segmentation';
 export { createReflectionCursor, type ReflectionCursor } from './reflection-cursor';
 export {
   runReflection,
+  runScenesReflection,
   type FactExtractor,
   type Summarizer,
   type ExtractedFact,
@@ -34,6 +35,7 @@ export {
   type ReflectionInput,
   type ReflectionDeps,
   type ReflectionResult,
+  type ScenesReflectionDeps,
 } from './reflection';
 export {
   createContextAssembler,

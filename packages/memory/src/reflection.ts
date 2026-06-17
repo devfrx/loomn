@@ -8,6 +8,8 @@ import type { CanonFact, CanonLedger } from './canon-ledger';
 import type { Summary, SummaryStore } from './summary-store';
 import type { Clock } from './clock';
 import { scoreSalience } from './salience';
+import { segmentScenes } from './scene-segmentation';
+import type { ReflectionCursor } from './reflection-cursor';
 
 /** Un fatto narrativo estratto dalla scena. `functional` = predicato funzionale (es.
  *  si_trova_a): la Reflection usa `supersede` (anti-contraddizione); altrimenti `record`.
@@ -122,4 +124,33 @@ export async function runReflection(deps: ReflectionDeps, input: ReflectionInput
   deps.summaries.record(summary);
 
   return { facts, summary };
+}
+
+/** Deps della riflessione multi-scena: le ReflectionDeps single-scene + il cursor (watermark).
+ *  runReflection accetta comunque queste deps piu larghe (ignora `cursor`). */
+export interface ScenesReflectionDeps extends ReflectionDeps {
+  cursor: ReflectionCursor;
+}
+
+/** Riflette tutte le scene non ancora riflesse (seq > cursor), segmentate ai confini PhaseChanged
+ *  (item 6). Riusa runReflection per ogni scena (range [from,to] per-scena -> id globalmente unici
+ *  -> niente collisione su chiamate ripetute). Avanza il cursor DOPO ogni scena riuscita: un
+ *  fallimento a meta lascia il cursor all ultima scena committata, cosi il retry riprende da li
+ *  senza ri-riflettere ne collidere. La coda aperta (oltre l ultimo PhaseChanged) viene riflessa
+ *  (flush). Nessun evento nuovo -> []. */
+export async function runScenesReflection(
+  deps: ScenesReflectionDeps,
+  input: ReflectionInput,
+): Promise<ReflectionResult[]> {
+  const through = deps.cursor.get();
+  const fresh = input.events.filter((e) => e.seq > through);
+  const scenes = segmentScenes(fresh);
+  const results: ReflectionResult[] = [];
+  for (const scene of scenes) {
+    const res = await runReflection(deps, { events: scene, scope: input.scope });
+    results.push(res);
+    const lastSeq = scene[scene.length - 1]?.seq;
+    if (lastSeq !== undefined) deps.cursor.set(lastSeq); // avanza per scena (crash-safe)
+  }
+  return results;
 }

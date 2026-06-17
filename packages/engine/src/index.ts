@@ -2,6 +2,7 @@ export * from './random';
 export * from './dice';
 export * from './check';
 export * from './difficulty';
+export * from './ruleset';
 export * from './quest';
 export * from './phase';
 export * from './actor';

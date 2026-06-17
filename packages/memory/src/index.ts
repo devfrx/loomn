@@ -23,6 +23,7 @@ export {
 } from './summary-store';
 export { scoreSalience, type SalienceInput } from './salience';
 export { type Clock } from './clock';
+export { segmentScenes } from './scene-segmentation';
 export {
   runReflection,
   type FactExtractor,

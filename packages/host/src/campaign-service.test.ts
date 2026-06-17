@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createSeededRandom, createRuleset, createVocabulary, type Actor, type Command } from '@loomn/engine';
+import { devRuleset } from './dev-vocabulary';
 import {
   type LanguageModel,
   type LlmMessage,
@@ -175,6 +176,24 @@ describe('createCampaignService - dispatch (write side)', () => {
       expect(out.readModel.version).toBe(2);
       expect(out.readModel.state.actors['orc']?.name).toBe('Orc');
       expect(memory.eventStore.version()).toBe(2);
+    } finally {
+      memory.close();
+    }
+  });
+
+  it('spawn_npc via devRuleset rende il PNG combat-ready (hp auto-fill)', async () => {
+    const memory = createMemorySystem(':memory:', { clock: { now: () => 1000 } });
+    const service = createCampaignService({
+      memory,
+      model: fakeModel([{ type: 'finish', reason: 'stop' }]),
+      structured: idlePort,
+      rng: createSeededRandom(1),
+      ruleset: devRuleset,
+    });
+    try {
+      await service.dispatch({ type: 'AddActor', actor: { id: 'png1', name: 'Locandiere', kind: 'npc', attributes: {}, skills: {}, resources: {}, conditions: [], items: [], progression: { xp: 0, level: 0 } } });
+      const actor = service.getReadModel().state.actors['png1'];
+      expect(actor?.resources['hp']).toEqual({ current: 10, max: 10 });
     } finally {
       memory.close();
     }

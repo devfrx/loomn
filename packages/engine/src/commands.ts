@@ -39,7 +39,7 @@ export type Command =
 function requireMember(set: ReadonlySet<string>, key: string, kind: string): void {
   if (!set.has(key)) {
     const legal = [...set].join(', ') || '(nessuno)';
-    throw new Error(`${kind} sconosciuto: ${key}. Validi: ${legal}`);
+    throw new Error(`${kind} fuori vocabolario: ${key}. Validi: ${legal}`);
   }
 }
 

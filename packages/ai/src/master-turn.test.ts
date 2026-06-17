@@ -65,6 +65,26 @@ const setupEvents: DomainEvent[] = [
 ];
 const baseState = replay(setupEvents);
 
+// SP4: attack e combat-only. I test basati su attack partono da uno stato gia in combat
+// (la coppia atomica EncounterStarted + PhaseChanged porta phase a combat).
+const combatSetupEvents: DomainEvent[] = [
+  ...setupEvents,
+  {
+    type: 'EncounterStarted',
+    encounter: {
+      id: 'e',
+      participants: [
+        { actorId: 'pc1', zone: 'a', initiative: 10, actedThisRound: false },
+        { actorId: 'g1', zone: 'a', initiative: 5, actedThisRound: false },
+      ],
+      round: 1,
+      turnIndex: 0,
+    },
+  },
+  { type: 'PhaseChanged', from: 'exploration', to: 'combat' },
+];
+const combatState = replay(combatSetupEvents);
+
 const ATTACK_ARGS =
   '{"attackerId":"pc1","targetId":"g1","attribute":"forza","defense":"riflessi","defenseBase":10,"damageResource":"hp"}';
 
@@ -78,7 +98,7 @@ describe('runMasterTurn', () => {
       }
       return text('La spada cala e il goblin barcolla.');
     });
-    const res = await runMasterTurn({ model, rng: createSeededRandom(42), state: baseState, playerAction: 'Attacco il goblin.' });
+    const res = await runMasterTurn({ model, rng: createSeededRandom(42), state: combatState, playerAction: 'Attacco il goblin.' });
     expect(res.events.some((e) => e.type === 'AttackResolved')).toBe(true);
     // Il codice e l arbitro: con seed 42 la prova e 1d20(13)+5 = 18 vs CD 10 (successo), danno 1d6 = 3.
     expect(res.events.some((e) => e.type === 'DamageApplied' && e.amount === 3)).toBe(true);
@@ -92,15 +112,15 @@ describe('runMasterTurn', () => {
   it('e deterministico a parita di seed (stessi eventi)', async () => {
     const script = (req: LlmRequest, i: number): LlmStreamEvent[] =>
       i === 0 ? toolCall('attack', ATTACK_ARGS) : text('fine');
-    const run1 = await runMasterTurn({ model: fakeModel(script), rng: createSeededRandom(7), state: baseState, playerAction: 'Attacco.' });
-    const run2 = await runMasterTurn({ model: fakeModel(script), rng: createSeededRandom(7), state: baseState, playerAction: 'Attacco.' });
+    const run1 = await runMasterTurn({ model: fakeModel(script), rng: createSeededRandom(7), state: combatState, playerAction: 'Attacco.' });
+    const run2 = await runMasterTurn({ model: fakeModel(script), rng: createSeededRandom(7), state: combatState, playerAction: 'Attacco.' });
     expect(run1.events).toEqual(run2.events);
   });
 
   it('gli eventi del turno sono canone replayabile', async () => {
     const model = fakeModel((req, i) => (i === 0 ? toolCall('attack', ATTACK_ARGS) : text('fine')));
-    const res = await runMasterTurn({ model, rng: createSeededRandom(7), state: baseState, playerAction: 'Attacco.' });
-    expect(replay([...setupEvents, ...res.events])).toEqual(res.state);
+    const res = await runMasterTurn({ model, rng: createSeededRandom(7), state: combatState, playerAction: 'Attacco.' });
+    expect(replay([...combatSetupEvents, ...res.events])).toEqual(res.state);
   });
 
   it('spawn_npc crea canone (ActorAdded)', async () => {
@@ -118,7 +138,7 @@ describe('runMasterTurn', () => {
     const model = fakeModel((req, i) =>
       i === 0 ? toolCall('attack', '{"attackerId":"pc1"}') : text('Esito incerto.'),
     );
-    const res = await runMasterTurn({ model, rng: createSeededRandom(1), state: baseState, playerAction: 'Attacco a caso.', tracer });
+    const res = await runMasterTurn({ model, rng: createSeededRandom(1), state: combatState, playerAction: 'Attacco a caso.', tracer });
     expect(res.events).toEqual([]);
     expect(res.narration).toBe('Esito incerto.');
     expect(tracer.events.some((e) => e.kind === 'validation-failure' && e.strategy === 'tool:attack')).toBe(true);
@@ -128,7 +148,7 @@ describe('runMasterTurn', () => {
     const tracer = createRecordingTracer();
     const badArgs = '{"attackerId":"ignoto","targetId":"g1","defense":"riflessi","defenseBase":10,"damageResource":"hp"}';
     const model = fakeModel((req, i) => (i === 0 ? toolCall('attack', badArgs) : text('Niente accade.')));
-    const res = await runMasterTurn({ model, rng: createSeededRandom(1), state: baseState, playerAction: 'Attacco un fantasma.', tracer });
+    const res = await runMasterTurn({ model, rng: createSeededRandom(1), state: combatState, playerAction: 'Attacco un fantasma.', tracer });
     expect(res.events).toEqual([]);
     expect(res.narration).toBe('Niente accade.');
     expect(tracer.events.some((e) => e.kind === 'error')).toBe(true);

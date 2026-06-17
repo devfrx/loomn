@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Actor, Item } from './actor';
 import type { RandomSource } from './random';
-import { decide } from './commands';
+import { decide, isCommandLegalInPhase } from './commands';
 import { applyEvent, initialState, type GameState } from './events';
 
 function actor(id: string): Actor {
@@ -24,6 +24,12 @@ function withActors(...as: Actor[]): GameState {
     s = applyEvent(s, { type: 'ActorAdded', actor: a });
   }
   return s;
+}
+
+function inCombat(s: GameState): GameState {
+  const participants = Object.keys(s.actors).map((actorId, i) => ({ actorId, zone: 'a', initiative: 10 - i, actedThisRound: false }));
+  const withEnc = applyEvent(s, { type: 'EncounterStarted', encounter: { id: 'e', participants, round: 1, turnIndex: 0 } });
+  return applyEvent(withEnc, { type: 'PhaseChanged', from: withEnc.phase, to: 'combat' });
 }
 
 const rng: RandomSource = { next: () => 0.5 };
@@ -54,12 +60,13 @@ describe('decide StartEncounter', () => {
       },
       rng,
     );
-    expect(events).toHaveLength(1);
+    expect(events).toHaveLength(2);
     const ev = events[0]!;
     expect(ev.type).toBe('EncounterStarted');
     if (ev.type === 'EncounterStarted') {
       expect(ev.encounter.participants.map((p) => p.actorId)).toEqual(['eroe', 'goblin']);
     }
+    expect(events[1]).toEqual({ type: 'PhaseChanged', from: 'exploration', to: 'combat' });
   });
   it('lancia se un partecipante non esiste', () => {
     const s = withActors(actor('eroe'));
@@ -76,19 +83,20 @@ describe('decide EndTurn e NextRound', () => {
       type: 'EncounterStarted',
       encounter: { id: 'e', participants: [{ actorId: 'eroe', zone: 'a', initiative: 10, actedThisRound: false }], round: 1, turnIndex: 0 },
     });
+    s = applyEvent(s, { type: 'PhaseChanged', from: s.phase, to: 'combat' });
     return s;
   }
   it('EndTurn emette TurnEnded quando c è uno scontro', () => {
     expect(decide(withEncounter(), { type: 'EndTurn' }, rng)).toEqual([{ type: 'TurnEnded' }]);
   });
-  it('EndTurn lancia senza scontro', () => {
-    expect(() => decide(initialState, { type: 'EndTurn' }, rng)).toThrow('Nessuno scontro attivo');
+  it('EndTurn lancia fuori dalla fase combat', () => {
+    expect(() => decide(initialState, { type: 'EndTurn' }, rng)).toThrow('non disponibile in fase exploration');
   });
   it('NextRound emette RoundAdvanced', () => {
     expect(decide(withEncounter(), { type: 'NextRound' }, rng)).toEqual([{ type: 'RoundAdvanced' }]);
   });
-  it('NextRound lancia senza scontro', () => {
-    expect(() => decide(initialState, { type: 'NextRound' }, rng)).toThrow('Nessuno scontro attivo');
+  it('NextRound lancia fuori dalla fase combat', () => {
+    expect(() => decide(initialState, { type: 'NextRound' }, rng)).toThrow('non disponibile in fase exploration');
   });
 });
 
@@ -120,7 +128,7 @@ function hero(): Actor {
 
 describe('decide Attack', () => {
   it('colpo a segno: emette AttackResolved, DamageApplied e ActorDowned', () => {
-    const s = withActors(hero(), actor('goblin'));
+    const s = inCombat(withActors(hero(), actor('goblin')));
     // d20=0.95 -> 20 (+3 forza = 23 vs CD 10, critico) ; danno 2d6=4+4=8 ; +2 = 10 -> goblin a 0
     const events = decide(
       s,
@@ -140,7 +148,7 @@ describe('decide Attack', () => {
   });
 
   it('colpo mancato: emette solo AttackResolved', () => {
-    const s = withActors(hero(), actor('goblin'));
+    const s = inCombat(withActors(hero(), actor('goblin')));
     const events = decide(
       s,
       { type: 'Attack', attackerId: 'eroe', targetId: 'goblin', attribute: 'forza', defense: 'difesa', defenseBase: 10, damageResource: 'hp' },
@@ -151,13 +159,13 @@ describe('decide Attack', () => {
 
   it('lancia se attaccante o bersaglio sono sconosciuti', () => {
     expect(() =>
-      decide(initialState, { type: 'Attack', attackerId: 'x', targetId: 'y', defense: 'difesa', defenseBase: 10, damageResource: 'hp' }, stub([0.5])),
+      decide(inCombat(initialState), { type: 'Attack', attackerId: 'x', targetId: 'y', defense: 'difesa', defenseBase: 10, damageResource: 'hp' }, stub([0.5])),
     ).toThrow('sconosciuto');
   });
 
   it('colpo a segno senza atterramento: emette AttackResolved e DamageApplied (2 eventi)', () => {
     const tank: Actor = { ...actor('orco'), resources: { hp: { current: 50, max: 50 } } };
-    const s = withActors(hero(), tank);
+    const s = inCombat(withActors(hero(), tank));
     // d20=0.95 -> colpo critico ; danno 2d6 = 8 ; tank a 50 HP non viene atterrato
     const events = decide(
       s,
@@ -168,7 +176,7 @@ describe('decide Attack', () => {
   });
 
   it('ciclo decide->apply: l attacco riduce gli HP nello stato', () => {
-    let s = withActors(hero(), actor('goblin'));
+    let s = inCombat(withActors(hero(), actor('goblin')));
     const events = decide(
       s,
       { type: 'Attack', attackerId: 'eroe', targetId: 'goblin', attribute: 'forza', defense: 'difesa', defenseBase: 10, damageResource: 'hp' },
@@ -366,5 +374,81 @@ describe('decide AdvanceQuest', () => {
     for (const e of decide(s, { type: 'StartQuest', id: 'q1', title: 'X' }, rng)) s = applyEvent(s, e);
     for (const e of decide(s, { type: 'AdvanceQuest', questId: 'q1', status: 'completed' }, rng)) s = applyEvent(s, e);
     expect(s.quests['q1']?.status).toBe('completed');
+  });
+});
+
+describe('isCommandLegalInPhase', () => {
+  it('i comandi combat-only sono legali solo in combat', () => {
+    for (const t of ['Attack', 'EndTurn', 'NextRound', 'EndEncounter'] as const) {
+      expect(isCommandLegalInPhase('combat', t)).toBe(true);
+      expect(isCommandLegalInPhase('exploration', t)).toBe(false);
+    }
+  });
+  it('i comandi di ingresso sono legali in ogni fase tranne combat', () => {
+    for (const t of ['StartEncounter', 'EnterPhase'] as const) {
+      expect(isCommandLegalInPhase('exploration', t)).toBe(true);
+      expect(isCommandLegalInPhase('dialogue', t)).toBe(true);
+      expect(isCommandLegalInPhase('combat', t)).toBe(false);
+    }
+  });
+  it('i comandi phase-agnostic sono legali ovunque', () => {
+    for (const t of ['AddActor', 'RequestCheck', 'ApplyEffect', 'StartQuest', 'AdvanceQuest'] as const) {
+      expect(isCommandLegalInPhase('exploration', t)).toBe(true);
+      expect(isCommandLegalInPhase('combat', t)).toBe(true);
+      expect(isCommandLegalInPhase('downtime', t)).toBe(true);
+    }
+  });
+});
+
+describe('decide gate di fase, EnterPhase, EndEncounter', () => {
+  it('StartEncounter in combat e rifiutato (niente doppio scontro)', () => {
+    const s = inCombat(withActors(actor('eroe')));
+    expect(() =>
+      decide(s, { type: 'StartEncounter', encounterId: 'e2', participants: [{ actorId: 'eroe', zone: 'a', initiative: 5 }] }, rng),
+    ).toThrow('non disponibile in fase combat');
+  });
+
+  it('EndEncounter in combat emette EncounterEnded e PhaseChanged verso exploration', () => {
+    const s = inCombat(withActors(actor('eroe')));
+    expect(decide(s, { type: 'EndEncounter' }, rng)).toEqual([
+      { type: 'EncounterEnded', encounterId: 'e' },
+      { type: 'PhaseChanged', from: 'combat', to: 'exploration' },
+    ]);
+  });
+
+  it('EndEncounter fuori combat e rifiutato dal gate', () => {
+    expect(() => decide(initialState, { type: 'EndEncounter' }, rng)).toThrow('non disponibile in fase exploration');
+  });
+
+  it('EnterPhase tra fasi soft emette PhaseChanged', () => {
+    expect(decide(initialState, { type: 'EnterPhase', to: 'dialogue' }, rng)).toEqual([
+      { type: 'PhaseChanged', from: 'exploration', to: 'dialogue' },
+    ]);
+  });
+
+  it('EnterPhase verso la stessa fase e rifiutato', () => {
+    expect(() => decide(initialState, { type: 'EnterPhase', to: 'exploration' }, rng)).toThrow('Transizione di fase non valida');
+  });
+
+  it('EnterPhase in combat e rifiutato dal gate', () => {
+    const s = inCombat(withActors(actor('eroe')));
+    expect(() => decide(s, { type: 'EnterPhase', to: 'downtime' }, rng)).toThrow('non disponibile in fase combat');
+  });
+});
+
+describe('invariante phase=combat <=> encounter!=null', () => {
+  function holds(s: GameState): boolean {
+    return (s.phase === 'combat') === (s.encounter !== null);
+  }
+  it('vale su initialState e lungo il ciclo di vita di uno scontro', () => {
+    let s: GameState = withActors(actor('eroe'));
+    expect(holds(s)).toBe(true); // exploration, nessuno scontro
+    for (const e of decide(s, { type: 'StartEncounter', encounterId: 'e', participants: [{ actorId: 'eroe', zone: 'a', initiative: 5 }] }, rng)) s = applyEvent(s, e);
+    expect(s.phase).toBe('combat');
+    expect(holds(s)).toBe(true);
+    for (const e of decide(s, { type: 'EndEncounter' }, rng)) s = applyEvent(s, e);
+    expect(s.phase).toBe('exploration');
+    expect(s.encounter).toBeNull();
+    expect(holds(s)).toBe(true);
   });
 });

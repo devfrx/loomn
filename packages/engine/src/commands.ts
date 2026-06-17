@@ -7,6 +7,8 @@ import type { GameState, DomainEvent } from './events';
 import { actorCheck } from './actor-check';
 import { dcForDifficulty, type Difficulty } from './difficulty';
 import type { Quest, QuestOutcome } from './quest';
+import type { Phase } from './phase';
+import { canTransition, type SoftPhase } from './phase';
 
 export type Command =
   | { type: 'AddActor'; actor: Actor }
@@ -27,11 +29,29 @@ export type Command =
   | { type: 'RequestCheck'; actorId: string; attribute?: string; skill?: string; difficulty: Difficulty }
   | { type: 'ApplyEffect'; targetId: string; resource: string; direction: 'restore' | 'drain'; dice: DieGroup[]; bonus?: number }
   | { type: 'StartQuest'; id: string; title: string; description?: string }
-  | { type: 'AdvanceQuest'; questId: string; status: QuestOutcome };
+  | { type: 'AdvanceQuest'; questId: string; status: QuestOutcome }
+  | { type: 'EnterPhase'; to: SoftPhase }
+  | { type: 'EndEncounter' };
+
+// Action-set per fase (spec §5.5). Co-locato con Command/decide: la legalita di fase e una
+// proprieta del vocabolario di comandi. phase.ts resta puro (stati + archi).
+const COMBAT_ONLY = new Set<Command['type']>(['Attack', 'EndTurn', 'NextRound', 'EndEncounter']);
+const NON_COMBAT_ONLY = new Set<Command['type']>(['StartEncounter', 'EnterPhase']);
+
+/** Un comando e legale nella fase data? combat-only solo in combat; i comandi di ingresso in
+ *  ogni fase tranne combat (combat e modale); tutto il resto e phase-agnostic. */
+export function isCommandLegalInPhase(phase: Phase, type: Command['type']): boolean {
+  if (COMBAT_ONLY.has(type)) return phase === 'combat';
+  if (NON_COMBAT_ONLY.has(type)) return phase !== 'combat';
+  return true;
+}
 
 /** Valida un comando contro lo stato e produce gli eventi risultanti.
  *  L'RNG è consumato dai comandi che lo richiedono (es. Attack). Funzione pura. */
 export function decide(state: GameState, command: Command, rng: RandomSource): DomainEvent[] {
+  if (!isCommandLegalInPhase(state.phase, command.type)) {
+    throw new Error(`Azione ${command.type} non disponibile in fase ${state.phase}`);
+  }
   switch (command.type) {
     case 'AddActor':
       if (state.actors[command.actor.id] !== undefined) {
@@ -44,17 +64,14 @@ export function decide(state: GameState, command: Command, rng: RandomSource): D
           throw new Error(`Attore sconosciuto: ${p.actorId}`);
         }
       }
-      return [{ type: 'EncounterStarted', encounter: createEncounter(command.encounterId, command.participants) }];
+      return [
+        { type: 'EncounterStarted', encounter: createEncounter(command.encounterId, command.participants) },
+        { type: 'PhaseChanged', from: state.phase, to: 'combat' },
+      ];
     }
     case 'EndTurn':
-      if (state.encounter === null) {
-        throw new Error('Nessuno scontro attivo');
-      }
       return [{ type: 'TurnEnded' }];
     case 'NextRound':
-      if (state.encounter === null) {
-        throw new Error('Nessuno scontro attivo');
-      }
       return [{ type: 'RoundAdvanced' }];
     case 'Attack': {
       const attacker = state.actors[command.attackerId];
@@ -151,6 +168,22 @@ export function decide(state: GameState, command: Command, rng: RandomSource): D
         throw new Error(`Quest già terminata (${quest.status}): ${command.questId}`);
       }
       return [{ type: 'QuestAdvanced', questId: command.questId, status: command.status }];
+    }
+    case 'EnterPhase': {
+      if (!canTransition(state.phase, command.to)) {
+        throw new Error(`Transizione di fase non valida: ${state.phase} -> ${command.to}`);
+      }
+      return [{ type: 'PhaseChanged', from: state.phase, to: command.to }];
+    }
+    case 'EndEncounter': {
+      const enc = state.encounter; // il gate garantisce phase==='combat' => enc!==null
+      if (enc === null) {
+        throw new Error('Nessuno scontro attivo'); // difesa in profondita (invariante mai violata)
+      }
+      return [
+        { type: 'EncounterEnded', encounterId: enc.id },
+        { type: 'PhaseChanged', from: 'combat', to: 'exploration' },
+      ];
     }
     default: {
       const _exhaustive: never = command;

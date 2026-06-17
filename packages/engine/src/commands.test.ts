@@ -283,7 +283,7 @@ describe('decide ApplyEffect', () => {
       stub([0.5]), // 1d6 = 4, + (-100) = -96 -> magnitudine max(0, -96) = 0
     )[0]!;
     if (ev.type !== 'ResourceEffectApplied') throw new Error('atteso ResourceEffectApplied');
-    expect(ev.delta).toBeLessThanOrEqual(0); // drain non ripristina mai (0 o negativo, mai positivo)
+    expect(ev.delta + 0).toBe(0); // + 0 normalizza -0 a +0: drain clampato a esattamente 0 (mai positivo)
   });
 
   it('lancia se l attore e sconosciuto, senza eventi', () => {

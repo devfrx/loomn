@@ -423,6 +423,13 @@ describe('decide gate di fase, EnterPhase, EndEncounter', () => {
     expect(() => decide(initialState, { type: 'EndEncounter' }, rng)).toThrow('non disponibile in fase exploration');
   });
 
+  it('EndEncounter difende da uno stato incoerente combat-senza-scontro', () => {
+    // Stato che viola l invariante (phase=combat ma encounter=null): impossibile da sequenze
+    // legali, ma il guard difensivo in decide deve scattare comunque (defense in depth).
+    const broken: GameState = { ...initialState, phase: 'combat' };
+    expect(() => decide(broken, { type: 'EndEncounter' }, rng)).toThrow('Nessuno scontro attivo');
+  });
+
   it('EnterPhase tra fasi soft emette PhaseChanged', () => {
     expect(decide(initialState, { type: 'EnterPhase', to: 'dialogue' }, rng)).toEqual([
       { type: 'PhaseChanged', from: 'exploration', to: 'dialogue' },

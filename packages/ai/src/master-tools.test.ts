@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest';
+import { createVocabulary } from '@loomn/engine';
 import { masterToolDefs, resolveToolCall } from './master-tools';
+
+const VOCAB = createVocabulary({ attributes: ['forza'], skills: ['arcano'], resources: ['hp'], defenses: ['riflessi'] });
 
 describe('masterToolDefs', () => {
   it('in combat espone i 9 strumenti di combat con schemi JSON inline (niente ref)', () => {
-    const defs = masterToolDefs('combat');
+    const defs = masterToolDefs('combat', VOCAB);
     const names = defs.map((d) => d.name).sort();
     expect(names).toEqual([
       'advance_quest', 'apply_effect', 'attack', 'end_encounter', 'end_turn',
@@ -17,7 +20,7 @@ describe('masterToolDefs', () => {
   });
 
   it('in una fase soft espone i 7 strumenti non-combat (start_encounter/enter_phase, niente attack)', () => {
-    const names = masterToolDefs('exploration').map((d) => d.name).sort();
+    const names = masterToolDefs('exploration', VOCAB).map((d) => d.name).sort();
     expect(names).toEqual([
       'advance_quest', 'apply_effect', 'enter_phase', 'request_check',
       'spawn_npc', 'start_encounter', 'start_quest',
@@ -27,7 +30,7 @@ describe('masterToolDefs', () => {
   // G6: la coercizione array (z.preprocess) deve restare trasparente allo schema JSON mostrato
   // al modello — advertizziamo participants come array, non come string (come per G1 sui number).
   it('mostra participants come array nello schema di start_encounter (preprocess trasparente)', () => {
-    const se = masterToolDefs('exploration').find((d) => d.name === 'start_encounter');
+    const se = masterToolDefs('exploration', VOCAB).find((d) => d.name === 'start_encounter');
     if (se === undefined) throw new Error('atteso start_encounter');
     const participants = (se.parameters as { properties: Record<string, { type?: string; minItems?: number }> })
       .properties.participants;
@@ -42,6 +45,7 @@ describe('resolveToolCall', () => {
     const r = resolveToolCall(
       'attack',
       '{"attackerId":"pc1","targetId":"g1","defense":"riflessi","defenseBase":10,"damageResource":"hp"}',
+      VOCAB,
     );
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('atteso ok');
@@ -54,6 +58,7 @@ describe('resolveToolCall', () => {
     const r = resolveToolCall(
       'attack',
       '{"attackerId":"pc1","targetId":"g1","attribute":"forza","defense":"riflessi","defenseBase":10,"damageResource":"hp"}',
+      VOCAB,
     );
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('atteso ok');
@@ -61,7 +66,7 @@ describe('resolveToolCall', () => {
   });
 
   it('mappa spawn_npc riempiendo i default (conditions/items/progression)', () => {
-    const r = resolveToolCall('spawn_npc', '{"id":"g1","name":"Goblin"}');
+    const r = resolveToolCall('spawn_npc', '{"id":"g1","name":"Goblin"}', VOCAB);
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('atteso ok');
     expect(r.command).toEqual({
@@ -81,7 +86,7 @@ describe('resolveToolCall', () => {
   });
 
   it('rifiuta argomenti che non rispettano lo schema', () => {
-    const r = resolveToolCall('attack', '{"attackerId":"pc1"}');
+    const r = resolveToolCall('attack', '{"attackerId":"pc1"}', VOCAB);
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('atteso errore');
     expect(r.error.length).toBeGreaterThan(0);
@@ -89,14 +94,14 @@ describe('resolveToolCall', () => {
   });
 
   it('rifiuta uno strumento sconosciuto', () => {
-    const r = resolveToolCall('teletrasporta', '{}');
+    const r = resolveToolCall('teletrasporta', '{}', VOCAB);
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('atteso errore');
     expect(r.error).toContain('sconosciuto');
   });
 
   it('rifiuta argomenti non JSON', () => {
-    const r = resolveToolCall('end_turn', 'non-json');
+    const r = resolveToolCall('end_turn', 'non-json', VOCAB);
     expect(r.ok).toBe(false);
   });
 });
@@ -109,6 +114,7 @@ describe('coercizione argomenti numerici (G1)', () => {
     const r = resolveToolCall(
       'attack',
       '{"attackerId":"pc1","targetId":"g1","defense":"riflessi","defenseBase":"10","damageResource":"hp"}',
+      VOCAB,
     );
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('atteso ok');
@@ -120,6 +126,7 @@ describe('coercizione argomenti numerici (G1)', () => {
     const r = resolveToolCall(
       'attack',
       '{"attackerId":"pc1","targetId":"g1","defense":"riflessi","defenseBase":"","damageResource":"hp"}',
+      VOCAB,
     );
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('atteso errore');
@@ -130,6 +137,7 @@ describe('coercizione argomenti numerici (G1)', () => {
     const r = resolveToolCall(
       'attack',
       '{"attackerId":"pc1","targetId":"g1","defense":"riflessi","defenseBase":"forte","damageResource":"hp"}',
+      VOCAB,
     );
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('atteso errore');
@@ -140,6 +148,7 @@ describe('coercizione argomenti numerici (G1)', () => {
     const r = resolveToolCall(
       'start_encounter',
       '{"encounterId":"e1","participants":[{"actorId":"pc1","zone":"z1","initiative":"3"}]}',
+      VOCAB,
     );
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('atteso ok');
@@ -151,6 +160,7 @@ describe('coercizione argomenti numerici (G1)', () => {
     const r = resolveToolCall(
       'attack',
       '{"attackerId":"pc1","targetId":"g1","defense":"riflessi","defenseBase":"Infinity","damageResource":"hp"}',
+      VOCAB,
     );
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('atteso errore');
@@ -161,6 +171,7 @@ describe('coercizione argomenti numerici (G1)', () => {
     const r = resolveToolCall(
       'attack',
       '{"attackerId":"pc1","targetId":"g1","defense":"riflessi","defenseBase":null,"damageResource":"hp"}',
+      VOCAB,
     );
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('atteso errore');
@@ -171,6 +182,7 @@ describe('coercizione argomenti numerici (G1)', () => {
     const r = resolveToolCall(
       'spawn_npc',
       '{"id":"g1","name":"Goblin","attributes":{"forza":"3"},"resources":{"hp":{"current":"20","max":"20"}}}',
+      VOCAB,
     );
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('atteso ok');
@@ -190,6 +202,7 @@ describe('coercizione argomenti array (G6)', () => {
     const r = resolveToolCall(
       'start_encounter',
       '{"encounterId":"e1","participants":"[{\\"actorId\\":\\"pc1\\",\\"zone\\":\\"z1\\",\\"initiative\\":3}]"}',
+      VOCAB,
     );
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('atteso ok');
@@ -201,6 +214,7 @@ describe('coercizione argomenti array (G6)', () => {
     const r = resolveToolCall(
       'start_encounter',
       '{"encounterId":"e1","participants":"[{\\"actorId\\":\\"pc1\\",\\"zone\\":\\"z1\\",\\"initiative\\":\\"7\\"}]"}',
+      VOCAB,
     );
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('atteso ok');
@@ -209,7 +223,7 @@ describe('coercizione argomenti array (G6)', () => {
   });
 
   it('rifiuta participants stringa non JSON', () => {
-    const r = resolveToolCall('start_encounter', '{"encounterId":"e1","participants":"pc1, pc2"}');
+    const r = resolveToolCall('start_encounter', '{"encounterId":"e1","participants":"pc1, pc2"}', VOCAB);
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('atteso errore');
     expect(r.error).toContain('participants');
@@ -219,6 +233,7 @@ describe('coercizione argomenti array (G6)', () => {
     const r = resolveToolCall(
       'start_encounter',
       '{"encounterId":"e1","participants":"{\\"actorId\\":\\"pc1\\",\\"zone\\":\\"z1\\",\\"initiative\\":3}"}',
+      VOCAB,
     );
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('atteso errore');
@@ -226,14 +241,14 @@ describe('coercizione argomenti array (G6)', () => {
   });
 
   it('rifiuta participants stringa vuota', () => {
-    const r = resolveToolCall('start_encounter', '{"encounterId":"e1","participants":""}');
+    const r = resolveToolCall('start_encounter', '{"encounterId":"e1","participants":""}', VOCAB);
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('atteso errore');
     expect(r.error).toContain('participants');
   });
 
   it('rifiuta participants array vuoto anche se stringificato (.min(1) sopravvive)', () => {
-    const r = resolveToolCall('start_encounter', '{"encounterId":"e1","participants":"[]"}');
+    const r = resolveToolCall('start_encounter', '{"encounterId":"e1","participants":"[]"}', VOCAB);
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('atteso errore');
     expect(r.error).toContain('participants');
@@ -242,14 +257,14 @@ describe('coercizione argomenti array (G6)', () => {
 
 describe('resolveToolCall request_check', () => {
   it('mappa request_check valido a RequestCheck', () => {
-    const r = resolveToolCall('request_check', '{"actorId":"pc1","attribute":"forza","difficulty":"hard"}');
+    const r = resolveToolCall('request_check', '{"actorId":"pc1","attribute":"forza","difficulty":"hard"}', VOCAB);
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('atteso ok');
     expect(r.command).toEqual({ type: 'RequestCheck', actorId: 'pc1', attribute: 'forza', difficulty: 'hard' });
   });
 
   it('omette attribute e skill quando assenti', () => {
-    const r = resolveToolCall('request_check', '{"actorId":"pc1","difficulty":"easy"}');
+    const r = resolveToolCall('request_check', '{"actorId":"pc1","difficulty":"easy"}', VOCAB);
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('atteso ok');
     expect(r.command).toEqual({ type: 'RequestCheck', actorId: 'pc1', difficulty: 'easy' });
@@ -258,14 +273,14 @@ describe('resolveToolCall request_check', () => {
   });
 
   it('rifiuta una difficolta fuori band', () => {
-    const r = resolveToolCall('request_check', '{"actorId":"pc1","difficulty":"impossibile"}');
+    const r = resolveToolCall('request_check', '{"actorId":"pc1","difficulty":"impossibile"}', VOCAB);
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('atteso errore');
     expect(r.error).toContain('difficulty');
   });
 
   it('rifiuta difficulty mancante', () => {
-    const r = resolveToolCall('request_check', '{"actorId":"pc1"}');
+    const r = resolveToolCall('request_check', '{"actorId":"pc1"}', VOCAB);
     expect(r.ok).toBe(false);
   });
 });
@@ -275,6 +290,7 @@ describe('resolveToolCall apply_effect', () => {
     const r = resolveToolCall(
       'apply_effect',
       '{"targetId":"pc1","resource":"hp","direction":"restore","dice":[{"count":2,"sides":6}],"bonus":1}',
+      VOCAB,
     );
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('atteso ok');
@@ -292,6 +308,7 @@ describe('resolveToolCall apply_effect', () => {
     const r = resolveToolCall(
       'apply_effect',
       '{"targetId":"pc1","resource":"hp","direction":"drain","dice":[{"count":1,"sides":8}]}',
+      VOCAB,
     );
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('atteso ok');
@@ -309,6 +326,7 @@ describe('resolveToolCall apply_effect', () => {
     const r = resolveToolCall(
       'apply_effect',
       '{"targetId":"pc1","resource":"hp","direction":"restore","dice":"[{\\"count\\":2,\\"sides\\":6}]"}',
+      VOCAB,
     );
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('atteso ok');
@@ -320,6 +338,7 @@ describe('resolveToolCall apply_effect', () => {
     const r = resolveToolCall(
       'apply_effect',
       '{"targetId":"pc1","resource":"hp","direction":"restore","dice":[{"count":"2","sides":"6"}]}',
+      VOCAB,
     );
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('atteso ok');
@@ -331,6 +350,7 @@ describe('resolveToolCall apply_effect', () => {
     const r = resolveToolCall(
       'apply_effect',
       '{"targetId":"pc1","resource":"hp","direction":"restore","dice":[{"count":1,"sides":6}],"bonus":"2"}',
+      VOCAB,
     );
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('atteso ok');
@@ -342,6 +362,7 @@ describe('resolveToolCall apply_effect', () => {
     const r = resolveToolCall(
       'apply_effect',
       '{"targetId":"pc1","resource":"hp","direction":"heal","dice":[{"count":1,"sides":6}]}',
+      VOCAB,
     );
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('atteso errore');
@@ -352,6 +373,7 @@ describe('resolveToolCall apply_effect', () => {
     const r = resolveToolCall(
       'apply_effect',
       '{"targetId":"pc1","resource":"hp","direction":"restore","dice":[]}',
+      VOCAB,
     );
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('atteso errore');
@@ -362,6 +384,7 @@ describe('resolveToolCall apply_effect', () => {
     const r = resolveToolCall(
       'apply_effect',
       '{"targetId":"pc1","resource":"hp","direction":"restore","dice":[{"count":1,"sides":6.5}]}',
+      VOCAB,
     );
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('atteso errore');
@@ -372,6 +395,7 @@ describe('resolveToolCall apply_effect', () => {
     const r = resolveToolCall(
       'apply_effect',
       '{"targetId":"pc1","resource":"hp","direction":"restore","dice":[{"count":0,"sides":6}]}',
+      VOCAB,
     );
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('atteso errore');
@@ -382,6 +406,7 @@ describe('resolveToolCall apply_effect', () => {
     const r = resolveToolCall(
       'apply_effect',
       '{"targetId":"pc1","resource":"hp","direction":"restore","dice":[{"count":1,"sides":1}]}',
+      VOCAB,
     );
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('atteso errore');
@@ -389,7 +414,7 @@ describe('resolveToolCall apply_effect', () => {
   });
 
   it('mostra dice come array di interi e direction come enum nello schema (coercizione trasparente)', () => {
-    const ae = masterToolDefs('exploration').find((d) => d.name === 'apply_effect');
+    const ae = masterToolDefs('exploration', VOCAB).find((d) => d.name === 'apply_effect');
     if (ae === undefined) throw new Error('atteso apply_effect');
     const props = (ae.parameters as {
       properties: Record<string, {
@@ -412,14 +437,14 @@ describe('resolveToolCall apply_effect', () => {
 
 describe('resolveToolCall start_quest', () => {
   it('mappa start_quest valido a StartQuest con description', () => {
-    const r = resolveToolCall('start_quest', '{"id":"q1","title":"Trova l amuleto","description":"Per il Barone"}');
+    const r = resolveToolCall('start_quest', '{"id":"q1","title":"Trova l amuleto","description":"Per il Barone"}', VOCAB);
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('atteso ok');
     expect(r.command).toEqual({ type: 'StartQuest', id: 'q1', title: 'Trova l amuleto', description: 'Per il Barone' });
   });
 
   it('omette description quando assente', () => {
-    const r = resolveToolCall('start_quest', '{"id":"q1","title":"Trova l amuleto"}');
+    const r = resolveToolCall('start_quest', '{"id":"q1","title":"Trova l amuleto"}', VOCAB);
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('atteso ok');
     expect(r.command).toEqual({ type: 'StartQuest', id: 'q1', title: 'Trova l amuleto' });
@@ -429,26 +454,26 @@ describe('resolveToolCall start_quest', () => {
 
 describe('resolveToolCall advance_quest', () => {
   it('mappa advance_quest valido a AdvanceQuest', () => {
-    const r = resolveToolCall('advance_quest', '{"questId":"q1","status":"completed"}');
+    const r = resolveToolCall('advance_quest', '{"questId":"q1","status":"completed"}', VOCAB);
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error('atteso ok');
     expect(r.command).toEqual({ type: 'AdvanceQuest', questId: 'q1', status: 'completed' });
   });
 
   it('rifiuta uno status fuori enum (es. active)', () => {
-    const r = resolveToolCall('advance_quest', '{"questId":"q1","status":"active"}');
+    const r = resolveToolCall('advance_quest', '{"questId":"q1","status":"active"}', VOCAB);
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error('atteso errore');
     expect(r.error).toContain('status');
   });
 
   it('rifiuta status mancante', () => {
-    const r = resolveToolCall('advance_quest', '{"questId":"q1"}');
+    const r = resolveToolCall('advance_quest', '{"questId":"q1"}', VOCAB);
     expect(r.ok).toBe(false);
   });
 
   it('mostra status come enum [completed, failed] nello schema', () => {
-    const aq = masterToolDefs('exploration').find((d) => d.name === 'advance_quest');
+    const aq = masterToolDefs('exploration', VOCAB).find((d) => d.name === 'advance_quest');
     if (aq === undefined) throw new Error('atteso advance_quest');
     const status = (aq.parameters as { properties: Record<string, { enum?: string[] }> }).properties.status;
     expect(status?.enum).toEqual(['completed', 'failed']);
@@ -457,21 +482,46 @@ describe('resolveToolCall advance_quest', () => {
 
 describe('tool di fase enter_phase / end_encounter', () => {
   it('enter_phase mappa a EnterPhase con la fase richiesta', () => {
-    const r = resolveToolCall('enter_phase', '{"to":"dialogue"}');
+    const r = resolveToolCall('enter_phase', '{"to":"dialogue"}', VOCAB);
     expect(r).toEqual({ ok: true, toolName: 'enter_phase', command: { type: 'EnterPhase', to: 'dialogue' } });
   });
   it('enter_phase rifiuta una fase fuori enum (anche combat)', () => {
-    expect(resolveToolCall('enter_phase', '{"to":"combat"}').ok).toBe(false);
-    expect(resolveToolCall('enter_phase', '{"to":"sognante"}').ok).toBe(false);
+    expect(resolveToolCall('enter_phase', '{"to":"combat"}', VOCAB).ok).toBe(false);
+    expect(resolveToolCall('enter_phase', '{"to":"sognante"}', VOCAB).ok).toBe(false);
   });
   it('end_encounter mappa a EndEncounter', () => {
-    const r = resolveToolCall('end_encounter', '{}');
+    const r = resolveToolCall('end_encounter', '{}', VOCAB);
     expect(r).toEqual({ ok: true, toolName: 'end_encounter', command: { type: 'EndEncounter' } });
   });
   it('lo schema di enter_phase mostra solo le fasi soft', () => {
-    const ep = masterToolDefs('exploration').find((d) => d.name === 'enter_phase');
+    const ep = masterToolDefs('exploration', VOCAB).find((d) => d.name === 'enter_phase');
     if (ep === undefined) throw new Error('atteso enter_phase');
     const to = (ep.parameters as { properties: Record<string, { enum?: string[] }> }).properties.to;
     expect(to?.enum).toEqual(['exploration', 'dialogue', 'downtime']);
+  });
+});
+
+describe('z.enum dal vocabolario', () => {
+  it('attack rifiuta un damageResource fuori vocabolario', () => {
+    const r = resolveToolCall('attack', JSON.stringify({ attackerId: 'a', targetId: 'b', defense: 'riflessi', defenseBase: 10, damageResource: 'danno' }), VOCAB);
+    expect(r.ok).toBe(false);
+  });
+  it('attack accetta un damageResource in vocabolario', () => {
+    const r = resolveToolCall('attack', JSON.stringify({ attackerId: 'a', targetId: 'b', defense: 'riflessi', defenseBase: 10, damageResource: 'hp' }), VOCAB);
+    expect(r.ok).toBe(true);
+  });
+  it('request_check rifiuta una skill fuori vocabolario', () => {
+    const r = resolveToolCall('request_check', JSON.stringify({ actorId: 'a', skill: 'spada', difficulty: 'moderate' }), VOCAB);
+    expect(r.ok).toBe(false);
+  });
+  it('masterToolDefs mostra l enum di damageResource nel JSON schema', () => {
+    const defs = masterToolDefs('combat', VOCAB);
+    const attack = defs.find((d) => d.name === 'attack');
+    expect(JSON.stringify(attack?.parameters)).toContain('"enum":["hp"]');
+  });
+  it('con vocabolario vuoto ripiega su stringa (niente z.enum vuoto)', () => {
+    const empty = createVocabulary({ attributes: [], skills: [], resources: [], defenses: [] });
+    const r = resolveToolCall('apply_effect', JSON.stringify({ targetId: 'a', resource: 'qualsiasi', direction: 'restore', dice: [{ count: 1, sides: 6 }] }), empty);
+    expect(r.ok).toBe(true);
   });
 });

@@ -100,7 +100,7 @@ export async function runMasterTurn(request: MasterTurnRequest): Promise<MasterT
   let narration = '';
 
   for (let iter = 0; iter < maxIterations; iter++) {
-    const toolDefs = masterToolDefs(state.phase);
+    const toolDefs = masterToolDefs(state.phase, request.ruleset.vocabulary);
     const res = await collectResponse(request.model.stream({ messages, tools: toolDefs, toolChoice: 'auto' }));
     tracer.record({
       kind: 'response',
@@ -121,7 +121,7 @@ export async function runMasterTurn(request: MasterTurnRequest): Promise<MasterT
 
     const resultLines: string[] = [];
     for (const call of res.toolCalls) {
-      const resolution = resolveToolCall(call.name, call.arguments);
+      const resolution = resolveToolCall(call.name, call.arguments, request.ruleset.vocabulary);
       if (!resolution.ok) {
         tracer.record({ kind: 'validation-failure', strategy: `tool:${call.name}`, issues: resolution.error });
         resultLines.push(`${call.name}: ARGOMENTI NON VALIDI (${resolution.error}).`);

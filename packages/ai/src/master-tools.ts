@@ -4,7 +4,7 @@
 // shared): sono il contratto fra il modello e l engine, di proprieta del contesto AI.
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
-import type { Command, Phase } from '@loomn/engine';
+import type { Command, Phase, Vocabulary } from '@loomn/engine';
 import { DIFFICULTIES, QUEST_OUTCOMES, SOFT_PHASES, isCommandLegalInPhase } from '@loomn/engine';
 import type { LlmToolDef } from './language-model';
 import { parseJson } from './json-repair';
@@ -59,6 +59,15 @@ function llmInt(min: number) {
   return z.preprocess(coerceNumericString, z.number().int().min(min));
 }
 
+// Campo-riferimento vincolato al vocabolario: set non vuoto -> z.enum (il modello non puo emettere
+// un id fuori-vocabolario, JSON {enum:[...]}); set vuoto -> z.string() (non blocca finche un modulo
+// non dichiara il vocabolario). Tipizzato z.ZodType<string> cosi z.infer resta string (niente any al
+// confine). NB: z.record(z.enum) NON si usa: renderebbe il JSON con tutte le chiavi required.
+function enumOrString(set: ReadonlySet<string>): z.ZodType<string> {
+  const values = [...set];
+  return values.length > 0 ? z.enum(values as [string, ...string[]]) : z.string().min(1);
+}
+
 const resourcePoolSchema = z.object({ current: llmNumber, max: llmNumber });
 
 const spawnNpcSchema = z.object({
@@ -67,16 +76,6 @@ const spawnNpcSchema = z.object({
   attributes: z.record(llmNumber).optional(),
   skills: z.record(llmNumber).optional(),
   resources: z.record(resourcePoolSchema).optional(),
-});
-
-const attackSchema = z.object({
-  attackerId: z.string().min(1),
-  targetId: z.string().min(1),
-  attribute: z.string().min(1).optional(),
-  skill: z.string().min(1).optional(),
-  defense: z.string().min(1),
-  defenseBase: llmNumber,
-  damageResource: z.string().min(1),
 });
 
 const startEncounterSchema = z.object({
@@ -88,24 +87,9 @@ const startEncounterSchema = z.object({
   ),
 });
 
-const requestCheckSchema = z.object({
-  actorId: z.string().min(1),
-  attribute: z.string().min(1).optional(),
-  skill: z.string().min(1).optional(),
-  difficulty: z.enum(DIFFICULTIES), // enum auto-validante: l AI non puo inventare una difficolta
-});
-
 const dieGroupArgSchema = z.object({
   count: llmInt(1), // almeno 1 dado
   sides: llmInt(2), // almeno un d2
-});
-
-const applyEffectSchema = z.object({
-  targetId: z.string().min(1),
-  resource: z.string().min(1),
-  direction: z.enum(['restore', 'drain']), // enum auto-validante: l AI dichiara l intento, non il segno
-  dice: llmArray(z.array(dieGroupArgSchema).min(1)), // G6: accetta anche un array stringificato
-  bonus: llmNumber.optional(), // G1: accetta "2" oltre a 2
 });
 
 const startQuestSchema = z.object({
@@ -165,106 +149,137 @@ function makeEntry<S extends z.ZodTypeAny, T extends Command['type']>(
   };
 }
 
-const TOOLS: Record<string, ToolEntry> = {
-  spawn_npc: makeEntry(
-    'Crea e aggiunge un nuovo PNG al mondo (diventa canone). Usa id univoci.',
-    'AddActor',
-    spawnNpcSchema,
-    (a) => ({
-      type: 'AddActor',
-      actor: {
+// Costruisce il registro degli strumenti vincolando i campi di riferimento al vocabolario dato.
+// I tre schemi vocab-dipendenti (attackSchema, requestCheckSchema, applyEffectSchema) vivono
+// DENTRO questa funzione perche dipendono da enumOrString(vocab.X). Tutti gli altri schemi
+// sono module-level (vocab-indipendenti) e restano immutati.
+function buildTools(vocab: Vocabulary): Record<string, ToolEntry> {
+  const attackSchema = z.object({
+    attackerId: z.string().min(1),
+    targetId: z.string().min(1),
+    attribute: enumOrString(vocab.attributes).optional(),
+    skill: enumOrString(vocab.skills).optional(),
+    defense: enumOrString(vocab.defenses),
+    defenseBase: llmNumber,
+    damageResource: enumOrString(vocab.resources),
+  });
+
+  const requestCheckSchema = z.object({
+    actorId: z.string().min(1),
+    attribute: enumOrString(vocab.attributes).optional(),
+    skill: enumOrString(vocab.skills).optional(),
+    difficulty: z.enum(DIFFICULTIES),
+  });
+
+  const applyEffectSchema = z.object({
+    targetId: z.string().min(1),
+    resource: enumOrString(vocab.resources),
+    direction: z.enum(['restore', 'drain']), // enum auto-validante: l AI dichiara l intento, non il segno
+    dice: llmArray(z.array(dieGroupArgSchema).min(1)), // G6: accetta anche un array stringificato
+    bonus: llmNumber.optional(), // G1: accetta "2" oltre a 2
+  });
+
+  return {
+    spawn_npc: makeEntry(
+      'Crea e aggiunge un nuovo PNG al mondo (diventa canone). Usa id univoci.',
+      'AddActor',
+      spawnNpcSchema,
+      (a) => ({
+        type: 'AddActor',
+        actor: {
+          id: a.id,
+          name: a.name,
+          kind: 'npc',
+          attributes: a.attributes ?? {},
+          skills: a.skills ?? {},
+          resources: a.resources ?? {},
+          conditions: [],
+          items: [],
+          progression: { xp: 0, level: 0 },
+        },
+      }),
+    ),
+    request_check: makeEntry(
+      'Chiede una prova di abilita: il motore tira e applica i gradi di successo in modo deterministico. La difficolta e qualitativa (trivial..legendary), non un numero.',
+      'RequestCheck',
+      requestCheckSchema,
+      (a) => ({
+        type: 'RequestCheck',
+        actorId: a.actorId,
+        difficulty: a.difficulty,
+        ...(a.attribute !== undefined ? { attribute: a.attribute } : {}),
+        ...(a.skill !== undefined ? { skill: a.skill } : {}),
+      }),
+    ),
+    apply_effect: makeEntry(
+      'Applica una conseguenza su una risorsa di un attore: il motore tira l espressione di dadi e clampa la risorsa in modo deterministico. direction e restore (ripristina) o drain (prosciuga); i dadi sono {count,sides}.',
+      'ApplyEffect',
+      applyEffectSchema,
+      (a) => ({
+        type: 'ApplyEffect',
+        targetId: a.targetId,
+        resource: a.resource,
+        direction: a.direction,
+        dice: a.dice,
+        ...(a.bonus !== undefined ? { bonus: a.bonus } : {}),
+      }),
+    ),
+    start_quest: makeEntry(
+      'Avvia una nuova quest (obiettivo del giocatore). Usa id univoci. description e lo statement dell obiettivo.',
+      'StartQuest',
+      startQuestSchema,
+      (a) => ({
+        type: 'StartQuest',
         id: a.id,
-        name: a.name,
-        kind: 'npc',
-        attributes: a.attributes ?? {},
-        skills: a.skills ?? {},
-        resources: a.resources ?? {},
-        conditions: [],
-        items: [],
-        progression: { xp: 0, level: 0 },
-      },
-    }),
-  ),
-  request_check: makeEntry(
-    'Chiede una prova di abilita: il motore tira e applica i gradi di successo in modo deterministico. La difficolta e qualitativa (trivial..legendary), non un numero.',
-    'RequestCheck',
-    requestCheckSchema,
-    (a) => ({
-      type: 'RequestCheck',
-      actorId: a.actorId,
-      difficulty: a.difficulty,
-      ...(a.attribute !== undefined ? { attribute: a.attribute } : {}),
-      ...(a.skill !== undefined ? { skill: a.skill } : {}),
-    }),
-  ),
-  apply_effect: makeEntry(
-    'Applica una conseguenza su una risorsa di un attore: il motore tira l espressione di dadi e clampa la risorsa in modo deterministico. direction e restore (ripristina) o drain (prosciuga); i dadi sono {count,sides}.',
-    'ApplyEffect',
-    applyEffectSchema,
-    (a) => ({
-      type: 'ApplyEffect',
-      targetId: a.targetId,
-      resource: a.resource,
-      direction: a.direction,
-      dice: a.dice,
-      ...(a.bonus !== undefined ? { bonus: a.bonus } : {}),
-    }),
-  ),
-  start_quest: makeEntry(
-    'Avvia una nuova quest (obiettivo del giocatore). Usa id univoci. description e lo statement dell obiettivo.',
-    'StartQuest',
-    startQuestSchema,
-    (a) => ({
-      type: 'StartQuest',
-      id: a.id,
-      title: a.title,
-      ...(a.description !== undefined ? { description: a.description } : {}),
-    }),
-  ),
-  advance_quest: makeEntry(
-    'Porta una quest esistente al suo esito: completed (riuscita) o failed (fallita). Il motore rifiuta una quest inesistente o gia terminata.',
-    'AdvanceQuest',
-    advanceQuestSchema,
-    (a) => ({ type: 'AdvanceQuest', questId: a.questId, status: a.status }),
-  ),
-  attack: makeEntry(
-    'Dichiara un attacco: il motore tira la prova e applica il danno in modo deterministico.',
-    'Attack',
-    attackSchema,
-    (a) => ({
-      type: 'Attack',
-      attackerId: a.attackerId,
-      targetId: a.targetId,
-      defense: a.defense,
-      defenseBase: a.defenseBase,
-      damageResource: a.damageResource,
-      ...(a.attribute !== undefined ? { attribute: a.attribute } : {}),
-      ...(a.skill !== undefined ? { skill: a.skill } : {}),
-    }),
-  ),
-  start_encounter: makeEntry(
-    'Avvia uno scontro con i partecipanti indicati (devono gia esistere come attori).',
-    'StartEncounter',
-    startEncounterSchema,
-    (a) => ({ type: 'StartEncounter', encounterId: a.encounterId, participants: a.participants }),
-  ),
-  end_turn: makeEntry('Termina il turno corrente nello scontro attivo.', 'EndTurn', endTurnSchema, () => ({ type: 'EndTurn' })),
-  next_round: makeEntry('Avanza al round successivo dello scontro attivo.', 'NextRound', nextRoundSchema, () => ({
-    type: 'NextRound',
-  })),
-  enter_phase: makeEntry(
-    'Cambia la fase narrativa di gioco: exploration (esplorazione), dialogue (dialogo) o downtime (tempo libero). Per iniziare un combattimento usa invece start_encounter.',
-    'EnterPhase',
-    enterPhaseSchema,
-    (a) => ({ type: 'EnterPhase', to: a.to }),
-  ),
-  end_encounter: makeEntry(
-    'Termina lo scontro attivo e torna alla fase di esplorazione. Usalo quando il combattimento e risolto.',
-    'EndEncounter',
-    endEncounterSchema,
-    () => ({ type: 'EndEncounter' }),
-  ),
-};
+        title: a.title,
+        ...(a.description !== undefined ? { description: a.description } : {}),
+      }),
+    ),
+    advance_quest: makeEntry(
+      'Porta una quest esistente al suo esito: completed (riuscita) o failed (fallita). Il motore rifiuta una quest inesistente o gia terminata.',
+      'AdvanceQuest',
+      advanceQuestSchema,
+      (a) => ({ type: 'AdvanceQuest', questId: a.questId, status: a.status }),
+    ),
+    attack: makeEntry(
+      'Dichiara un attacco: il motore tira la prova e applica il danno in modo deterministico.',
+      'Attack',
+      attackSchema,
+      (a) => ({
+        type: 'Attack',
+        attackerId: a.attackerId,
+        targetId: a.targetId,
+        defense: a.defense,
+        defenseBase: a.defenseBase,
+        damageResource: a.damageResource,
+        ...(a.attribute !== undefined ? { attribute: a.attribute } : {}),
+        ...(a.skill !== undefined ? { skill: a.skill } : {}),
+      }),
+    ),
+    start_encounter: makeEntry(
+      'Avvia uno scontro con i partecipanti indicati (devono gia esistere come attori).',
+      'StartEncounter',
+      startEncounterSchema,
+      (a) => ({ type: 'StartEncounter', encounterId: a.encounterId, participants: a.participants }),
+    ),
+    end_turn: makeEntry('Termina il turno corrente nello scontro attivo.', 'EndTurn', endTurnSchema, () => ({ type: 'EndTurn' })),
+    next_round: makeEntry('Avanza al round successivo dello scontro attivo.', 'NextRound', nextRoundSchema, () => ({
+      type: 'NextRound',
+    })),
+    enter_phase: makeEntry(
+      'Cambia la fase narrativa di gioco: exploration (esplorazione), dialogue (dialogo) o downtime (tempo libero). Per iniziare un combattimento usa invece start_encounter.',
+      'EnterPhase',
+      enterPhaseSchema,
+      (a) => ({ type: 'EnterPhase', to: a.to }),
+    ),
+    end_encounter: makeEntry(
+      'Termina lo scontro attivo e torna alla fase di esplorazione. Usalo quando il combattimento e risolto.',
+      'EndEncounter',
+      endEncounterSchema,
+      () => ({ type: 'EndEncounter' }),
+    ),
+  };
+}
 
 export type ToolResolution =
   | { ok: true; toolName: string; command: Command }
@@ -272,15 +287,17 @@ export type ToolResolution =
 
 /** Definizioni degli strumenti ABILITATI nella fase corrente: consuma lo stesso
  *  isCommandLegalInPhase dell engine (single source of truth, niente mappa duplicata). */
-export function masterToolDefs(phase: Phase): LlmToolDef[] {
-  return Object.entries(TOOLS)
+export function masterToolDefs(phase: Phase, vocabulary: Vocabulary): LlmToolDef[] {
+  const tools = buildTools(vocabulary);
+  return Object.entries(tools)
     .filter(([, t]) => isCommandLegalInPhase(phase, t.commandType))
     .map(([name, t]) => ({ name, description: t.description, parameters: t.jsonSchema }));
 }
 
 /** Parsa+valida gli argomenti grezzi di una tool-call e li mappa a un Command, oppure spiega l errore. */
-export function resolveToolCall(name: string, rawArgs: string): ToolResolution {
-  const tool = TOOLS[name];
+export function resolveToolCall(name: string, rawArgs: string, vocabulary: Vocabulary): ToolResolution {
+  const tools = buildTools(vocabulary);
+  const tool = tools[name];
   if (tool === undefined) return { ok: false, toolName: name, error: `strumento sconosciuto: ${name}` };
   const parsed = parseJson(rawArgs);
   if (!parsed.ok) return { ok: false, toolName: name, error: parsed.error };

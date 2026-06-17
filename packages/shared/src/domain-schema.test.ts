@@ -178,6 +178,12 @@ describe('domainEventSchema', () => {
     expect(domainEventSchema.parse(ev)).toEqual(ev);
   });
 
+  it('rifiuta PhaseChanged con una fase fuori enum', () => {
+    expect(() =>
+      domainEventSchema.parse({ type: 'PhaseChanged', from: 'exploration', to: 'sognante' }),
+    ).toThrow();
+  });
+
   it('fa round-trip di EncounterEnded', () => {
     const ev = { type: 'EncounterEnded' as const, encounterId: 'e1' };
     expect(domainEventSchema.parse(ev)).toEqual(ev);

@@ -275,6 +275,17 @@ describe('decide ApplyEffect', () => {
     expect(ev.delta).toBe(0); // restore non drena mai
   });
 
+  it('magnitudine clampata anche in drain: un bonus molto negativo non inverte la direzione del drain', () => {
+    const s = withActors(actor('eroe'));
+    const ev = decide(
+      s,
+      { type: 'ApplyEffect', targetId: 'eroe', resource: 'hp', direction: 'drain', dice: [{ count: 1, sides: 6 }], bonus: -100 },
+      stub([0.5]), // 1d6 = 4, + (-100) = -96 -> magnitudine max(0, -96) = 0
+    )[0]!;
+    if (ev.type !== 'ResourceEffectApplied') throw new Error('atteso ResourceEffectApplied');
+    expect(ev.delta).toBeLessThanOrEqual(0); // drain non ripristina mai (0 o negativo, mai positivo)
+  });
+
   it('lancia se l attore e sconosciuto, senza eventi', () => {
     expect(() =>
       decide(initialState, { type: 'ApplyEffect', targetId: 'ignoto', resource: 'hp', direction: 'restore', dice: [{ count: 1, sides: 6 }] }, stub([0.5])),

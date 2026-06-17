@@ -4,6 +4,8 @@ import type { Modifier } from './dice';
 import { createEncounter, type ParticipantInput } from './encounter';
 import { performAttack } from './combat';
 import type { GameState, DomainEvent } from './events';
+import { actorCheck } from './actor-check';
+import { dcForDifficulty, type Difficulty } from './difficulty';
 
 export type Command =
   | { type: 'AddActor'; actor: Actor }
@@ -20,7 +22,8 @@ export type Command =
       defenseBase: number;
       damageResource: string;
       damageModifiers?: Modifier[];
-    };
+    }
+  | { type: 'RequestCheck'; actorId: string; attribute?: string; skill?: string; difficulty: Difficulty };
 
 /** Valida un comando contro lo stato e produce gli eventi risultanti.
  *  L'RNG è consumato dai comandi che lo richiedono (es. Attack). Funzione pura. */
@@ -78,6 +81,32 @@ export function decide(state: GameState, command: Command, rng: RandomSource): D
         }
       }
       return events;
+    }
+    case 'RequestCheck': {
+      const actor = state.actors[command.actorId];
+      if (actor === undefined) {
+        throw new Error(`Attore sconosciuto: ${command.actorId}`);
+      }
+      const result = actorCheck(
+        {
+          actor,
+          includeEquipped: true,
+          dc: dcForDifficulty(command.difficulty),
+          ...(command.attribute !== undefined ? { attribute: command.attribute } : {}),
+          ...(command.skill !== undefined ? { skill: command.skill } : {}),
+        },
+        rng,
+      );
+      return [
+        {
+          type: 'CheckResolved',
+          actorId: command.actorId,
+          difficulty: command.difficulty,
+          result,
+          ...(command.attribute !== undefined ? { attribute: command.attribute } : {}),
+          ...(command.skill !== undefined ? { skill: command.skill } : {}),
+        },
+      ];
     }
     default: {
       const _exhaustive: never = command;

@@ -180,3 +180,40 @@ describe('decide Attack', () => {
     expect(s.actors['goblin']?.resources['hp']?.current).toBe(2); // 10 - 8 (2d6, nessun modificatore)
   });
 });
+
+describe('decide RequestCheck', () => {
+  it('risolve una prova: emette CheckResolved con la CD dalla band e l outcome corretto', () => {
+    const s = withActors(hero());
+    const events = decide(
+      s,
+      { type: 'RequestCheck', actorId: 'eroe', attribute: 'forza', difficulty: 'moderate' },
+      stub([0.95]), // d20 = 20
+    );
+    expect(events).toHaveLength(1);
+    const ev = events[0]!;
+    expect(ev.type).toBe('CheckResolved');
+    if (ev.type === 'CheckResolved') {
+      expect(ev.actorId).toBe('eroe');
+      expect(ev.attribute).toBe('forza');
+      expect(ev.difficulty).toBe('moderate');
+      expect(ev.result.dc).toBe(15); // dcForDifficulty('moderate')
+      expect(ev.result.total).toBe(23); // 20 (d20) + 3 (forza)
+      expect(ev.result.margin).toBe(8); // 23 - 15
+      expect(ev.result.outcome).toBe('success'); // margin >= 5
+    }
+  });
+
+  it('omette attribute e skill quando assenti', () => {
+    const s = withActors(hero());
+    const ev = decide(s, { type: 'RequestCheck', actorId: 'eroe', difficulty: 'easy' }, stub([0.5]))[0]!;
+    expect(ev.type).toBe('CheckResolved');
+    expect('attribute' in ev).toBe(false);
+    expect('skill' in ev).toBe(false);
+  });
+
+  it('lancia se l attore e sconosciuto, senza eventi', () => {
+    expect(() =>
+      decide(initialState, { type: 'RequestCheck', actorId: 'ignoto', difficulty: 'hard' }, stub([0.5])),
+    ).toThrow('Attore sconosciuto: ignoto');
+  });
+});

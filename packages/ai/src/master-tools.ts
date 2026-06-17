@@ -5,7 +5,7 @@
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import type { Command } from '@loomn/engine';
-import { DIFFICULTIES } from '@loomn/engine';
+import { DIFFICULTIES, QUEST_OUTCOMES } from '@loomn/engine';
 import type { LlmToolDef } from './language-model';
 import { parseJson } from './json-repair';
 
@@ -108,6 +108,17 @@ const applyEffectSchema = z.object({
   bonus: llmNumber.optional(), // G1: accetta "2" oltre a 2
 });
 
+const startQuestSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  description: z.string().min(1).optional(),
+});
+
+const advanceQuestSchema = z.object({
+  questId: z.string().min(1),
+  status: z.enum(QUEST_OUTCOMES), // enum auto-validante: l AI dichiara l esito, non puo' inventarlo
+});
+
 const endTurnSchema = z.object({});
 const nextRoundSchema = z.object({});
 
@@ -184,6 +195,21 @@ const TOOLS: Record<string, ToolEntry> = {
       dice: a.dice,
       ...(a.bonus !== undefined ? { bonus: a.bonus } : {}),
     }),
+  ),
+  start_quest: makeEntry(
+    'Avvia una nuova quest (obiettivo del giocatore). Usa id univoci. description e lo statement dell obiettivo.',
+    startQuestSchema,
+    (a) => ({
+      type: 'StartQuest',
+      id: a.id,
+      title: a.title,
+      ...(a.description !== undefined ? { description: a.description } : {}),
+    }),
+  ),
+  advance_quest: makeEntry(
+    'Porta una quest esistente al suo esito: completed (riuscita) o failed (fallita). Il motore rifiuta una quest inesistente o gia terminata.',
+    advanceQuestSchema,
+    (a) => ({ type: 'AdvanceQuest', questId: a.questId, status: a.status }),
   ),
   attack: makeEntry(
     'Dichiara un attacco: il motore tira la prova e applica il danno in modo deterministico.',

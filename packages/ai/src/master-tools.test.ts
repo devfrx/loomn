@@ -2,10 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { masterToolDefs, resolveToolCall } from './master-tools';
 
 describe('masterToolDefs', () => {
-  it('espone i 7 strumenti con schemi JSON inline (niente ref)', () => {
+  it('espone i 9 strumenti con schemi JSON inline (niente ref)', () => {
     const defs = masterToolDefs();
     const names = defs.map((d) => d.name).sort();
-    expect(names).toEqual(['apply_effect', 'attack', 'end_turn', 'next_round', 'request_check', 'spawn_npc', 'start_encounter']);
+    expect(names).toEqual([
+      'advance_quest', 'apply_effect', 'attack', 'end_turn', 'next_round',
+      'request_check', 'spawn_npc', 'start_encounter', 'start_quest',
+    ]);
     for (const d of defs) {
       expect(typeof d.description).toBe('string');
       expect((d.parameters as { type?: string }).type).toBe('object');
@@ -396,5 +399,50 @@ describe('resolveToolCall apply_effect', () => {
     expect(item?.count?.minimum).toBe(1);
     expect(item?.sides?.type).toBe('integer');
     expect(item?.sides?.minimum).toBe(2);
+  });
+});
+
+describe('resolveToolCall start_quest', () => {
+  it('mappa start_quest valido a StartQuest con description', () => {
+    const r = resolveToolCall('start_quest', '{"id":"q1","title":"Trova l amuleto","description":"Per il Barone"}');
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error('atteso ok');
+    expect(r.command).toEqual({ type: 'StartQuest', id: 'q1', title: 'Trova l amuleto', description: 'Per il Barone' });
+  });
+
+  it('omette description quando assente', () => {
+    const r = resolveToolCall('start_quest', '{"id":"q1","title":"Trova l amuleto"}');
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error('atteso ok');
+    expect(r.command).toEqual({ type: 'StartQuest', id: 'q1', title: 'Trova l amuleto' });
+    expect('description' in r.command).toBe(false);
+  });
+});
+
+describe('resolveToolCall advance_quest', () => {
+  it('mappa advance_quest valido a AdvanceQuest', () => {
+    const r = resolveToolCall('advance_quest', '{"questId":"q1","status":"completed"}');
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error('atteso ok');
+    expect(r.command).toEqual({ type: 'AdvanceQuest', questId: 'q1', status: 'completed' });
+  });
+
+  it('rifiuta uno status fuori enum (es. active)', () => {
+    const r = resolveToolCall('advance_quest', '{"questId":"q1","status":"active"}');
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('atteso errore');
+    expect(r.error).toContain('status');
+  });
+
+  it('rifiuta status mancante', () => {
+    const r = resolveToolCall('advance_quest', '{"questId":"q1"}');
+    expect(r.ok).toBe(false);
+  });
+
+  it('mostra status come enum [completed, failed] nello schema', () => {
+    const aq = masterToolDefs().find((d) => d.name === 'advance_quest');
+    if (aq === undefined) throw new Error('atteso advance_quest');
+    const status = (aq.parameters as { properties: Record<string, { enum?: string[] }> }).properties.status;
+    expect(status?.enum).toEqual(['completed', 'failed']);
   });
 });

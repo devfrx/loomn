@@ -134,6 +134,22 @@ describe('applyEvent', () => {
     const roll: RollResult = { dice: [{ sides: 6, value: 5 }], modifierTotal: 0, total: 5, mode: 'effect' };
     const s = applyEvent(base, { type: 'ResourceEffectApplied', targetId: 'eroe', resource: 'hp', delta: -5, roll });
     expect(s.actors['eroe']?.resources['hp']?.current).toBe(0); // 3 - 5 = -2 -> clamp a 0
+    expect(s.version).toBe(base.version + 1);
+  });
+
+  it('ResourceEffectApplied lancia su attore sconosciuto', () => {
+    const roll: RollResult = { dice: [{ sides: 6, value: 1 }], modifierTotal: 0, total: 1, mode: 'effect' };
+    expect(() =>
+      applyEvent(initialState, { type: 'ResourceEffectApplied', targetId: 'ignoto', resource: 'hp', delta: -1, roll }),
+    ).toThrow('Attore sconosciuto: ignoto');
+  });
+
+  it('ResourceEffectApplied lancia su risorsa sconosciuta', () => {
+    const base = withActors(actor('eroe'));
+    const roll: RollResult = { dice: [{ sides: 6, value: 1 }], modifierTotal: 0, total: 1, mode: 'effect' };
+    expect(() =>
+      applyEvent(base, { type: 'ResourceEffectApplied', targetId: 'eroe', resource: 'mana', delta: 1, roll }),
+    ).toThrow('Risorsa sconosciuta: mana');
   });
 
   it('lancia per DamageApplied su attore sconosciuto', () => {

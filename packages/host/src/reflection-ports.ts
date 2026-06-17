@@ -38,10 +38,13 @@ const extractedFactSchema = z.object({
 // attraverso port.generate<T>. Cast sicuro: Zod valida a runtime.
 const factsResultSchema = z.object({ facts: llmArray(z.array(extractedFactSchema)) }) as z.ZodType<{ facts: ExtractedFact[] }>;
 
+// Nessun cast qui: importanceSchema e gia z.ZodType<number> e text e una stringa pura, quindi
+// l oggetto resta input=output (a differenza di factsResultSchema, dove llmArray reintroduce il
+// preprocess a livello top e impone il cast).
 const sceneDraftSchema = z.object({
   text: z.string().min(1),
   importance: importanceSchema,
-}) as z.ZodType<SceneSummaryDraft>;
+});
 
 const EXTRACT_SYSTEM =
   'Sei un analista narrativo. Dalla scena (eventi del motore e narrazione del Master) estrai i ' +

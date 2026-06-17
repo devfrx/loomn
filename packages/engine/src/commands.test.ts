@@ -557,3 +557,32 @@ describe('decide(Attack) — vocabolario', () => {
     expect(events.length).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe('decide(RequestCheck/ApplyEffect) — vocabolario', () => {
+  const RVOCAB = createRuleset({
+    vocabulary: createVocabulary({ attributes: ['forza'], skills: ['arcano'], resources: ['hp'], defenses: [] }),
+  });
+
+  it('RequestCheck rifiuta un attributo fuori vocabolario', () => {
+    expect(() =>
+      decide(withActors(hero()), { type: 'RequestCheck', actorId: 'eroe', attribute: 'magia', difficulty: 'moderate' }, stub([0.5]), RVOCAB),
+    ).toThrow(/magia/);
+  });
+
+  it('RequestCheck rifiuta una abilita fuori vocabolario', () => {
+    expect(() =>
+      decide(withActors(hero()), { type: 'RequestCheck', actorId: 'eroe', skill: 'spada', difficulty: 'moderate' }, stub([0.5]), RVOCAB),
+    ).toThrow(/spada/);
+  });
+
+  it('RequestCheck accetta attributo in vocabolario', () => {
+    const events = decide(withActors(hero()), { type: 'RequestCheck', actorId: 'eroe', attribute: 'forza', difficulty: 'moderate' }, stub([0.5]), RVOCAB);
+    expect(events[0]?.type).toBe('CheckResolved');
+  });
+
+  it('ApplyEffect rifiuta una risorsa fuori vocabolario', () => {
+    expect(() =>
+      decide(withActors(actor('eroe')), { type: 'ApplyEffect', targetId: 'eroe', resource: 'reputazione', direction: 'restore', dice: [{ count: 1, sides: 6 }] }, stub([0.5]), RVOCAB),
+    ).toThrow(/reputazione/);
+  });
+});

@@ -135,6 +135,8 @@ export function decide(state: GameState, command: Command, rng: RandomSource, ru
       if (actor === undefined) {
         throw new Error(`Attore sconosciuto: ${command.actorId}`);
       }
+      if (command.attribute !== undefined) requireMember(ruleset.vocabulary.attributes, command.attribute, 'Attributo');
+      if (command.skill !== undefined) requireMember(ruleset.vocabulary.skills, command.skill, 'Abilita');
       const result = actorCheck(
         {
           actor,
@@ -161,6 +163,7 @@ export function decide(state: GameState, command: Command, rng: RandomSource, ru
       if (target === undefined) {
         throw new Error(`Attore sconosciuto: ${command.targetId}`);
       }
+      requireMember(ruleset.vocabulary.resources, command.resource, 'Risorsa');
       if (target.resources[command.resource] === undefined) {
         throw new Error(`Risorsa sconosciuta: ${command.resource}`);
       }

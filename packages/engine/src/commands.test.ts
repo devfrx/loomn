@@ -357,7 +357,7 @@ describe('decide AdvanceQuest', () => {
     let s = withQuest();
     s = applyEvent(s, { type: 'QuestAdvanced', questId: 'q1', status: 'completed' });
     expect(() => decide(s, { type: 'AdvanceQuest', questId: 'q1', status: 'failed' }, rng)).toThrow(
-      'Quest già terminata',
+      'Quest già terminata (completed): q1',
     );
   });
 

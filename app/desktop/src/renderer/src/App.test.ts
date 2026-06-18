@@ -45,4 +45,13 @@ describe('App shell', () => {
     await flushPromises();
     expect(wrapper.find('.app-shell').attributes('data-phase')).toBe('combat');
   });
+
+  it('solo il link corrente ha nav-btn--active', async () => {
+    const { wrapper, router } = await mountApp();
+    await router.push('/diario');
+    await flushPromises();
+    const active = wrapper.findAll('.nav-btn--active');
+    expect(active).toHaveLength(1);
+    expect(active[0]?.attributes('href')).toContain('diario');
+  });
 });

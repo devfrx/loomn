@@ -36,7 +36,7 @@ const store = useReadModelStore();
   padding: 9px 12px;
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
-  background: #101216;
+  background: var(--well);
 }
 .roster__name {
   color: var(--text);

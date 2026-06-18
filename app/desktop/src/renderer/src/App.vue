@@ -33,7 +33,7 @@ const phaseLabel = computed(() => phaseLabels[phase.value]);
         :key="it.to"
         :to="it.to"
         class="nav-btn"
-        active-class="nav-btn--active"
+        exact-active-class="nav-btn--active"
         :title="it.label"
         :aria-label="it.label"
         >{{ it.label.charAt(0) }}</RouterLink
@@ -79,7 +79,7 @@ const phaseLabel = computed(() => phaseLabels[phase.value]);
   margin-bottom: 10px;
   border: 1px solid var(--line-2);
   border-radius: 12px;
-  background: linear-gradient(180deg, #1c1f25, #15171b);
+  background: linear-gradient(180deg, var(--raise), var(--panel));
 }
 .nav-btn {
   width: 42px;
@@ -103,7 +103,7 @@ const phaseLabel = computed(() => phaseLabels[phase.value]);
 .nav-btn--active {
   color: var(--accent);
   background: var(--accent-dim);
-  border-color: rgba(200, 164, 92, 0.25);
+  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
 }
 .stage {
   display: flex;
@@ -136,7 +136,7 @@ const phaseLabel = computed(() => phaseLabels[phase.value]);
   letter-spacing: 0.02em;
   color: var(--accent);
   background: var(--accent-dim);
-  border: 1px solid rgba(200, 164, 92, 0.22);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
   padding: 6px 12px;
   border-radius: 9px;
 }

@@ -33,12 +33,27 @@ export interface LanguageProvider {
   structured: StructuredOutputPort;
 }
 
+/** Normalizza il base URL alla convenzione OpenAI-compatibile (l adapter aggiunge /chat/completions).
+ *  Rimuove gli slash finali e, se l URL e di solo origin (nessun path), aggiunge /v1: cosi sia
+ *  `http://localhost:1234` sia `.../v1` colpiscono `/v1/chat/completions` (LM Studio, OpenAI, vLLM,
+ *  llama.cpp). Un path esplicito (`/v1`, `/openai/v1`) e preservato. URL non parsabile -> invariato
+ *  (l errore di rete lo segnala il transport). */
+export function normalizeBaseUrl(raw: string): string {
+  const trimmed = raw.trim().replace(/\/+$/, '');
+  try {
+    const path = new URL(trimmed).pathname;
+    return path === '' || path === '/' ? `${trimmed}/v1` : trimmed;
+  } catch {
+    return trimmed;
+  }
+}
+
 /** Costruisce model + structured port da una config risolta. exactOptionalPropertyTypes -> spread
  *  condizionali (mai campo:undefined). */
 export function createLanguageProvider(config: LanguageProviderConfig): LanguageProvider {
   const transport = config.transport ?? createFetchTransport();
   const model = createOpenAiCompatibleModel({
-    baseUrl: config.baseUrl,
+    baseUrl: normalizeBaseUrl(config.baseUrl),
     model: config.model,
     transport,
     ...(config.apiKey !== undefined ? { apiKey: config.apiKey } : {}),

@@ -63,4 +63,27 @@ describe('createLanguageProvider', () => {
     await collectResponse(provider.model.stream({ messages: [{ role: 'user', content: 'x' }] }));
     expect(seen()[0]?.headers['authorization']).toBeUndefined();
   });
+
+  // Bug LM Studio: un baseUrl senza /v1 (es. http://localhost:1234) colpiva /chat/completions ->
+  // "Unexpected endpoint". Normalizziamo alla convenzione OpenAI-compatibile (/v1).
+  it('aggiunge /v1 a un baseUrl di solo origin (http://localhost:1234)', async () => {
+    const { transport, seen } = fakeTransport(TEXT_SSE);
+    const provider = createLanguageProvider({ baseUrl: 'http://localhost:1234', model: 'm', transport });
+    await collectResponse(provider.model.stream({ messages: [{ role: 'user', content: 'x' }] }));
+    expect(seen()[0]?.url).toBe('http://localhost:1234/v1/chat/completions');
+  });
+
+  it('rimuove lo slash finale e non duplica /v1', async () => {
+    const { transport, seen } = fakeTransport(TEXT_SSE);
+    const provider = createLanguageProvider({ baseUrl: 'http://localhost:1234/v1/', model: 'm', transport });
+    await collectResponse(provider.model.stream({ messages: [{ role: 'user', content: 'x' }] }));
+    expect(seen()[0]?.url).toBe('http://localhost:1234/v1/chat/completions');
+  });
+
+  it('preserva un path esplicito non-standard (es. /openai/v1)', async () => {
+    const { transport, seen } = fakeTransport(TEXT_SSE);
+    const provider = createLanguageProvider({ baseUrl: 'http://host/openai/v1', model: 'm', transport });
+    await collectResponse(provider.model.stream({ messages: [{ role: 'user', content: 'x' }] }));
+    expect(seen()[0]?.url).toBe('http://host/openai/v1/chat/completions');
+  });
 });

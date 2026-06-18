@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildActorId, buildActor } from './actor-form';
+import { reactive, isReactive } from 'vue';
+import { buildActorId, buildActor, type ActorFormState } from './actor-form';
 
 describe('buildActorId (slug unico contro gli id esistenti)', () => {
   it('slugifica il nome', () => {
@@ -36,5 +37,25 @@ describe('buildActor (Actor completo per AddActor)', () => {
     expect(a.conditions).toEqual([]);
     expect(a.items).toEqual([]);
     expect(a.progression).toEqual({ xp: 0, level: 1 });
+  });
+
+  // Bug "An object could not be cloned": il form e reactive (proxy Vue); passare i proxy annidati al
+  // dispatch IPC fa fallire la structured clone di Electron. buildActor deve restituire strutture PLAIN.
+  it('restituisce strutture annidate PLAIN (non reattive) clonabili da IPC anche da un form reactive', () => {
+    const form = reactive<ActorFormState>({
+      name: 'Eroe',
+      kind: 'pc',
+      attributes: { forza: 2 },
+      skills: { atletica: 1 },
+      resources: { hp: { current: 10, max: 10 } },
+    });
+    const a = buildActor(form, []);
+    expect(isReactive(a.attributes)).toBe(false);
+    expect(isReactive(a.skills)).toBe(false);
+    expect(isReactive(a.resources)).toBe(false);
+    expect(isReactive(a.resources['hp'])).toBe(false);
+    expect(a.attributes).toEqual({ forza: 2 });
+    expect(a.resources).toEqual({ hp: { current: 10, max: 10 } });
+    expect(() => structuredClone(a)).not.toThrow();
   });
 });

@@ -45,13 +45,18 @@ const canSubmit = computed<boolean>(() => form.name.trim() !== '' && ruleset.loa
 async function submit(): Promise<void> {
   if (!canSubmit.value) return;
   feedback.value = null;
-  const actor = buildActor(form, store.actors.map((a) => a.id));
-  const res = await window.loomn.dispatch({ type: 'AddActor', actor });
-  if (res.ok) {
-    open.value = false;
-    resetForm();
-  } else {
-    feedback.value = res.error;
+  try {
+    const actor = buildActor(form, store.actors.map((a) => a.id));
+    const res = await window.loomn.dispatch({ type: 'AddActor', actor });
+    if (res.ok) {
+      open.value = false;
+      resetForm();
+    } else {
+      feedback.value = res.error;
+    }
+  } catch (e) {
+    // Mai fallire in silenzio: un errore inatteso (es. serializzazione IPC) va mostrato all utente.
+    feedback.value = e instanceof Error ? e.message : String(e);
   }
 }
 </script>

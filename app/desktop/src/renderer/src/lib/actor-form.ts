@@ -30,15 +30,20 @@ export function buildActorId(name: string, existingIds: readonly string[]): stri
 
 /** Costruisce l Actor completo per dispatch(AddActor). conditions/items vuoti (inventario profondo
  *  e feature deferita); progressione di base. Le risorse mancanti le auto-fila il motore da
- *  defaultResources. */
+ *  defaultResources.
+ *  IMPORTANTE: attributes/skills/resources vengono COPIATI in oggetti PLAIN. Il form e `reactive`
+ *  (proxy Vue); passare i proxy al dispatch IPC fa fallire la structured clone di Electron con
+ *  "An object could not be cloned" (il dispatch lancia, la creazione PG fallisce in silenzio). */
 export function buildActor(form: ActorFormState, existingIds: readonly string[]): ActorInput {
   return {
     id: buildActorId(form.name, existingIds),
     name: form.name.trim(),
     kind: form.kind,
-    attributes: form.attributes,
-    skills: form.skills,
-    resources: form.resources,
+    attributes: { ...form.attributes },
+    skills: { ...form.skills },
+    resources: Object.fromEntries(
+      Object.entries(form.resources).map(([k, v]) => [k, { current: v.current, max: v.max }]),
+    ),
     conditions: [],
     items: [],
     progression: { xp: 0, level: 1 },

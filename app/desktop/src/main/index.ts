@@ -237,23 +237,7 @@ function createWindow(service: CampaignService): BrowserWindow {
   return win;
 }
 
-// Single-instance: un solo processo apre loomn.db. Due istanze sullo stesso DB WAL (es. doppio
-// avvio, o `pnpm dev` mentre l app gira) si contendono la connessione e possono crashare l app.
-// Saltato in self-test: il gate lancia 2 fasi SEQUENZIALI controllate (nessuna concorrenza).
-const gotSingleInstanceLock = process.env['LOOMN_SELFTEST'] !== undefined || app.requestSingleInstanceLock();
-if (!gotSingleInstanceLock) {
-  app.quit();
-} else {
-  // Seconda istanza tentata: riporta in primo piano la finestra esistente invece di aprirne un altra.
-  app.on('second-instance', () => {
-    if (mainWindow === undefined) return;
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.focus();
-  });
-}
-
 void app.whenReady().then(() => {
-  if (!gotSingleInstanceLock) return; // seconda istanza: esce senza aprire DB/finestra
   // userData override per il gate (due lanci sullo stesso DB temporaneo); in produzione: default OS.
   const userDataOverride = process.env['LOOMN_USERDATA'];
   if (userDataOverride !== undefined) app.setPath('userData', userDataOverride);

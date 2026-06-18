@@ -39,6 +39,8 @@ describe('toEncounterView', () => {
     expect(view.order[0]!.isCurrent).toBe(false);
     expect(view.order[1]!.isCurrent).toBe(true);
     expect(view.current?.actorId).toBe('b');
+    expect(view.order[0]!.actedThisRound).toBe(true);
+    expect(view.order[1]!.actedThisRound).toBe(false);
   });
 
   it('riporta round e turnIndex dal read-model', () => {

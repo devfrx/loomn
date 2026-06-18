@@ -36,5 +36,14 @@ const visible = computed<boolean>(() => status.loaded && !status.providerConfigu
   font-weight: 600;
   white-space: nowrap;
 }
-.first-run__dismiss { background: none; border: none; color: var(--text-3); cursor: pointer; }
+.first-run__dismiss {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 4px 6px;
+  line-height: 1;
+  font-size: 13px;
+}
+.first-run__dismiss:hover { color: var(--text); }
 </style>

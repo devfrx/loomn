@@ -5,7 +5,7 @@ import { useProviderStatusStore } from '../stores/provider-status';
  *  Impostazioni UNA volta (chiamato al boot). NON e un hard gate: dopo, l utente naviga libero. */
 export async function runFirstRun(
   router: Router,
-  store: ReturnType<typeof useProviderStatusStore> = useProviderStatusStore(),
+  store: ReturnType<typeof useProviderStatusStore>,
 ): Promise<void> {
   await store.refresh();
   if (!store.providerConfigured) await router.push('/impostazioni');

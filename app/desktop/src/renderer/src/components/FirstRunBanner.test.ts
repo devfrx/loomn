@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { mount, RouterLinkStub } from '@vue/test-utils';
+import { mount, RouterLinkStub, flushPromises } from '@vue/test-utils';
 import { setActivePinia, createPinia } from 'pinia';
 import { useProviderStatusStore } from '../stores/provider-status';
 import FirstRunBanner from './FirstRunBanner.vue';
@@ -39,6 +39,25 @@ describe('FirstRunBanner', () => {
     const store = useProviderStatusStore();
     await store.refresh();
     const w = mountBanner();
+    expect(w.find('.first-run').exists()).toBe(false);
+  });
+
+  it('si nasconde reattivamente quando il provider viene configurato', async () => {
+    const store = useProviderStatusStore();
+    await store.refresh();
+    const w = mountBanner();
+    expect(w.find('.first-run').exists()).toBe(true);
+    window.loomn = {
+      getStatus: () =>
+        Promise.resolve({
+          version: 1,
+          safeStorageAvailable: true,
+          providerConfigured: true,
+          provider: { baseUrl: 'http://x/v1', model: 'm', hasApiKey: true },
+        }),
+    } as unknown as typeof window.loomn;
+    await store.refresh();
+    await flushPromises();
     expect(w.find('.first-run').exists()).toBe(false);
   });
 });

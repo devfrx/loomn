@@ -5,7 +5,7 @@
 import { app, safeStorage } from 'electron';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { providerConfigSchema, type ProviderConfig } from '@loomn/shared';
+import { providerConfigSchema, type ProviderConfig, type StatusResult } from '@loomn/shared';
 import { resolveStoredKey } from './provider-config';
 
 interface StoredSettings {
@@ -66,13 +66,9 @@ export function loadProviderConfig(): ProviderConfig | undefined {
   return result.success ? result.data : undefined;
 }
 
-/** Metadata della config persistita SENZA decifrare la chiave (hasApiKey = ciphertext presente).
- *  Usato da get-status per il read-back: la chiave non viene mai decifrata ne esposta. */
-export interface ProviderMeta {
-  baseUrl: string;
-  model: string;
-  hasApiKey: boolean;
-}
+/** = StatusResult['provider'] (read-drift guard, come canon/summary del Piano 0): se il DTO di
+ *  get-status cambiasse, questo alias romperebbe qui. La chiave non e mai inclusa (solo hasApiKey). */
+export type ProviderMeta = NonNullable<StatusResult['provider']>;
 
 export function loadProviderMeta(): ProviderMeta | undefined {
   const path = settingsPath();

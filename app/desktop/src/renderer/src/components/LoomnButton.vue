@@ -35,7 +35,7 @@ function onClick(ev: MouseEvent): void {
 .loomn-btn--ghost {
   color: var(--text);
   border: 1px solid var(--line-2);
-  background: #101216;
+  background: var(--well);
 }
 .loomn-btn--ghost:hover:not(:disabled) {
   border-color: var(--accent);

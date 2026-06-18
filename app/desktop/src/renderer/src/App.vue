@@ -4,6 +4,7 @@ import { RouterView, RouterLink } from 'vue-router';
 import { useReadModelStore } from './stores/read-model';
 import type { PhaseView } from './stores/read-model';
 import FirstRunBanner from './components/FirstRunBanner.vue';
+import GmConsole from './components/GmConsole.vue';
 
 const store = useReadModelStore();
 const phase = computed<PhaseView>(() => store.phase);
@@ -44,6 +45,7 @@ const phaseLabel = computed(() => phaseLabels[phase.value]);
       <header class="topbar">
         <div class="wordmark">Loomn<span class="dot">.</span></div>
         <div class="phase-badge">{{ phaseLabel }}</div>
+        <GmConsole class="topbar__gm" />
       </header>
       <FirstRunBanner />
       <RouterView />
@@ -132,6 +134,7 @@ const phaseLabel = computed(() => phaseLabels[phase.value]);
 .wordmark .dot {
   color: var(--accent);
 }
+.topbar__gm { margin-left: 12px; }
 .phase-badge {
   margin-left: auto;
   font-size: 12px;

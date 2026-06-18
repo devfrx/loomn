@@ -89,11 +89,16 @@ export const reflectResultSchema = z.union([
 ]);
 export type ReflectResult = z.infer<typeof reflectResultSchema>;
 
-// --- getStatus (diagnostica) ---
+// --- getStatus (diagnostica + read-back config provider) ---
+/** provider e il read-back della config persistita per pre-compilare Impostazioni (10f): baseUrl/model
+ *  + hasApiKey (la chiave non attraversa MAI l IPC). Opzionale-assente quando nessun provider e salvato. */
 export const statusResultSchema = z.object({
   version: z.number().int().nonnegative(),
   safeStorageAvailable: z.boolean(),
   providerConfigured: z.boolean(),
+  provider: z
+    .object({ baseUrl: z.string(), model: z.string(), hasApiKey: z.boolean() })
+    .optional(),
 });
 export type StatusResult = z.infer<typeof statusResultSchema>;
 

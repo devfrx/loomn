@@ -132,6 +132,40 @@ describe('schemi run-turn / provider / reflect / status', () => {
       providerConfigured: false,
     });
   });
+
+  it('statusResult accetta il read-back provider opzionale (baseUrl/model/hasApiKey)', () => {
+    const withProvider = statusResultSchema.parse({
+      version: 2,
+      safeStorageAvailable: true,
+      providerConfigured: true,
+      provider: { baseUrl: 'http://localhost:1234/v1', model: 'local', hasApiKey: true },
+    });
+    expect(withProvider.provider).toEqual({
+      baseUrl: 'http://localhost:1234/v1',
+      model: 'local',
+      hasApiKey: true,
+    });
+  });
+
+  it('statusResult resta valido senza provider (nessuna config persistita)', () => {
+    const noProvider = statusResultSchema.parse({
+      version: 0,
+      safeStorageAvailable: true,
+      providerConfigured: false,
+    });
+    expect(noProvider.provider).toBeUndefined();
+  });
+
+  it('statusResult con provider rifiuta hasApiKey mancante', () => {
+    expect(() =>
+      statusResultSchema.parse({
+        version: 0,
+        safeStorageAvailable: true,
+        providerConfigured: true,
+        provider: { baseUrl: 'http://x/v1', model: 'm' },
+      }),
+    ).toThrow();
+  });
 });
 
 describe('readModelPushSchema (snapshot read-side version e state)', () => {

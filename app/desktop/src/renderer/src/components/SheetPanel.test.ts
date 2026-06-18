@@ -110,4 +110,20 @@ describe('SheetPanel', () => {
     await flushPromises();
     expect(w.text()).toContain('Nessun personaggio');
   });
+
+  it('con un solo attore nasconde il selettore e mostra comunque la scheda', async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    useReadModelStore().applyPush({
+      version: 1,
+      state: {
+        version: 1, phase: 'exploration', quests: {}, encounter: null,
+        actors: { solo: { id: 'solo', name: 'Solitario', kind: 'pc', attributes: {}, skills: {}, resources: {}, conditions: [], items: [], progression: { xp: 0, level: 1 } } },
+      },
+    });
+    const w = mount(SheetPanel, { global: { plugins: [pinia], stubs } });
+    await flushPromises();
+    expect(w.find('select[aria-label="attore"]').exists()).toBe(false);
+    expect(w.text()).toContain('Solitario');
+  });
 });

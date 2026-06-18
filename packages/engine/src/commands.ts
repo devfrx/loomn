@@ -11,6 +11,12 @@ import type { Quest, QuestOutcome } from './quest';
 import type { Phase } from './phase';
 import { canTransition, type SoftPhase } from './phase';
 
+/** Direzioni di un effetto su risorsa (ApplyEffect): vocabolario STATICO di comando, sorella di
+ *  DIFFICULTIES (difficulty.ts) / SOFT_PHASES (phase.ts) / QUEST_OUTCOMES (quest.ts). Sorgente unica:
+ *  il tipo ApplyEffect.direction la referenzia (sotto). */
+export const RESOURCE_DIRECTIONS = ['restore', 'drain'] as const;
+export type ResourceDirection = (typeof RESOURCE_DIRECTIONS)[number];
+
 export type Command =
   | { type: 'AddActor'; actor: Actor }
   | { type: 'StartEncounter'; encounterId: string; participants: ParticipantInput[] }
@@ -28,7 +34,7 @@ export type Command =
       damageModifiers?: Modifier[];
     }
   | { type: 'RequestCheck'; actorId: string; attribute?: string; skill?: string; difficulty: Difficulty }
-  | { type: 'ApplyEffect'; targetId: string; resource: string; direction: 'restore' | 'drain'; dice: DieGroup[]; bonus?: number }
+  | { type: 'ApplyEffect'; targetId: string; resource: string; direction: ResourceDirection; dice: DieGroup[]; bonus?: number }
   | { type: 'StartQuest'; id: string; title: string; description?: string }
   | { type: 'AdvanceQuest'; questId: string; status: QuestOutcome }
   | { type: 'EnterPhase'; to: SoftPhase }
@@ -57,6 +63,32 @@ export function isCommandLegalInPhase(phase: Phase, type: Command['type']): bool
   if (NON_COMBAT_ONLY.has(type)) return phase !== 'combat';
   return true;
 }
+
+/** Vocabolario runtime dei tipi di Command (i discriminant dell unione Command). Single-source per
+ *  chi deve ITERARE sui comandi a runtime (es. host getRuleset -> commandPhaseRules). Il guard di
+ *  esaustivita bidirezionale sotto fa fallire il typecheck se l unione Command e questa lista divergono. */
+export const COMMAND_TYPES = [
+  'AddActor',
+  'StartEncounter',
+  'EndTurn',
+  'NextRound',
+  'Attack',
+  'RequestCheck',
+  'ApplyEffect',
+  'StartQuest',
+  'AdvanceQuest',
+  'EnterPhase',
+  'EndEncounter',
+] as const;
+export type CommandType = (typeof COMMAND_TYPES)[number];
+
+// Esaustivita a compile-time: se un Command nuovo non e in COMMAND_TYPES -> Exclude non e never ->
+// il tipo a sinistra e `never` e `= true` non compila; se COMMAND_TYPES ha un tipo spurio -> idem
+// nell altra direzione. Tiene COMMAND_TYPES e l unione Command allineati senza duplicare la verita.
+const _commandTypesComplete: Exclude<Command['type'], CommandType> extends never ? true : never = true;
+const _commandTypesSound: Exclude<CommandType, Command['type']> extends never ? true : never = true;
+void _commandTypesComplete;
+void _commandTypesSound;
 
 /** Valida un comando contro lo stato e produce gli eventi risultanti.
  *  L'RNG è consumato dai comandi che lo richiedono (es. Attack). Funzione pura. */

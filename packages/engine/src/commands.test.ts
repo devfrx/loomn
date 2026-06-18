@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Actor, Item } from './actor';
 import type { RandomSource } from './random';
-import { decide, isCommandLegalInPhase } from './commands';
+import { decide, isCommandLegalInPhase, RESOURCE_DIRECTIONS, COMMAND_TYPES } from './commands';
 import { applyEvent, initialState, type GameState } from './events';
 import { createRuleset, createVocabulary } from './ruleset';
 
@@ -584,5 +584,31 @@ describe('decide(RequestCheck/ApplyEffect) — vocabolario', () => {
     expect(() =>
       decide(withActors(actor('eroe')), { type: 'ApplyEffect', targetId: 'eroe', resource: 'reputazione', direction: 'restore', dice: [{ count: 1, sides: 6 }] }, stub([0.5]), RVOCAB),
     ).toThrow(/reputazione/);
+  });
+});
+
+describe('vocabolario statico di comando (RESOURCE_DIRECTIONS / COMMAND_TYPES)', () => {
+  it('RESOURCE_DIRECTIONS elenca restore e drain', () => {
+    expect([...RESOURCE_DIRECTIONS]).toEqual(['restore', 'drain']);
+  });
+
+  it('COMMAND_TYPES elenca tutti e 11 i tipi di Command', () => {
+    expect([...COMMAND_TYPES]).toEqual([
+      'AddActor',
+      'StartEncounter',
+      'EndTurn',
+      'NextRound',
+      'Attack',
+      'RequestCheck',
+      'ApplyEffect',
+      'StartQuest',
+      'AdvanceQuest',
+      'EnterPhase',
+      'EndEncounter',
+    ]);
+  });
+
+  it('COMMAND_TYPES non ha duplicati', () => {
+    expect(new Set(COMMAND_TYPES).size).toBe(COMMAND_TYPES.length);
   });
 });

@@ -1,0 +1,33 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html,
+body,
+#app {
+  height: 100%;
+}
+body {
+  font-family: var(--f-ui);
+  color: var(--text);
+  background: radial-gradient(120% 90% at 50% -10%, #16181d 0%, var(--ink) 42%, var(--ink-edge) 100%) fixed;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #23262d;
+  border-radius: 8px;
+  border: 3px solid var(--panel);
+}

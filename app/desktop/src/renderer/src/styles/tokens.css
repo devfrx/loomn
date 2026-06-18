@@ -1,0 +1,44 @@
+:root {
+  --ink: #0c0d10;
+  --ink-edge: #070809;
+  --panel: #15171c;
+  --panel-hi: #191c22;
+  --raise: #1f232a;
+  --line: rgba(233, 229, 218, 0.08);
+  --line-2: rgba(233, 229, 218, 0.14);
+  --text: #e9e5da;
+  --text-2: #9b988f;
+  --text-3: #6b6962;
+  --brass: #c8a45c;
+  --brass-hi: #e3c684;
+  --brass-dim: rgba(200, 164, 92, 0.12);
+  --clay: #c0694f;
+  --sage: #7fa07e;
+  --steel: #6f8fb0;
+  --ok: #86b48a;
+  --bad: #c5635b;
+  --accent: var(--brass);
+  --accent-dim: var(--brass-dim);
+  --f-display: 'Fraunces Variable', Georgia, serif;
+  --f-read: 'Newsreader Variable', Georgia, serif;
+  --f-ui: 'Archivo Variable', 'Helvetica Neue', sans-serif;
+  --f-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+  --r: 15px;
+  --r-sm: 11px;
+  --r-xs: 8px;
+}
+
+/* Accento per fase (decisione 2): l intera shell comunica la modalita. Lo applica App.vue su
+   [data-phase] del root; i pannelli ereditano via var(--accent)/var(--accent-dim). */
+[data-phase='combat'] {
+  --accent: var(--clay);
+  --accent-dim: rgba(192, 105, 79, 0.13);
+}
+[data-phase='dialogue'] {
+  --accent: #cbb07a;
+  --accent-dim: rgba(203, 176, 122, 0.12);
+}
+[data-phase='downtime'] {
+  --accent: #8aa0a8;
+  --accent-dim: rgba(138, 160, 168, 0.12);
+}

@@ -49,6 +49,19 @@ describe('useRunTurn', () => {
     expect(narration.pending).toBe(false);
   });
 
+  it('un turno senza tiri svuota il readout dadi del turno precedente', async () => {
+    window.loomn = {
+      runTurn: vi.fn(() => Promise.resolve({ ok: true as const, narration: 'solo prosa', version: 2, events: [] })),
+    } as unknown as typeof window.loomn;
+    const dice = useDiceStore();
+    dice.enqueue([
+      { source: 'attack', tag: 'Attacco -> eroe', notation: '1d20@18', tokens: [], modifierTotal: 0, total: 18, dc: 10, margin: 8, outcome: 'success' },
+    ]);
+    const { submit } = useRunTurn();
+    await submit('osservo la sala');
+    expect(dice.rolls).toEqual([]);
+  });
+
   it('su runTurn che rigetta imposta error e svuota pending', async () => {
     window.loomn = { runTurn: vi.fn(() => Promise.reject(new Error('IPC error'))) } as unknown as typeof window.loomn;
     const narration = useNarrationStore();

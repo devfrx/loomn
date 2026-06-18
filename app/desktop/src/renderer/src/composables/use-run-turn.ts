@@ -13,6 +13,9 @@ export function useRunTurn(): { submit: (action: string) => Promise<void> } {
     const trimmed = action.trim();
     if (trimmed === '') return;
     narration.setError(null);
+    // Il readout dadi riflette il turno CORRENTE: svuota i tiri precedenti (un turno senza tiri,
+    // es. solo narrazione, non lascia un readout stantio). enqueue li ripopola se ci sono tiri.
+    dice.clear();
     narration.setPending(true);
     try {
       const res = await window.loomn.runTurn({ playerAction: trimmed });

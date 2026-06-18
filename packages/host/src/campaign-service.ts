@@ -9,6 +9,12 @@ import {
   decide,
   applyEvent,
   rebuild,
+  isCommandLegalInPhase,
+  COMMAND_TYPES,
+  DIFFICULTIES,
+  SOFT_PHASES,
+  QUEST_OUTCOMES,
+  RESOURCE_DIRECTIONS,
   type Command,
   type DomainEvent,
   type GameState,
@@ -86,6 +92,25 @@ export interface CanonQuery extends CanonFactFilter {
   includeRetracted?: boolean;
 }
 
+/** Vista read-side del Ruleset (10g): vocabolario di modulo iniettato + enum statici di comando +
+ *  regole di legalita-per-fase. Config STATICA (deps.ruleset), non play-state -> read sincrono fuori
+ *  dalla coda. Gli array di enum sono trasporto di valori (string[]); i tipi precisi vivono come const
+ *  esportati da @loomn/shared (renderer) e come const di @loomn/engine (qui). */
+export interface RulesetView {
+  vocabulary: {
+    attributes: string[];
+    skills: string[];
+    resources: string[];
+    defenses: string[];
+    defaultResources: Record<string, { current: number; max: number }>;
+  };
+  difficulties: string[];
+  softPhases: string[];
+  questOutcomes: string[];
+  directions: string[];
+  commandPhaseRules: { combatOnly: string[]; nonCombatOnly: string[] };
+}
+
 export interface CampaignService {
   /** Proiezione corrente (in-memory, sempre allineata all event store). */
   getReadModel(): ReadModel;
@@ -104,6 +129,9 @@ export interface CampaignService {
   getCanon(query?: CanonQuery): CanonFact[];
   /** Riassunti L2 filtrabili per livello/scope. */
   getSummaries(filter?: SummaryFilter): Summary[];
+  /** Vocabolario di gioco + enum statici + regole di fase (read-side per i form data-driven di
+   *  10f/10d). Read puro su config iniettata (non accodato): non legge mai `state`. */
+  getRuleset(): RulesetView;
 }
 
 export function createCampaignService(deps: CampaignServiceDeps): CampaignService {
@@ -208,6 +236,41 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
 
     getSummaries(filter: SummaryFilter = {}): Summary[] {
       return deps.memory.summaries.list(filter);
+    },
+
+    // Ruleset read-side (10g): proiezione della config STATICA iniettata (deps.ruleset) + enum di
+    // comando del motore + regole di legalita-per-fase derivate da isCommandLegalInPhase. NON accodato
+    // (non legge mai `state`): e la LENTE del gioco, non play-state.
+    // La MEMBERSHIP delle liste deriva da isCommandLegalInPhase (verita meccanica del motore);
+    // l ORDINE e canonico (combat-flow / setup-flow), indipendente dall ordine di dichiarazione di
+    // COMMAND_TYPES, cosi i form 10f/10d hanno un layout stabile a prescindere dai refactor del motore.
+    getRuleset(): RulesetView {
+      const v = deps.ruleset.vocabulary;
+      const known = new Set<string>(COMMAND_TYPES);
+      const combatOrder = ['Attack', 'EndTurn', 'NextRound', 'EndEncounter'] as const;
+      const nonCombatOrder = ['StartEncounter', 'EnterPhase'] as const;
+      const combatOnly = combatOrder.filter(
+        (t) => known.has(t) && isCommandLegalInPhase('combat', t) && !isCommandLegalInPhase('exploration', t),
+      );
+      const nonCombatOnly = nonCombatOrder.filter(
+        (t) => known.has(t) && !isCommandLegalInPhase('combat', t) && isCommandLegalInPhase('exploration', t),
+      );
+      return {
+        vocabulary: {
+          attributes: [...v.attributes],
+          skills: [...v.skills],
+          resources: [...v.resources],
+          defenses: [...v.defenses],
+          defaultResources: Object.fromEntries(
+            Object.entries(v.defaultResources).map(([k, pool]) => [k, { current: pool.current, max: pool.max }]),
+          ),
+        },
+        difficulties: [...DIFFICULTIES],
+        softPhases: [...SOFT_PHASES],
+        questOutcomes: [...QUEST_OUTCOMES],
+        directions: [...RESOURCE_DIRECTIONS],
+        commandPhaseRules: { combatOnly: [...combatOnly], nonCombatOnly: [...nonCombatOnly] },
+      };
     },
   };
 }

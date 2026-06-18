@@ -521,3 +521,43 @@ describe('createCampaignService - read on-demand (narrazione / canon / L2)', () 
     }
   });
 });
+
+describe('createCampaignService - getRuleset (vocabolario + enum + regole di fase)', () => {
+  it('espone il vocabolario iniettato', () => {
+    const { service, memory } = makeService();
+    try {
+      const rs = service.getRuleset();
+      expect(rs.vocabulary.attributes).toEqual(['forza', 'destrezza', 'costituzione', 'intelligenza', 'saggezza', 'carisma']);
+      expect(rs.vocabulary.skills).toEqual(['atletica', 'furtivita', 'persuasione', 'intuito', 'arcano', 'percezione']);
+      expect(rs.vocabulary.resources).toEqual(['hp', 'mana', 'stamina']);
+      expect(rs.vocabulary.defenses).toEqual(['difesa', 'tempra', 'riflessi', 'volonta']);
+      expect(rs.vocabulary.defaultResources).toEqual({});
+    } finally {
+      memory.close();
+    }
+  });
+
+  it('espone gli enum statici di comando del motore', () => {
+    const { service, memory } = makeService();
+    try {
+      const rs = service.getRuleset();
+      expect(rs.difficulties).toEqual(['trivial', 'easy', 'moderate', 'hard', 'formidable', 'legendary']);
+      expect(rs.softPhases).toEqual(['exploration', 'dialogue', 'downtime']);
+      expect(rs.questOutcomes).toEqual(['completed', 'failed']);
+      expect(rs.directions).toEqual(['restore', 'drain']);
+    } finally {
+      memory.close();
+    }
+  });
+
+  it('deriva le regole di legalita-per-fase da isCommandLegalInPhase', () => {
+    const { service, memory } = makeService();
+    try {
+      const rs = service.getRuleset();
+      expect(rs.commandPhaseRules.combatOnly).toEqual(['Attack', 'EndTurn', 'NextRound', 'EndEncounter']);
+      expect(rs.commandPhaseRules.nonCombatOnly).toEqual(['StartEncounter', 'EnterPhase']);
+    } finally {
+      memory.close();
+    }
+  });
+});

@@ -19,4 +19,10 @@ describe('LoomnPanel', () => {
     const w = mount(LoomnPanel, { slots: { default: 'solo corpo' } });
     expect(w.find('.loomn-panel__head').exists()).toBe(false);
   });
+
+  it('mostra la testata quando è presente solo il titolo', () => {
+    const w = mount(LoomnPanel, { props: { title: 'Solo titolo' } });
+    expect(w.find('.loomn-panel__head').exists()).toBe(true);
+    expect(w.find('.loomn-panel__eyebrow').exists()).toBe(false);
+  });
 });

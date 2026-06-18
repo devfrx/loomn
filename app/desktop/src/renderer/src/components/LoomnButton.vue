@@ -3,9 +3,11 @@ const props = withDefaults(defineProps<{ variant?: 'solid' | 'ghost'; disabled?:
   variant: 'ghost',
   disabled: false,
 });
-const emit = defineEmits<{ (e: 'click', ev: MouseEvent): void }>();
+const emit = defineEmits<{ click: [ev: MouseEvent] }>();
 
 function onClick(ev: MouseEvent): void {
+  // Belt-and-suspenders: il browser sopprime click su :disabled, ma la guardia mantiene i test
+  // deterministici (trigger click in jsdom bypassa il gate nativo).
   if (props.disabled) return;
   emit('click', ev);
 }
@@ -37,7 +39,7 @@ function onClick(ev: MouseEvent): void {
 }
 .loomn-btn--ghost:hover:not(:disabled) {
   border-color: var(--accent);
-  color: var(--brass-hi);
+  color: var(--text);
   background: var(--accent-dim);
 }
 .loomn-btn--solid {

@@ -94,6 +94,17 @@ async function runSelfTest(
       const sums = await window.loomn.getSummaries({});
       check(sums.ok && sums.summaries.length === 0, 'summaries vuoti a inizio');
 
+      const rs = await window.loomn.getRuleset();
+      check(rs.ok && rs.vocabulary.attributes.includes('forza'), 'get-ruleset espone gli attributi del vocabolario');
+      check(rs.ok && rs.vocabulary.resources.includes('hp'), 'get-ruleset espone le risorse del vocabolario');
+      check(rs.ok && rs.difficulties.includes('moderate'), 'get-ruleset espone le difficolta');
+      check(
+        rs.ok &&
+          rs.commandPhaseRules.combatOnly.includes('Attack') &&
+          rs.commandPhaseRules.nonCombatOnly.includes('StartEncounter'),
+        'get-ruleset espone le regole di legalita-per-fase',
+      );
+
       const sp = await window.loomn.setProvider({
         baseUrl: 'http://localhost:1234/v1',
         model: 'local',

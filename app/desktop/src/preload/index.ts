@@ -18,6 +18,7 @@ import {
   type CanonResult,
   type SummariesRequest,
   type SummariesResult,
+  type RulesetResult,
 } from '@loomn/shared';
 
 // Superficie IPC minima e tipizzata (spec 4): solo i canali del contratto, nessun accesso Node/DB
@@ -38,6 +39,7 @@ const bridge: LoomnBridge = {
     ipcRenderer.invoke(IPC_CHANNELS.canon, request),
   getSummaries: (request: SummariesRequest): Promise<SummariesResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.summaries, request),
+  getRuleset: (): Promise<RulesetResult> => ipcRenderer.invoke(IPC_CHANNELS.getRuleset),
   onReadModelPush: (listener: (push: ReadModelPush) => void): (() => void) => {
     const handler = (_event: IpcRendererEvent, push: ReadModelPush): void => listener(push);
     ipcRenderer.on(IPC_CHANNELS.readModelPush, handler);

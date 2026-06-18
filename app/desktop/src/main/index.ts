@@ -27,6 +27,7 @@ import {
   type NarrationHistoryResult,
   type CanonResult,
   type SummariesResult,
+  type RulesetResult,
 } from '@loomn/shared';
 import { createProviderHolder, type ProviderHolder } from './provider-holder';
 import { loadProviderConfig, saveProviderConfig } from './settings';
@@ -171,6 +172,16 @@ function registerHandlers(service: CampaignService): void {
           ...(scope !== undefined ? { scope } : {}),
         }),
       };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.getRuleset, (): RulesetResult => {
+    try {
+      // Spread della vista host nell arm ok: se RulesetView divergesse dal DTO, vue-tsc fallirebbe
+      // qui (drift guard read, come canon/summary del Piano 0). Nessun payload da validare.
+      return { ok: true, ...service.getRuleset() };
     } catch (err) {
       return { ok: false, error: errorMessage(err) };
     }

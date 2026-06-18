@@ -37,6 +37,8 @@ describe('App shell', () => {
           directions: [],
           commandPhaseRules: { combatOnly: [], nonCombatOnly: [] },
         }),
+      // App monta GameView (rotta /) -> NarrativePanel -> narration.loadInitial() chiama getNarrationHistory.
+      getNarrationHistory: () => Promise.resolve({ ok: true, entries: [], hasMore: false }),
     } as unknown as typeof window.loomn;
   });
 

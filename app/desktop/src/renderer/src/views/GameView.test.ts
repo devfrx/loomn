@@ -1,16 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import type { ReadModelPush } from '@loomn/shared';
 import { useReadModelStore } from '../stores/read-model';
 import GameView from './GameView.vue';
 
-// Stub di grid-layout-plus (in jsdom misurerebbe il DOM): passthrough degli slot.
 const GridLayout = { template: '<div class="grid-stub"><slot /></div>' };
-const GridItem = {
-  props: ['x', 'y', 'w', 'h', 'i'],
-  template: '<div class="grid-item-stub"><slot /></div>',
-};
+const GridItem = { props: ['x', 'y', 'w', 'h', 'i'], template: '<div class="grid-item-stub"><slot /></div>' };
+// Componenti pesanti: stub passthrough (NarrativePanel monta loomn, DiceCanvas usa WebGL).
+const NarrativePanel = { template: '<div class="narrative-stub">Narrazione</div>' };
+const DicePanel = { template: '<div class="dice-stub">Dadi</div>' };
 
 function push(phase: ReadModelPush['state']['phase']): ReadModelPush {
   return { version: 1, state: { version: 1, actors: {}, encounter: null, quests: {}, phase } };
@@ -19,19 +18,25 @@ function push(phase: ReadModelPush['state']['phase']): ReadModelPush {
 function mountGame() {
   const pinia = createPinia();
   setActivePinia(pinia);
-  return mount(GameView, { global: { plugins: [pinia], stubs: { GridLayout, GridItem } } });
+  return mount(GameView, { global: { plugins: [pinia], stubs: { GridLayout, GridItem, NarrativePanel, DicePanel } } });
 }
 
 describe('GameView', () => {
-  beforeEach(() => setActivePinia(createPinia()));
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    window.loomn = {
+      getNarrationHistory: vi.fn(() => Promise.resolve({ ok: true, entries: [], hasMore: false })),
+      getStatus: vi.fn(() => Promise.resolve({ version: 0, safeStorageAvailable: true, providerConfigured: false })),
+    } as unknown as typeof window.loomn;
+  });
 
-  it('in exploration rende narrazione, scheda e dadi', () => {
+  it('in exploration monta narrazione, scheda e dadi', async () => {
     const w = mountGame();
-    const text = w.text();
+    await flushPromises();
     expect(w.findAll('.grid-item-stub')).toHaveLength(3);
-    expect(text).toContain('Narrazione');
-    expect(text).toContain('Scheda');
-    expect(text).toContain('Dadi');
+    expect(w.text()).toContain('Narrazione');
+    expect(w.text()).toContain('Scheda');
+    expect(w.text()).toContain('Dadi');
   });
 
   it('passando a combat sostituisce la scheda con lo scontro', async () => {
@@ -39,8 +44,7 @@ describe('GameView', () => {
     const store = useReadModelStore();
     store.applyPush(push('combat'));
     await flushPromises();
-    const text = w.text();
-    expect(text).toContain('Scontro');
-    expect(text).not.toContain('Scheda');
+    expect(w.text()).toContain('Scontro');
+    expect(w.text()).not.toContain('Scheda');
   });
 });

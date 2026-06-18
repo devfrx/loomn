@@ -96,6 +96,13 @@ async function runSelfTest(
       const hist = await window.loomn.getNarrationHistory({});
       check(hist.ok && hist.entries.length === 0 && hist.hasMore === false, 'narration history vuota a inizio');
 
+      // 10b: il Gioco monta NarrativePanel/DicePanel (init dadi 3D LAZY, non parte nel gate). Dopo un
+      // dispatch il read-model e caricato e la storia narrazione resta vuota (NarrationRecorded entra
+      // nello stream solo via run-turn, qui non eseguito senza un LLM reale).
+      check(readModel.loaded === true, 'read-model caricato (Gioco montato coi pannelli 10b)');
+      const hist2 = await window.loomn.getNarrationHistory({ limit: 5 });
+      check(hist2.ok && hist2.entries.length === 0, 'narration history coerente dopo il dispatch');
+
       const canon = await window.loomn.getCanon({});
       check(canon.ok && canon.facts.length === 0, 'canon vuoto a inizio');
 

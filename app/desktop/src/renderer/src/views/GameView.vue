@@ -6,27 +6,20 @@ import type { PhaseView } from '../stores/read-model';
 import { createLocalStoragePersistence } from '../layout/persistence';
 import { useGameLayout } from '../composables/use-game-layout';
 import LoomnPanel from '../components/LoomnPanel.vue';
+import NarrativePanel from '../components/NarrativePanel.vue';
+import DicePanel from '../components/DicePanel.vue';
 
 const store = useReadModelStore();
 const phase = computed<PhaseView>(() => store.phase);
 const persistence = createLocalStoragePersistence();
 const { layout, onLayoutUpdated } = useGameLayout(phase, persistence);
 
-// Titoli dei pannelli fondazionali. Il contenuto profondo arriva nei sotto-piani.
-const titles: Record<string, string> = {
-  narrative: 'Narrazione',
-  sheet: 'Scheda',
-  encounter: 'Scontro',
-  dice: 'Dadi',
-};
+// Titoli dei pannelli ancora placeholder (scheda 10d, scontro 10c).
+const titles: Record<string, string> = { sheet: 'Scheda', encounter: 'Scontro' };
 </script>
 
 <template>
   <main class="game-view">
-    <!-- Controlled: il composable possiede `layout`; la griglia lo legge via :layout (e ri-semina
-         dal proprio watch su props.layout al cambio fase) e riporta i riarrangiamenti via
-         @layout-updated, unico write-path. v-model sarebbe inerte (update:layout scatta solo su
-         col-num/breakpoint, qui fissi). -->
     <GridLayout
       :layout="layout"
       :col-num="12"
@@ -35,8 +28,10 @@ const titles: Record<string, string> = {
       @layout-updated="onLayoutUpdated"
     >
       <GridItem v-for="item in layout" :key="item.i" :x="item.x" :y="item.y" :w="item.w" :h="item.h" :i="item.i">
-        <LoomnPanel :title="titles[item.i] ?? item.i" eyebrow="pannello">
-          <p class="game-view__placeholder">Contenuto nel Piano 10b / 10c / 10d.</p>
+        <NarrativePanel v-if="item.i === 'narrative'" />
+        <DicePanel v-else-if="item.i === 'dice'" />
+        <LoomnPanel v-else :title="titles[item.i] ?? item.i" eyebrow="pannello">
+          <p class="game-view__placeholder">Contenuto nel Piano 10c / 10d.</p>
         </LoomnPanel>
       </GridItem>
     </GridLayout>
@@ -44,13 +39,6 @@ const titles: Record<string, string> = {
 </template>
 
 <style scoped>
-.game-view {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-.game-view__placeholder {
-  color: var(--text-3);
-  font-size: 13px;
-}
+.game-view { flex: 1; min-height: 0; overflow: auto; }
+.game-view__placeholder { color: var(--text-3); font-size: 13px; }
 </style>

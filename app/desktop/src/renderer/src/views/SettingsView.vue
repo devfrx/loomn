@@ -25,6 +25,9 @@ onMounted(async () => {
   if (!status.loaded) await status.refresh();
   hydrateFromStatus();
 });
+// Re-idrata dal read-back a ogni cambio di provider. refresh() e chiamato solo al boot e dopo un
+// save ok -> post-save i campi tornano in sync col server (la password si svuota). Nessun clobber
+// durante la digitazione: nessun altro percorso chiama refresh().
 watch(() => status.provider, hydrateFromStatus);
 
 const canSave = computed<boolean>(() => form.baseUrl.trim() !== '' && form.model.trim() !== '');
@@ -67,7 +70,7 @@ async function save(): Promise<void> {
         </label>
 
         <fieldset class="field">
-          <span class="field__label">Chiave API</span>
+          <legend class="field__label">Chiave API</legend>
           <template v-if="hasApiKey">
             <div class="key-modes">
               <label><input v-model="form.keyAction" type="radio" value="keep" /> Mantieni</label>
@@ -106,6 +109,7 @@ async function save(): Promise<void> {
 .form { display: flex; flex-direction: column; gap: 14px; max-width: 480px; }
 .field { display: flex; flex-direction: column; gap: 6px; border: none; padding: 0; margin: 0; }
 .field__label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+legend.field__label { padding: 0; }
 .field__input {
   font: inherit; font-family: var(--f-mono); font-size: 13px; color: var(--text);
   background: var(--well); border: 1px solid var(--line-2); border-radius: 10px; padding: 9px 12px;

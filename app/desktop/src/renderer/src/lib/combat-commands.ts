@@ -4,9 +4,13 @@ import type { DispatchCommand } from '@loomn/shared';
 type AttackCmd = Extract<DispatchCommand, { type: 'Attack' }>;
 type StartEncounterCmd = Extract<DispatchCommand, { type: 'StartEncounter' }>;
 type ParticipantInput = StartEncounterCmd['participants'][number];
+type EndTurnCmd = Extract<DispatchCommand, { type: 'EndTurn' }>;
+type NextRoundCmd = Extract<DispatchCommand, { type: 'NextRound' }>;
+type EndEncounterCmd = Extract<DispatchCommand, { type: 'EndEncounter' }>;
 
 /** Parametri dell affordance Attacco del cockpit (attribute/skill opzionali; senza, l engine usa i
- *  dadi base — actorCheck). */
+ *  dadi base — actorCheck). NOTA: damageModifiers (opzionale in Attack) e deliberatamente NON esposto
+ *  qui — non usato dal cockpit MVP (YAGNI 10c). */
 export interface AttackParams {
   attackerId: string;
   targetId: string;
@@ -32,10 +36,10 @@ export function buildAttack(p: AttackParams): AttackCmd {
   };
 }
 
-/** Comandi di turno (literal, nessun argomento). */
-export const endTurn = (): DispatchCommand => ({ type: 'EndTurn' });
-export const nextRound = (): DispatchCommand => ({ type: 'NextRound' });
-export const endEncounter = (): DispatchCommand => ({ type: 'EndEncounter' });
+/** Comandi di turno (literal, nessun argomento). Tipi stretti come buildAttack/buildStartEncounter. */
+export const endTurn = (): EndTurnCmd => ({ type: 'EndTurn' });
+export const nextRound = (): NextRoundCmd => ({ type: 'NextRound' });
+export const endEncounter = (): EndEncounterCmd => ({ type: 'EndEncounter' });
 
 /** Riga del builder di scontro: un attore candidato con inclusione/iniziativa/zona. */
 export interface ParticipantRowInput {

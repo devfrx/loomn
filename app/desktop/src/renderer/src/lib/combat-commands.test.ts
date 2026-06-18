@@ -17,6 +17,12 @@ describe('buildAttack', () => {
     expect('attribute' in cmd).toBe(false);
     expect('skill' in cmd).toBe(false);
   });
+
+  it('include solo attribute quando skill e assente', () => {
+    const cmd = buildAttack({ attackerId: 'a', targetId: 'b', defense: 'difesa', defenseBase: 12, damageResource: 'hp', attribute: 'forza' });
+    expect('attribute' in cmd).toBe(true);
+    expect('skill' in cmd).toBe(false);
+  });
 });
 
 describe('comandi di turno', () => {

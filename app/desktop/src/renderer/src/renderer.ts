@@ -5,6 +5,8 @@ import type { ReadModelPush } from '@loomn/shared';
 import App from './App.vue';
 import { createAppRouter } from './router';
 import { useReadModelStore } from './stores/read-model';
+import { useProviderStatusStore } from './stores/provider-status';
+import { runFirstRun } from './composables/use-first-run';
 import './styles';
 
 const pinia = createPinia();
@@ -22,7 +24,12 @@ window.loomn.onReadModelPush((push) => store.applyPush(push));
 // Self-test scriptabile (gate, evoluzione del 9c-ii/Piano 0 sull app Vue reale): guidato da
 // ?selftest=<fase>, NON-GUI per il resto. Logga un singolo VERDICT che il main cattura (exit 0/1).
 const selfTest = new URLSearchParams(location.search).get('selftest');
-if (selfTest !== null) void runSelfTest(selfTest, store, router);
+if (selfTest !== null) {
+  void runSelfTest(selfTest, store, router);
+} else {
+  // First-run (spec 10f): idrata lo status e guida a Impostazioni una volta se non configurato.
+  void runFirstRun(router, useProviderStatusStore(pinia));
+}
 
 async function runSelfTest(
   phase: string,

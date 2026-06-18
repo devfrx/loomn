@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { RouterView, RouterLink } from 'vue-router';
 import { useReadModelStore } from './stores/read-model';
 import type { PhaseView } from './stores/read-model';
+import FirstRunBanner from './components/FirstRunBanner.vue';
 
 const store = useReadModelStore();
 const phase = computed<PhaseView>(() => store.phase);
@@ -44,6 +45,7 @@ const phaseLabel = computed(() => phaseLabels[phase.value]);
         <div class="wordmark">Loomn<span class="dot">.</span></div>
         <div class="phase-badge">{{ phaseLabel }}</div>
       </header>
+      <FirstRunBanner />
       <RouterView />
     </div>
   </div>

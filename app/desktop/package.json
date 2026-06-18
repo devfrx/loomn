@@ -12,32 +12,33 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@loomn/shared": "workspace:*",
-    "@loomn/host": "workspace:*",
-    "@loomn/engine": "workspace:*",
+    "@3d-dice/dice-box-threejs": "^0.0.12",
+    "@fontsource-variable/archivo": "^5.2.8",
+    "@fontsource-variable/fraunces": "^5.2.9",
+    "@fontsource-variable/jetbrains-mono": "^5.2.8",
+    "@fontsource-variable/newsreader": "^5.2.10",
     "@loomn/ai": "workspace:*",
+    "@loomn/engine": "workspace:*",
+    "@loomn/host": "workspace:*",
+    "@loomn/shared": "workspace:*",
     "better-sqlite3": "^12.10.1",
     "drizzle-orm": "^0.38.4",
-    "pinia": "^3.0.4",
-    "vue-router": "^4.6.4",
-    "reka-ui": "^2.9.10",
     "grid-layout-plus": "^1.1.1",
-    "@fontsource-variable/fraunces": "^5.2.9",
-    "@fontsource-variable/newsreader": "^5.2.10",
-    "@fontsource-variable/archivo": "^5.2.8",
-    "@fontsource-variable/jetbrains-mono": "^5.2.8"
+    "pinia": "^3.0.4",
+    "reka-ui": "^2.9.10",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.0",
+    "@types/node": "^22.10.5",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "@vue/test-utils": "^2.4.11",
     "electron": "^42.4.0",
     "electron-vite": "^4.0.1",
-    "@vitejs/plugin-vue": "^5.2.4",
-    "vue": "^3.5.18",
-    "vue-tsc": "^2.1.10",
+    "jsdom": "^29.1.1",
     "typescript": "^5.5.4",
-    "@types/node": "^22.10.5",
     "vitest": "^2.1.9",
-    "@vue/test-utils": "^2.4.11",
-    "jsdom": "^29.1.1"
+    "vue": "^3.5.18",
+    "vue-tsc": "^2.1.10"
   }
 }

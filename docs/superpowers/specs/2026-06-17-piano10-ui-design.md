@@ -88,7 +88,8 @@ Audit verificato sul codice (2026-06-17). Legenda: 🟢 collegato (esiste + attr
 | **Storia narrazione** (log persistente + Diario) | eventi `NarrationRecorded` nello stream | 🟡 read-layer |
 | **Canon** (Diario) · **Narrativa L2** (Diario) | `ledger.active()/all()` · `summaries.list()` | 🟡 read-layer |
 | **Dadi 3D + chip esito** | `RollResult`/`CheckResult` negli `events` di dispatch/turn | 🟡 (events scartati dall'IPC → esporre) |
-| Azioni manuali/GM: cambia fase, fine scontro, avanza quest, check/effetto manuali | Command `EnterPhase/EndEncounter/AdvanceQuest/StartQuest/RequestCheck/ApplyEffect` (in engine, **non** in `commandSchema`) | 🟡 (estendere `commandSchema`) |
+| Azioni manuali/GM: cambia fase, fine scontro, avanza quest, check/effetto manuali | Command `EnterPhase/EndEncounter/AdvanceQuest/StartQuest/RequestCheck/ApplyEffect` (in engine, **non** in `commandSchema`) | 🟡 (estendere `commandSchema`) → 🟢 **Piano 0** |
+| **Vocabolario di gioco** (creazione PG · controlli GM · Scheda data-driven) | `Ruleset` (host, iniettato in `createCampaignService`); enum di comando engine | 🟡 read-layer → **10g** |
 | Equip/unequip · movimento in zona (come azioni) | nessun Command/Event (solo helper engine non cablati) | 🔴 feature/defer |
 | Slot equip profondi + contenitori · relazioni strutturate | non esistono (relazioni solo come fatti canon) | 🔴 feature |
 | Persistenza layout pannelli | nessuna (preferenza UI, non dominio) | 🔴 nuovo (UI settings) |
@@ -98,13 +99,15 @@ Audit verificato sul codice (2026-06-17). Legenda: 🟢 collegato (esiste + attr
 - `CampaignService` espone `getReadModel/dispatch/runTurn/reflect`; `DispatchOutcome`/`TurnOutcome` **ritornano `events`** (coi tiri) ma l'handler IPC li **scarta** (`{narration/version}`).
 - Canon ledger e riassunti L2 vivono in `host`/`memory` ma **non** attraversano l'IPC.
 - Equip/unequip e movimento **non** sono Command/Event (solo helper engine non cablati).
+- Il **vocabolario del `Ruleset`** (attributi/abilità/risorse/difese + `defaultResources`) è iniettato nel main e **non attraversa l'IPC** (il read-model è `{version, state}`; il vocabolario è la *lente*, non lo stato) → la UI data-driven (creazione PG, controlli GM, Scheda) non conosce gli id legali. **Risolto dal Piano 10g** (canale read `get-ruleset`), prima di 10f.
 
 ---
 
 ## 8. Lacune e risoluzioni
 
 - **🟡 Read mancanti** → **Piano 0 (read-side):** esporre via canali IPC tipizzati la **storia narrazione** (proiezione `NarrationRecorded`), il **canon ledger**, i **riassunti L2** (query on-demand/paginate, **non** gonfiano il push di stato) + gli **`events`/tiri** nei risultati di dispatch/turn (additivo, validati da `domainEventSchema`).
-- **🟡 Write mancante** → **Piano 0 (write-side):** estendere `commandSchema` all'**intera unione `Command`** (additivo, cast-free, drift-guard).
+- **🟡 Write mancante** → **Piano 0 (write-side):** estendere `commandSchema` all'**intera unione `Command`** (additivo, cast-free, drift-guard). *(Piano 0 ✅ FATTO, `614a6bb`.)*
+- **🟡 Vocabolario di gioco mancante sull'IPC** → **Piano 10g (read-side):** il `Ruleset` (attributi/abilità/risorse/difese + `defaultResources`) è iniettato nel main e **non attraversa l'IPC** (il read-model è `{version, state}`; il vocabolario è la *lente*, non lo stato — G3/G4: `applyEvent`/`rebuild` non prendono il ruleset). I pannelli **data-driven** (creazione PG e controlli GM in 10f, Scheda in 10d) ne hanno bisogno per popolare i form coi valori legali (altrimenti si invia un id che il motore rifiuta). Canale read `get-ruleset` (DTO vocabolario + enum di comando `DIFFICULTIES`/`SOFT_PHASES`/`QUEST_OUTCOMES`/`restore|drain`), stile Piano 0 (additivo, testabile su ABI Node, `shared` resta foglia). **Prerequisito di 10f/10d, da eseguire prima di 10f.** *(Lacuna emersa dopo il Piano 0; l'audit §7 originale non l'aveva isolata.)*
 - **Streaming** → **deferito** (fast-follow: canale progress additivo, quando vorremo). La UI funziona su request/response.
 - **🔴 Non esiste** → **feature future** (motore inventario profondo; equip/movimento come Command/Event; relazioni strutturate). La UI è **display-only** su ciò che esiste; la persistenza-layout è preferenza UI (nuova ma fuori dominio).
 - **Delta read-model** (spec autorità §13) → **deferito** (snapshot completo `{version,state}` resta; i nuovi canali read sono paginati → non aggravano il push).
@@ -124,19 +127,20 @@ Audit verificato sul codice (2026-06-17). Legenda: 🟢 collegato (esiste + attr
 
 ## 10. Decomposizione in piani
 
-Ordine confermato: **0 → 10a → 10f → 10b → 10c → 10d → 10e** (provider/first-run anticipato perché `run-turn` reale lo richiede).
+Ordine confermato: **0 → 10a → 10g → 10f → 10b → 10c → 10d → 10e** (10g = vocabolario/`Ruleset` su IPC, prerequisito dei pannelli data-driven di 10f/10d — aggiunto 2026-06-18 dopo il Piano 0; dipende solo da 0, quindi resequenziabile anche prima di 10a. Provider/first-run anticipato perché `run-turn` reale lo richiede).
 
 | Piano | Cosa consegna | Lega a (esistente) | Dipende da |
 |---|---|---|---|
 | **0 · IPC/CQRS completeness** (pre-UI, backend testabile, flusso §4) | **write**: `commandSchema` = unione `Command` completa · **read**: `events` (coi tiri) nei risultati dispatch/turn + canali storia narrazione / canon / L2 (paginati) | engine `Command`, `NarrationRecorded`, `ledger`, `summaries`, `events` del CampaignService | — |
 | **10a · Fondamenta UI** | design system "strumento notturno" (token + componenti base + Reka), Pinia read-side ← `read-model-push`, router shell (rail/topbar/route), frame adattivo, contenitore **grid-layout-plus** + persistenza layout | `read-model-push`, `GameState.phase` | 0 (parziale) |
-| **10f · Impostazioni + first-run + GM** | provider (set-provider/safeStorage/get-status), first-run, **creazione PG** (AddActor), controlli GM/manuali (Command estesi) | `set-provider`/`get-status`, `commandSchema` esteso | 0, 10a |
+| **10g · Vocabolario di gioco su IPC** (read channel `get-ruleset`, stile Piano 0) | canale read `get-ruleset` → DTO `{vocabulary:{attributes,skills,resources,defenses,defaultResources}, difficulties, softPhases, questOutcomes, directions}`; metodo sincrono su `CampaignService` (come i read del Piano 0) + handler IPC sottile + bridge; export degli enum statici di comando da `@loomn/shared`; self-test esteso. Additivo, testabile su ABI Node, `shared` resta foglia | `Ruleset` (host, iniettato in `createCampaignService`), enum engine | 0 |
+| **10f · Impostazioni + first-run + GM** | provider (set-provider/safeStorage/get-status), first-run, **creazione PG** (AddActor), controlli GM/manuali (Command estesi) — **form data-driven dal vocabolario di 10g** | `set-provider`/`get-status`, `commandSchema` esteso, `get-ruleset` | 0, 10a, 10g |
 | **10b · Gioco** | chat/narrazione (storia + run-turn), input azione, **dadi 3D** (spike `@3d-dice/dice-box`) + chip esito | `run-turn`, storia narrazione, `events`/`RollResult` | 0, 10a, 10f |
 | **10c · Combattimento** | cockpit scontro (iniziativa/round/turni), zone, feedback attacco/check/effetto, re-theme per fase | `GameState.encounter`, Command combat | 10a, 10b |
-| **10d · Scheda + inventario** | identità/attributi/risorse/condizioni/progressione + shell equip/inventario **data-driven** (modello piatto, Ruleset-aware) | `GameState.actors[]`, `Ruleset` | 10a |
+| **10d · Scheda + inventario** | identità/attributi/risorse/condizioni/progressione + shell equip/inventario **data-driven** (modello piatto, Ruleset-aware) | `GameState.actors[]`, `get-ruleset` (10g) | 10a, 10g |
 | **10e · Diario + Compagnia** | narrativa L2 + canon (+ trigger `reflect`), roster PG/PNG | canali read L2/canon, `reflect`, `GameState.actors` | 0, 10a |
 
-Ogni piano segue il **flusso §4** dell'HANDOFF (writing-plans → commit doc su main → branch → subagent-driven → finishing-a-development-branch → aggiorna memoria/HANDOFF). Il **Piano 0** è il prossimo da scrivere.
+Ogni piano segue il **flusso §4** dell'HANDOFF (writing-plans → commit doc su main → branch → subagent-driven → finishing-a-development-branch → aggiorna memoria/HANDOFF). Il **Piano 0 è FATTO e mergiato** (`614a6bb`, 476 test); il prossimo da scrivere è il **Piano 10a**, poi **10g** (vocabolario su IPC, prima di 10f).
 
 ---
 

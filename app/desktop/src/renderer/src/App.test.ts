@@ -22,7 +22,23 @@ async function mountApp() {
 }
 
 describe('App shell', () => {
-  beforeEach(() => setActivePinia(createPinia()));
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    // App monta GmConsole nella topbar -> onMounted chiama ruleset.load()/getRuleset. Stub minimo
+    // per evitare unhandled rejection (i test di App non asseriscono sulla Regia).
+    window.loomn = {
+      getRuleset: () =>
+        Promise.resolve({
+          ok: true,
+          vocabulary: { attributes: [], skills: [], resources: [], defenses: [], defaultResources: {} },
+          difficulties: [],
+          softPhases: [],
+          questOutcomes: [],
+          directions: [],
+          commandPhaseRules: { combatOnly: [], nonCombatOnly: [] },
+        }),
+    } as unknown as typeof window.loomn;
+  });
 
   it('rende le 5 voci di navigazione', async () => {
     const { wrapper } = await mountApp();

@@ -17,6 +17,7 @@ import {
   canonResultSchema,
   summariesRequestSchema,
   summariesResultSchema,
+  rulesetResultSchema,
 } from './ipc';
 
 function sampleActor(id: string): unknown {
@@ -51,6 +52,10 @@ describe('IPC_CHANNELS', () => {
     expect(IPC_CHANNELS.narrationHistory).toBe('loomn:narration-history');
     expect(IPC_CHANNELS.canon).toBe('loomn:canon');
     expect(IPC_CHANNELS.summaries).toBe('loomn:summaries');
+  });
+
+  it('espone il canale get-ruleset del Piano 10g', () => {
+    expect(IPC_CHANNELS.getRuleset).toBe('loomn:get-ruleset');
   });
 });
 
@@ -183,5 +188,43 @@ describe('canali read on-demand (narrazione / canon / L2)', () => {
   it('summariesResult ok porta i summaries', () => {
     const s = { id: 's1', level: 'scene', scope: 'sess-1', text: 'riassunto', importance: 5, salience: 0.5, createdAt: 1000, eventSeqFrom: 1, eventSeqTo: 3 };
     expect(summariesResultSchema.parse({ ok: true, summaries: [s] })).toEqual({ ok: true, summaries: [s] });
+  });
+});
+
+describe('rulesetResultSchema (vocabolario + enum + regole di fase)', () => {
+  it('accetta un esito ok completo', () => {
+    const ok = {
+      ok: true,
+      vocabulary: {
+        attributes: ['forza'],
+        skills: ['atletica'],
+        resources: ['hp'],
+        defenses: ['difesa'],
+        defaultResources: { hp: { current: 10, max: 10 } },
+      },
+      difficulties: ['moderate'],
+      softPhases: ['exploration'],
+      questOutcomes: ['completed'],
+      directions: ['restore'],
+      commandPhaseRules: { combatOnly: ['Attack'], nonCombatOnly: ['StartEncounter'] },
+    };
+    expect(rulesetResultSchema.parse(ok)).toEqual(ok);
+  });
+
+  it('accetta l esito di errore', () => {
+    expect(rulesetResultSchema.parse({ ok: false, error: 'boom' })).toEqual({ ok: false, error: 'boom' });
+  });
+
+  it('rifiuta ok senza commandPhaseRules', () => {
+    expect(() =>
+      rulesetResultSchema.parse({
+        ok: true,
+        vocabulary: { attributes: [], skills: [], resources: [], defenses: [], defaultResources: {} },
+        difficulties: [],
+        softPhases: [],
+        questOutcomes: [],
+        directions: [],
+      }),
+    ).toThrow();
   });
 });

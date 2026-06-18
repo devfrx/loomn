@@ -24,6 +24,8 @@ export const IPC_CHANNELS = {
   canon: 'loomn:canon',
   /** invoke/handle: riassunti narrativi L2 filtrabili per livello/scope. */
   summaries: 'loomn:summaries',
+  /** invoke/handle: vocabolario di gioco + enum statici + regole di fase (Ruleset, read-side 10g). */
+  getRuleset: 'loomn:get-ruleset',
   /** send/on (push main->renderer): proiezione read-side {version, state} (spec 5.2). */
   readModelPush: 'loomn:read-model-push',
 } as const;
@@ -174,6 +176,37 @@ export const summariesResultSchema = z.union([
 ]);
 export type SummariesResult = z.infer<typeof summariesResultSchema>;
 
+// --- getRuleset (vocabolario di gioco + enum statici + regole di fase, read-side per i form GM) ---
+/** DTO del Ruleset (10g): il vocabolario di modulo (attributi/abilita/risorse/difese/defaultResources)
+ *  iniettato nel main e NON presente nel read-model {version,state} (e la LENTE, non lo stato) + gli
+ *  enum statici di comando + le regole di legalita-per-fase dei comandi (da isCommandLegalInPhase, per
+ *  disabilitare i comandi GM illegali nella fase corrente). Gli array di enum sono trasporto di liste
+ *  di valori (string[]); il renderer ha gli stessi enum TIPIZZATI come const esportati da @loomn/shared.
+ *  L assegnabilita host->DTO e imposta a compile-time dall handler del main (drift guard read, come
+ *  canon/summary del Piano 0). */
+export const rulesetResultSchema = z.union([
+  z.object({
+    ok: z.literal(true),
+    vocabulary: z.object({
+      attributes: z.array(z.string()),
+      skills: z.array(z.string()),
+      resources: z.array(z.string()),
+      defenses: z.array(z.string()),
+      defaultResources: z.record(z.string(), z.object({ current: z.number(), max: z.number() })),
+    }),
+    difficulties: z.array(z.string()),
+    softPhases: z.array(z.string()),
+    questOutcomes: z.array(z.string()),
+    directions: z.array(z.string()),
+    commandPhaseRules: z.object({
+      combatOnly: z.array(z.string()),
+      nonCombatOnly: z.array(z.string()),
+    }),
+  }),
+  z.object({ ok: z.literal(false), error: z.string() }),
+]);
+export type RulesetResult = z.infer<typeof rulesetResultSchema>;
+
 // --- read-model push (read side) ---
 /** Proiezione read-side spinta dal main (spec 5.2): snapshot {version, state}. Il protocollo delta
  *  (spec 13) resta rimandato (YAGNI). `state` e validato con gameStateSchema (riuso del Piano 6). */
@@ -201,6 +234,8 @@ export interface LoomnBridge {
   getCanon(request: CanonRequest): Promise<CanonResult>;
   /** Riassunti L2 filtrabili per livello/scope. */
   getSummaries(request: SummariesRequest): Promise<SummariesResult>;
+  /** Vocabolario di gioco + enum statici + regole di fase (Ruleset, read-side 10g). Nessun payload. */
+  getRuleset(): Promise<RulesetResult>;
   /** Sottoscrive i push read-side; ritorna una funzione che annulla la sottoscrizione. */
   onReadModelPush(listener: (push: ReadModelPush) => void): () => void;
 }

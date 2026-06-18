@@ -11,14 +11,14 @@ export interface NarrationLine {
   narration: string;
 }
 
-let liveCounter = 0;
-
 /** Store della storia di narrazione (read-side + append ottimistico del turno). */
 export const useNarrationStore = defineStore('narration', () => {
   const entries = ref<NarrationLine[]>([]);
   const hasMore = ref(false);
   const pending = ref(false);
   const error = ref<string | null>(null);
+  // Contatore delle voci live, per-istanza (dentro la factory): chiavi stabili e niente leak fra test.
+  let liveCounter = 0;
 
   function toLine(e: NarrationEntryDto): NarrationLine {
     return { key: `seq-${e.seq}`, seq: e.seq, playerAction: e.playerAction, narration: e.narration };

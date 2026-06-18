@@ -68,4 +68,36 @@ describe('useNarrationStore', () => {
     expect(s.error).toBe('boom');
     expect(s.entries).toEqual([]);
   });
+
+  it('loadOlder usa il seq minimo come cursore anche con piu voci in memoria', async () => {
+    const calls: Array<{ before?: number }> = [];
+    stubHistory((req) => {
+      calls.push(req);
+      if (req.before === undefined) {
+        return {
+          ok: true,
+          hasMore: true,
+          entries: [
+            { seq: 5, playerAction: 'a5', narration: 'n5' },
+            { seq: 3, playerAction: 'a3', narration: 'n3' },
+            { seq: 1, playerAction: 'a1', narration: 'n1' },
+          ],
+        };
+      }
+      return { ok: true, hasMore: false, entries: [] };
+    });
+    const s = useNarrationStore();
+    await s.loadInitial();
+    await s.loadOlder();
+    expect(calls[1]?.before).toBe(1);
+  });
+
+  it('loadOlder senza voci con seq non effettua chiamate di paginazione', async () => {
+    const fn = vi.fn(() => ({ ok: true, entries: [], hasMore: false }));
+    window.loomn = { getNarrationHistory: fn } as unknown as typeof window.loomn;
+    const s = useNarrationStore();
+    s.appendTurn('azione', 'narrazione');
+    await s.loadOlder();
+    expect(fn).not.toHaveBeenCalled();
+  });
 });

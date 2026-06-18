@@ -554,8 +554,8 @@ describe('createCampaignService - getRuleset (vocabolario + enum + regole di fas
     const { service, memory } = makeService();
     try {
       const rs = service.getRuleset();
-      expect(rs.commandPhaseRules.combatOnly).toEqual(['Attack', 'EndTurn', 'NextRound', 'EndEncounter']);
-      expect(rs.commandPhaseRules.nonCombatOnly).toEqual(['StartEncounter', 'EnterPhase']);
+      expect([...rs.commandPhaseRules.combatOnly].sort()).toEqual(['Attack', 'EndEncounter', 'EndTurn', 'NextRound']);
+      expect([...rs.commandPhaseRules.nonCombatOnly].sort()).toEqual(['EnterPhase', 'StartEncounter']);
     } finally {
       memory.close();
     }

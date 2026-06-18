@@ -241,19 +241,20 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
     // Ruleset read-side (10g): proiezione della config STATICA iniettata (deps.ruleset) + enum di
     // comando del motore + regole di legalita-per-fase derivate da isCommandLegalInPhase. NON accodato
     // (non legge mai `state`): e la LENTE del gioco, non play-state.
-    // La MEMBERSHIP delle liste deriva da isCommandLegalInPhase (verita meccanica del motore);
-    // l ORDINE e canonico (combat-flow / setup-flow), indipendente dall ordine di dichiarazione di
-    // COMMAND_TYPES, cosi i form 10f/10d hanno un layout stabile a prescindere dai refactor del motore.
+    // MEMBERSHIP e ORDINE derivano entrambi da COMMAND_TYPES filtrato con isCommandLegalInPhase (unica
+    // fonte di verita): un comando combat-only aggiunto al motore compare qui automaticamente. Il
+    // renderer usa membership (.includes), non la posizione, quindi l ordine resta cosmetico.
     getRuleset(): RulesetView {
       const v = deps.ruleset.vocabulary;
-      const known = new Set<string>(COMMAND_TYPES);
-      const combatOrder = ['Attack', 'EndTurn', 'NextRound', 'EndEncounter'] as const;
-      const nonCombatOrder = ['StartEncounter', 'EnterPhase'] as const;
-      const combatOnly = combatOrder.filter(
-        (t) => known.has(t) && isCommandLegalInPhase('combat', t) && !isCommandLegalInPhase('exploration', t),
+      // MEMBERSHIP e ORDINE derivano entrambi da COMMAND_TYPES (vocabolario del motore, guardato
+      // esaustivo a compile-time) filtrato con isCommandLegalInPhase: una sola fonte di verita. Un
+      // comando combat-only aggiunto in futuro al motore compare qui automaticamente. L ordine e
+      // quello (deterministico) di COMMAND_TYPES; il renderer usa membership (.includes), non la posizione.
+      const combatOnly = COMMAND_TYPES.filter(
+        (t) => isCommandLegalInPhase('combat', t) && !isCommandLegalInPhase('exploration', t),
       );
-      const nonCombatOnly = nonCombatOrder.filter(
-        (t) => known.has(t) && !isCommandLegalInPhase('combat', t) && isCommandLegalInPhase('exploration', t),
+      const nonCombatOnly = COMMAND_TYPES.filter(
+        (t) => !isCommandLegalInPhase('combat', t) && isCommandLegalInPhase('exploration', t),
       );
       return {
         vocabulary: {

@@ -70,4 +70,17 @@ describe('GmConsole', () => {
       participants: [{ actorId: 'a', zone: 'centro', initiative: 10 }],
     });
   });
+
+  it('una push incrementale preserva le selezioni gia fatte', async () => {
+    const store = useReadModelStore();
+    store.applyPush(pushState('exploration', { a: actor('a', 'Alfa') }));
+    const w = mount(GmConsole);
+    await flushPromises();
+    await w.find('button').trigger('click'); // apre la Regia
+    await w.find('input[type="checkbox"]').setValue(true); // include Alfa
+    // seconda push con lo stesso roster (un turno che non cambia gli attori)
+    store.applyPush(pushState('exploration', { a: actor('a', 'Alfa') }));
+    await flushPromises();
+    expect((w.find('input[type="checkbox"]').element as HTMLInputElement).checked).toBe(true);
+  });
 });

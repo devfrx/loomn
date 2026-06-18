@@ -66,6 +66,8 @@ watch(
   { immediate: true },
 );
 
+const anyIncluded = computed(() => seRows.value.some((r) => r.include));
+
 function submitStartEncounter(): void {
   // buildStartEncounter ritorna un literal PLAIN (mai i proxy reactive di seRows): clone IPC sicura.
   const cmd = buildStartEncounter(
@@ -176,7 +178,7 @@ const v = computed(() => ruleset.vocabulary);
                 <input v-model.number="row.initiative" class="inp" type="number" aria-label="iniziativa" />
                 <input v-model="row.zone" class="inp" aria-label="zona" />
               </div>
-              <LoomnButton variant="solid" :disabled="!seRows.length" @click="submitStartEncounter">Avvia scontro</LoomnButton>
+              <LoomnButton variant="solid" :disabled="!anyIncluded" @click="submitStartEncounter">Avvia scontro</LoomnButton>
             </template>
           </fieldset>
         </section>

@@ -9,14 +9,13 @@ import LoomnPanel from '../components/LoomnPanel.vue';
 import NarrativePanel from '../components/NarrativePanel.vue';
 import DicePanel from '../components/DicePanel.vue';
 import EncounterPanel from '../components/EncounterPanel.vue';
+import SheetPanel from '../components/SheetPanel.vue';
 
 const store = useReadModelStore();
 const phase = computed<PhaseView>(() => store.phase);
 const persistence = createLocalStoragePersistence();
 const { layout, onLayoutUpdated } = useGameLayout(phase, persistence);
 
-// Titolo del pannello ancora placeholder (scheda 10d).
-const titles: Record<string, string> = { sheet: 'Scheda' };
 </script>
 
 <template>
@@ -32,8 +31,9 @@ const titles: Record<string, string> = { sheet: 'Scheda' };
         <NarrativePanel v-if="item.i === 'narrative'" />
         <DicePanel v-else-if="item.i === 'dice'" />
         <EncounterPanel v-else-if="item.i === 'encounter'" />
-        <LoomnPanel v-else :title="titles[item.i] ?? item.i" eyebrow="pannello">
-          <p class="game-view__placeholder">Contenuto nel Piano 10d.</p>
+        <SheetPanel v-else-if="item.i === 'sheet'" />
+        <LoomnPanel v-else :title="item.i" eyebrow="pannello">
+          <p class="game-view__placeholder">Pannello non riconosciuto.</p>
         </LoomnPanel>
       </GridItem>
     </GridLayout>

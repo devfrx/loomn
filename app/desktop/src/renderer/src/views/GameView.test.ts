@@ -11,6 +11,7 @@ const GridItem = { props: ['x', 'y', 'w', 'h', 'i'], template: '<div class="grid
 const NarrativePanel = { template: '<div class="narrative-stub">Narrazione</div>' };
 const DicePanel = { template: '<div class="dice-stub">Dadi</div>' };
 const EncounterPanel = { template: '<div class="encounter-stub">Scontro</div>' };
+const SheetPanel = { template: '<div class="sheet-stub">Scheda</div>' };
 
 function push(phase: ReadModelPush['state']['phase']): ReadModelPush {
   return { version: 1, state: { version: 1, actors: {}, encounter: null, quests: {}, phase } };
@@ -19,7 +20,7 @@ function push(phase: ReadModelPush['state']['phase']): ReadModelPush {
 function mountGame() {
   const pinia = createPinia();
   setActivePinia(pinia);
-  return mount(GameView, { global: { plugins: [pinia], stubs: { GridLayout, GridItem, NarrativePanel, DicePanel, EncounterPanel } } });
+  return mount(GameView, { global: { plugins: [pinia], stubs: { GridLayout, GridItem, NarrativePanel, DicePanel, EncounterPanel, SheetPanel } } });
 }
 
 describe('GameView', () => {

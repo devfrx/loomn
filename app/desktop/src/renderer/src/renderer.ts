@@ -168,6 +168,14 @@ async function runSelfTest(
       // Comando GM via IPC (EnterPhase, non-combat): la fase passa da exploration a dialogue.
       const gm = await window.loomn.dispatch({ type: 'EnterPhase', to: 'dialogue' });
       check(gm.ok && gm.events.some((e) => e.type === 'PhaseChanged'), 'comando GM EnterPhase cambia fase');
+
+      // 10d: la Scheda monta via la route reale (SheetPanel) e legge l attore dal read-model.
+      // Read-only -> nessun evento, la versione resta 7 (la fase 2 lo verifica).
+      await appRouter.push('/scheda');
+      check(appRouter.currentRoute.value.name === 'sheet', 'router naviga alla Scheda (SheetPanel montato)');
+      check(readModel.actors.some((a) => a.id === 'goblin'), 'la Scheda vede l attore dal read-model');
+      await appRouter.push('/');
+      check(appRouter.currentRoute.value.name === 'game', 'router torna al Gioco dopo la Scheda');
     } else {
       const s0 = await window.loomn.getStatus();
       check(s0.version === 7, 'versione 7 PERSISTITA dopo il riavvio (durabilita: incluso lo slice combat 10c)');

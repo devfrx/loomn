@@ -68,6 +68,11 @@ describe('resourceBars', () => {
     const out = resourceBars({ hp: { current: 15, max: 10 } }, ['hp']);
     expect(out[0]!.pct).toBe(1);
   });
+
+  it('clampa la percentuale a 0 con current negativo', () => {
+    const out = resourceBars({ hp: { current: -3, max: 10 } }, ['hp']);
+    expect(out[0]!.pct).toBe(0);
+  });
 });
 
 describe('toSheetView', () => {

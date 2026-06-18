@@ -4,27 +4,27 @@ import { GM_COMMANDS, isGmCommandEnabled } from './gm-commands';
 const RULES = { combatOnly: ['Attack', 'EndEncounter'], nonCombatOnly: ['StartEncounter', 'EnterPhase'] };
 
 describe('GM_COMMANDS', () => {
-  it('elenca i 6 comandi non-combat di 10f', () => {
+  it('elenca i 6 comandi GM della Regia (StartEncounter al posto di EndEncounter)', () => {
     expect(GM_COMMANDS).toEqual([
       'RequestCheck',
       'ApplyEffect',
       'StartQuest',
       'AdvanceQuest',
       'EnterPhase',
-      'EndEncounter',
+      'StartEncounter',
     ]);
   });
 });
 
 describe('isGmCommandEnabled (legalita per fase da commandPhaseRules)', () => {
-  it('EnterPhase (nonCombatOnly) abilitato fuori combat, disabilitato in combat', () => {
-    expect(isGmCommandEnabled('EnterPhase', 'exploration', RULES)).toBe(true);
-    expect(isGmCommandEnabled('EnterPhase', 'combat', RULES)).toBe(false);
+  it('StartEncounter (nonCombatOnly) abilitato fuori combat, disabilitato in combat', () => {
+    expect(isGmCommandEnabled('StartEncounter', 'exploration', RULES)).toBe(true);
+    expect(isGmCommandEnabled('StartEncounter', 'combat', RULES)).toBe(false);
   });
 
-  it('EndEncounter (combatOnly) abilitato solo in combat', () => {
-    expect(isGmCommandEnabled('EndEncounter', 'combat', RULES)).toBe(true);
-    expect(isGmCommandEnabled('EndEncounter', 'exploration', RULES)).toBe(false);
+  it('Attack (combatOnly) abilitato solo in combat', () => {
+    expect(isGmCommandEnabled('Attack', 'combat', RULES)).toBe(true);
+    expect(isGmCommandEnabled('Attack', 'exploration', RULES)).toBe(false);
   });
 
   it('RequestCheck (in nessuna lista) abilitato in ogni fase', () => {

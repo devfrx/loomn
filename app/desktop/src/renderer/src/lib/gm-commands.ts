@@ -1,12 +1,14 @@
-/** I 6 Command GM/manuali non-combat esposti da 10f (i combat — StartEncounter/Attack/EndTurn/
- *  NextRound — sono di 10c). */
+/** I 6 Command GM/manuali della Regia: i 5 non-combat di 10f (RequestCheck/ApplyEffect/StartQuest/
+ *  AdvanceQuest/EnterPhase) + StartEncounter (entrata in combat, nonCombatOnly: vive nella Regia perche
+ *  il cockpit non e visibile fuori combat). I comandi IN-combat (Attack/EndTurn/NextRound/EndEncounter)
+ *  vivono nel cockpit di 10c. */
 export const GM_COMMANDS = [
   'RequestCheck',
   'ApplyEffect',
   'StartQuest',
   'AdvanceQuest',
   'EnterPhase',
-  'EndEncounter',
+  'StartEncounter',
 ] as const;
 export type GmCommandType = (typeof GM_COMMANDS)[number];
 

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import LoomnButton from './LoomnButton.vue';
 import { useReadModelStore } from '../stores/read-model';
 import { useRulesetStore } from '../stores/ruleset';
 import { useDispatch } from '../composables/use-dispatch';
 import { GM_COMMANDS, isGmCommandEnabled, type GmCommandType } from '../lib/gm-commands';
+import { buildStartEncounter } from '../lib/combat-commands';
 import type { DispatchCommand } from '@loomn/shared';
 type RequestCheckCmd = Extract<DispatchCommand, { type: 'RequestCheck' }>;
 type ApplyEffectCmd = Extract<DispatchCommand, { type: 'ApplyEffect' }>;
@@ -25,7 +26,7 @@ const labels: Record<GmCommandType, string> = {
   StartQuest: 'Avvia quest',
   AdvanceQuest: 'Avanza quest',
   EnterPhase: 'Cambia fase',
-  EndEncounter: 'Termina scontro',
+  StartEncounter: 'Avvia scontro',
 };
 
 function enabled(type: GmCommandType): boolean {
@@ -37,6 +38,46 @@ const ae = reactive({ targetId: '', resource: '', direction: '', count: 1, sides
 const sq = reactive({ id: '', title: '', description: '' });
 const aq = reactive({ questId: '', status: '' });
 const ep = reactive({ to: '' });
+
+interface SeRow {
+  actorId: string;
+  name: string;
+  include: boolean;
+  initiative: number;
+  zone: string;
+}
+const seRows = ref<SeRow[]>([]);
+// Ricostruisce le righe quando il roster cambia, preservando le scelte gia fatte per attore.
+watch(
+  () => store.actors,
+  (actors) => {
+    const prev = new Map(seRows.value.map((r) => [r.actorId, r]));
+    seRows.value = actors.map((a) => {
+      const p = prev.get(a.id);
+      return {
+        actorId: a.id,
+        name: a.name,
+        include: p?.include ?? false,
+        initiative: p?.initiative ?? 10,
+        zone: p?.zone ?? 'centro',
+      };
+    });
+  },
+  { immediate: true },
+);
+
+function submitStartEncounter(): void {
+  // buildStartEncounter ritorna un literal PLAIN (mai i proxy reactive di seRows): clone IPC sicura.
+  const cmd = buildStartEncounter(
+    `scontro-${store.version}`,
+    seRows.value.map((r) => ({ actorId: r.actorId, include: r.include, initiative: r.initiative, zone: r.zone })),
+  );
+  if (cmd === null) {
+    feedback.value = { kind: 'error', msg: 'Seleziona almeno un partecipante.' };
+    return;
+  }
+  void send(cmd);
+}
 
 async function send(command: DispatchCommand): Promise<void> {
   feedback.value = null;
@@ -72,9 +113,6 @@ function submitAdvanceQuest(): void {
 }
 function submitEnterPhase(): void {
   void send({ type: 'EnterPhase', to: ep.to as EnterPhaseCmd['to'] });
-}
-function submitEndEncounter(): void {
-  void send({ type: 'EndEncounter' });
 }
 
 const v = computed(() => ruleset.vocabulary);
@@ -131,8 +169,14 @@ const v = computed(() => ruleset.vocabulary);
               <LoomnButton variant="solid" :disabled="!ep.to" @click="submitEnterPhase">Cambia</LoomnButton>
             </template>
 
-            <template v-else-if="type === 'EndEncounter'">
-              <LoomnButton variant="solid" @click="submitEndEncounter">Termina</LoomnButton>
+            <template v-else-if="type === 'StartEncounter'">
+              <p v-if="!seRows.length" class="cmd__hint">Nessun attore: crealo in Compagnia.</p>
+              <div v-for="row in seRows" :key="row.actorId" class="se-row">
+                <label class="se-row__inc"><input v-model="row.include" type="checkbox" /> {{ row.name }}</label>
+                <input v-model.number="row.initiative" class="inp" type="number" aria-label="iniziativa" />
+                <input v-model="row.zone" class="inp" aria-label="zona" />
+              </div>
+              <LoomnButton variant="solid" :disabled="!seRows.length" @click="submitStartEncounter">Avvia scontro</LoomnButton>
             </template>
           </fieldset>
         </section>
@@ -157,4 +201,7 @@ const v = computed(() => ruleset.vocabulary);
 .cmd__body { border: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .inp { font: inherit; font-family: var(--f-mono); font-size: 12px; color: var(--text); background: var(--panel); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 9px; }
 .inp[type='number'] { width: 64px; }
+.cmd__hint { font-size: 11px; color: var(--text-3); margin: 0; }
+.se-row { display: flex; align-items: center; gap: 8px; width: 100%; }
+.se-row__inc { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text); flex: 1; }
 </style>

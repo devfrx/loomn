@@ -40,9 +40,21 @@ describe('useRunTurn', () => {
   it('su turno in errore popola error e non appende', async () => {
     window.loomn = { runTurn: vi.fn(() => Promise.resolve({ ok: false, error: 'provider non configurato' })) } as unknown as typeof window.loomn;
     const narration = useNarrationStore();
+    const dice = useDiceStore();
     const { submit } = useRunTurn();
     await submit('faccio qualcosa');
     expect(narration.error).toBe('provider non configurato');
+    expect(narration.entries).toEqual([]);
+    expect(dice.rolls).toEqual([]);
+    expect(narration.pending).toBe(false);
+  });
+
+  it('su runTurn che rigetta imposta error e svuota pending', async () => {
+    window.loomn = { runTurn: vi.fn(() => Promise.reject(new Error('IPC error'))) } as unknown as typeof window.loomn;
+    const narration = useNarrationStore();
+    const { submit } = useRunTurn();
+    await submit('faccio qualcosa');
+    expect(narration.error).toBe('IPC error');
     expect(narration.entries).toEqual([]);
     expect(narration.pending).toBe(false);
   });

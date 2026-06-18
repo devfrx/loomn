@@ -7,6 +7,8 @@ export function useRunTurn(): { submit: (action: string) => Promise<void> } {
   const narration = useNarrationStore();
   const dice = useDiceStore();
 
+  // Doppia invocazione impossibile in pratica: il caller (NarrativePanel) disabilita l input su
+  // narration.pending. Nessuna guardia runtime per YAGNI; il contratto vive nel caller.
   async function submit(action: string): Promise<void> {
     const trimmed = action.trim();
     if (trimmed === '') return;

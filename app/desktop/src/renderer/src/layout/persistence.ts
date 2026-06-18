@@ -35,20 +35,15 @@ export function createLocalStoragePersistence(
 }
 
 function isLayout(v: unknown): v is LayoutItem[] {
-  return (
-    Array.isArray(v) &&
-    v.every((it) => {
-      if (typeof it !== 'object' || it === null) return false;
-      const o = it as Record<string, unknown>;
-      return (
-        typeof o['i'] === 'string' &&
-        typeof o['x'] === 'number' &&
-        typeof o['y'] === 'number' &&
-        typeof o['w'] === 'number' &&
-        typeof o['h'] === 'number'
-      );
-    })
-  );
+  // Un layout valido ha almeno un pannello (un array vuoto -> si ricade sul preset, non un canvas
+  // vuoto irrecuperabile). I numeri devono essere finiti: 1e999 e JSON valido ma parsa a Infinity.
+  if (!Array.isArray(v) || v.length === 0) return false;
+  const finite = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
+  return v.every((it) => {
+    if (typeof it !== 'object' || it === null) return false;
+    const o = it as Record<string, unknown>;
+    return typeof o['i'] === 'string' && finite(o['x']) && finite(o['y']) && finite(o['w']) && finite(o['h']);
+  });
 }
 
 /** Risolve il layout per la fase: override persistito se valido, altrimenti il preset di default. */

@@ -47,6 +47,18 @@ describe('createLocalStoragePersistence', () => {
     expect(createLocalStoragePersistence(storage).load('combat')).toBeNull();
   });
 
+  it('load di un array vuoto e null (un layout valido ha almeno un pannello)', () => {
+    const storage = fakeStorage();
+    storage.setItem('loomn:layout:combat', '[]');
+    expect(createLocalStoragePersistence(storage).load('combat')).toBeNull();
+  });
+
+  it('load di coordinate non finite e null', () => {
+    const storage = fakeStorage();
+    storage.setItem('loomn:layout:combat', '[{"i":"x","x":1e999,"y":0,"w":1,"h":1}]');
+    expect(createLocalStoragePersistence(storage).load('combat')).toBeNull();
+  });
+
   it('le fasi non si calpestano (chiave per fase)', () => {
     const p = createLocalStoragePersistence(fakeStorage());
     p.save('combat', sample);

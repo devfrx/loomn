@@ -3,6 +3,7 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import LoomnButton from './LoomnButton.vue';
 import { useReadModelStore } from '../stores/read-model';
 import { useRulesetStore } from '../stores/ruleset';
+import { useDispatch } from '../composables/use-dispatch';
 import { GM_COMMANDS, isGmCommandEnabled, type GmCommandType } from '../lib/gm-commands';
 import type { DispatchCommand } from '@loomn/shared';
 type RequestCheckCmd = Extract<DispatchCommand, { type: 'RequestCheck' }>;
@@ -12,6 +13,7 @@ type EnterPhaseCmd = Extract<DispatchCommand, { type: 'EnterPhase' }>;
 
 const store = useReadModelStore();
 const ruleset = useRulesetStore();
+const { dispatch } = useDispatch();
 const open = ref(false);
 const feedback = ref<{ kind: 'ok' | 'error'; msg: string } | null>(null);
 
@@ -38,7 +40,8 @@ const ep = reactive({ to: '' });
 
 async function send(command: DispatchCommand): Promise<void> {
   feedback.value = null;
-  const res = await window.loomn.dispatch(command);
+  // dispatch del composable: applica il Command E accoda al pannello dadi i tiri prodotti.
+  const res = await dispatch(command);
   feedback.value = res.ok ? { kind: 'ok', msg: 'Comando applicato.' } : { kind: 'error', msg: res.error };
 }
 

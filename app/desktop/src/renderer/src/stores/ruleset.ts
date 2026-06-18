@@ -4,7 +4,12 @@ import type { RulesetResult } from '@loomn/shared';
 
 type RulesetOk = Extract<RulesetResult, { ok: true }>;
 
-/** Vocabolario di gioco + enum + regole di fase (read-side 10g): fetch-once (statico per sessione).
+// Default condiviso e stabile (come INITIAL_PHASE in read-model.ts): evita un nuovo literal a ogni
+// valutazione del computed quando il ruleset non e ancora caricato. Trattato read-only dai consumer.
+const EMPTY_PHASE_RULES = { combatOnly: [] as string[], nonCombatOnly: [] as string[] };
+
+/** Vocabolario di gioco + enum + regole di fase (read-side 10g): fetch-once SU SUCCESSO (statico per
+ *  sessione). Su un esito non ok data resta null e error e impostato -> un load() successivo riprova.
  *  Consumato dai form data-driven (creazione PG, Regia GM). */
 export const useRulesetStore = defineStore('ruleset', () => {
   const data = ref<RulesetOk | null>(null);
@@ -27,7 +32,7 @@ export const useRulesetStore = defineStore('ruleset', () => {
   const softPhases = computed<string[]>(() => data.value?.softPhases ?? []);
   const questOutcomes = computed<string[]>(() => data.value?.questOutcomes ?? []);
   const directions = computed<string[]>(() => data.value?.directions ?? []);
-  const commandPhaseRules = computed(() => data.value?.commandPhaseRules ?? { combatOnly: [], nonCombatOnly: [] });
+  const commandPhaseRules = computed(() => data.value?.commandPhaseRules ?? EMPTY_PHASE_RULES);
 
   return { load, loaded, error, vocabulary, difficulties, softPhases, questOutcomes, directions, commandPhaseRules };
 });

@@ -8,7 +8,14 @@ function stubStatus(status: StatusResult): void {
 }
 
 describe('useProviderStatusStore', () => {
-  beforeEach(() => setActivePinia(createPinia()));
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    // Default sicuro: nessun test dipende dall ordine; i test che servono uno status specifico
+    // ri-stubbano con stubStatus.
+    window.loomn = {
+      getStatus: () => Promise.resolve({ version: 0, safeStorageAvailable: true, providerConfigured: false }),
+    } as unknown as typeof window.loomn;
+  });
 
   it('parte non caricato e non configurato', () => {
     const s = useProviderStatusStore();

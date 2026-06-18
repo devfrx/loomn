@@ -125,14 +125,25 @@ const encounterSchema = z.object({
   turnIndex: z.number(),
 });
 
+// Enum statici di comando: shared e FOGLIA (non importa engine) -> rispecchia i const dell engine
+// (DIFFICULTIES/SOFT_PHASES/QUEST_OUTCOMES/RESOURCE_DIRECTIONS di @loomn/engine). Esportati come const
+// per i form GM del renderer (che importa SOLO @loomn/shared, mai engine). L allineamento engine<->shared
+// e verificato a runtime in @loomn/host (drift guard, dove engine e shared coesistono); gli enum dentro
+// eventi/stato hanno gia il guard di compile-time in sqlite-event-store. Gli schemi privati sotto
+// derivano da questi const (single-source nel pacchetto).
+export const DIFFICULTIES = ['trivial', 'easy', 'moderate', 'hard', 'formidable', 'legendary'] as const;
+export const SOFT_PHASES = ['exploration', 'dialogue', 'downtime'] as const;
+export const QUEST_OUTCOMES = ['completed', 'failed'] as const;
+export const RESOURCE_DIRECTIONS = ['restore', 'drain'] as const;
+
 // difficulty: shared e FOGLIA (non importa engine) -> rispecchia i literal di Difficulty
 // dell engine. Il drift guard bidirezionale (sqlite-event-store) verifica l allineamento 1:1.
-const difficultySchema = z.enum(['trivial', 'easy', 'moderate', 'hard', 'formidable', 'legendary']);
+const difficultySchema = z.enum(DIFFICULTIES);
 
 // Stati delle quest: shared e FOGLIA (non importa engine) -> rispecchia i literal di QuestStatus/
 // QuestOutcome. Il drift guard bidirezionale (sqlite-event-store) verifica l allineamento 1:1.
 const questStatusSchema = z.enum(['active', 'completed', 'failed']);
-const questOutcomeSchema = z.enum(['completed', 'failed']);
+const questOutcomeSchema = z.enum(QUEST_OUTCOMES);
 
 // Fasi di gioco (§5.5): shared e FOGLIA (non importa engine) -> rispecchia i literal di Phase
 // dell engine. Il drift guard bidirezionale (sqlite-event-store) verifica l allineamento 1:1.
@@ -140,7 +151,7 @@ const phaseSchema = z.enum(['exploration', 'dialogue', 'combat', 'downtime']);
 
 // Fasi soft (§5.5): le uniche proponibili con EnterPhase (combat e modale, vi si entra con
 // StartEncounter). shared e FOGLIA -> rispecchia i literal di SoftPhase dell engine.
-const softPhaseSchema = z.enum(['exploration', 'dialogue', 'downtime']);
+const softPhaseSchema = z.enum(SOFT_PHASES);
 
 // description opzionale: il .transform() la OMETTE quando assente, cosi il tipo inferito e
 // assegnabile 1:1 a Quest sotto exactOptionalPropertyTypes (pattern di dieGroupSchema). La
@@ -291,7 +302,7 @@ const applyEffectCommandSchema = z
     type: z.literal('ApplyEffect'),
     targetId: z.string(),
     resource: z.string(),
-    direction: z.enum(['restore', 'drain']),
+    direction: z.enum(RESOURCE_DIRECTIONS),
     dice: z.array(dieGroupSchema),
     bonus: z.number().optional(),
   })

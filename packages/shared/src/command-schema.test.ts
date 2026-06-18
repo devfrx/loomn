@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { commandSchema } from './domain-schema';
+import { commandSchema, DIFFICULTIES, SOFT_PHASES, QUEST_OUTCOMES, RESOURCE_DIRECTIONS } from './domain-schema';
 
 function sampleActor(id: string): unknown {
   return {
@@ -207,5 +207,23 @@ describe('commandSchema', () => {
 
   it('valida EndEncounter', () => {
     expect(commandSchema.parse({ type: 'EndEncounter' })).toEqual({ type: 'EndEncounter' });
+  });
+});
+
+describe('enum statici di comando esportati (per i form GM)', () => {
+  it('DIFFICULTIES elenca le sei band di difficolta', () => {
+    expect([...DIFFICULTIES]).toEqual(['trivial', 'easy', 'moderate', 'hard', 'formidable', 'legendary']);
+  });
+
+  it('SOFT_PHASES elenca le fasi proponibili con EnterPhase', () => {
+    expect([...SOFT_PHASES]).toEqual(['exploration', 'dialogue', 'downtime']);
+  });
+
+  it('QUEST_OUTCOMES elenca gli esiti terminali di quest', () => {
+    expect([...QUEST_OUTCOMES]).toEqual(['completed', 'failed']);
+  });
+
+  it('RESOURCE_DIRECTIONS elenca le direzioni di effetto', () => {
+    expect([...RESOURCE_DIRECTIONS]).toEqual(['restore', 'drain']);
   });
 });

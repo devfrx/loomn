@@ -5,6 +5,10 @@ import { useReadModelStore } from '../stores/read-model';
 import { useRulesetStore } from '../stores/ruleset';
 import { GM_COMMANDS, isGmCommandEnabled, type GmCommandType } from '../lib/gm-commands';
 import type { DispatchCommand } from '@loomn/shared';
+type RequestCheckCmd = Extract<DispatchCommand, { type: 'RequestCheck' }>;
+type ApplyEffectCmd = Extract<DispatchCommand, { type: 'ApplyEffect' }>;
+type AdvanceQuestCmd = Extract<DispatchCommand, { type: 'AdvanceQuest' }>;
+type EnterPhaseCmd = Extract<DispatchCommand, { type: 'EnterPhase' }>;
 
 const store = useReadModelStore();
 const ruleset = useRulesetStore();
@@ -42,7 +46,7 @@ function submitRequestCheck(): void {
   void send({
     type: 'RequestCheck',
     actorId: rc.actorId,
-    difficulty: rc.difficulty as never,
+    difficulty: rc.difficulty as RequestCheckCmd['difficulty'],
     ...(rc.attribute ? { attribute: rc.attribute } : {}),
     ...(rc.skill ? { skill: rc.skill } : {}),
   });
@@ -52,7 +56,7 @@ function submitApplyEffect(): void {
     type: 'ApplyEffect',
     targetId: ae.targetId,
     resource: ae.resource,
-    direction: ae.direction as never,
+    direction: ae.direction as ApplyEffectCmd['direction'],
     dice: [{ count: ae.count, sides: ae.sides }],
     ...(ae.bonus ? { bonus: ae.bonus } : {}),
   });
@@ -61,10 +65,10 @@ function submitStartQuest(): void {
   void send({ type: 'StartQuest', id: sq.id, title: sq.title, ...(sq.description ? { description: sq.description } : {}) });
 }
 function submitAdvanceQuest(): void {
-  void send({ type: 'AdvanceQuest', questId: aq.questId, status: aq.status as never });
+  void send({ type: 'AdvanceQuest', questId: aq.questId, status: aq.status as AdvanceQuestCmd['status'] });
 }
 function submitEnterPhase(): void {
-  void send({ type: 'EnterPhase', to: ep.to as never });
+  void send({ type: 'EnterPhase', to: ep.to as EnterPhaseCmd['to'] });
 }
 function submitEndEncounter(): void {
   void send({ type: 'EndEncounter' });
@@ -75,9 +79,9 @@ const v = computed(() => ruleset.vocabulary);
 
 <template>
   <div class="gm">
-    <LoomnButton variant="ghost" @click="open = true">Regia</LoomnButton>
+    <LoomnButton variant="ghost" @click="open = true; feedback = null">Regia</LoomnButton>
     <div v-if="open" class="gm__scrim" @click.self="open = false">
-      <aside class="gm__panel" role="dialog" aria-label="Regia">
+      <aside class="gm__panel" role="dialog" aria-modal="true" aria-label="Regia">
         <header class="gm__head">
           <span class="gm__title">Regia</span>
           <button class="gm__close" type="button" aria-label="chiudi" @click="open = false">&#x2715;</button>
@@ -103,7 +107,7 @@ const v = computed(() => ruleset.vocabulary);
               <input v-model.number="ae.count" class="inp" type="number" aria-label="count" />
               <input v-model.number="ae.sides" class="inp" type="number" aria-label="sides" />
               <input v-model.number="ae.bonus" class="inp" type="number" aria-label="bonus" />
-              <LoomnButton variant="solid" :disabled="!ae.targetId || !ae.resource || !ae.direction" @click="submitApplyEffect">Applica</LoomnButton>
+              <LoomnButton variant="solid" :disabled="!ae.targetId || !ae.resource || !ae.direction || !ae.count || !ae.sides" @click="submitApplyEffect">Applica</LoomnButton>
             </template>
 
             <template v-else-if="type === 'StartQuest'">

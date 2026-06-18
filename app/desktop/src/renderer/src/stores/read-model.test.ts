@@ -35,6 +35,7 @@ describe('useReadModelStore', () => {
     expect(s.actors).toEqual([]);
     expect(s.quests).toEqual([]);
     expect(s.encounter).toBeNull();
+    expect(s.inCombat).toBe(false);
   });
 
   it('applyPush popola versione e stato', () => {
@@ -57,6 +58,12 @@ describe('useReadModelStore', () => {
     s.applyPush(push({ phase: 'combat' }));
     expect(s.phase).toBe('combat');
     expect(s.inCombat).toBe(true);
+  });
+
+  it('proietta un encounter non-null', () => {
+    const s = useReadModelStore();
+    s.applyPush(push({ encounter: { id: 'enc1', participants: [], round: 1, turnIndex: 0 } }));
+    expect(s.encounter?.id).toBe('enc1');
   });
 
   it('proietta le quest come array', () => {

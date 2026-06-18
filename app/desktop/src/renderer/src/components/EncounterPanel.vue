@@ -54,7 +54,6 @@ function attack(): void {
 <template>
   <LoomnPanel title="Scontro" eyebrow="combattimento" :meta="view ? `round ${view.round}` : ''">
     <div v-if="view" class="cockpit">
-      <p class="cockpit__round">round {{ view.round }}</p>
       <p class="cockpit__turn">Turno di <strong>{{ view.current?.name ?? '-' }}</strong></p>
 
       <ol class="order">
@@ -115,7 +114,6 @@ function attack(): void {
 
 <style scoped>
 .cockpit { display: flex; flex-direction: column; gap: 12px; height: 100%; min-height: 0; }
-.cockpit__round { margin: 0; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
 .cockpit__turn { margin: 0; font-size: 13px; color: var(--text-2); }
 .cockpit__turn strong { color: var(--text); font-family: var(--f-display); }
 .order { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; overflow: auto; min-height: 0; }

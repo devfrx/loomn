@@ -17,7 +17,7 @@ const RULESET: Extract<RulesetResult, { ok: true }> = {
 
 // LoomnPanel/LoomnButton stub passthrough (gli attr come :disabled cadono sul root via fallthrough).
 const stubs = {
-  LoomnPanel: { template: '<div><slot /></div>' },
+  LoomnPanel: { props: ['title', 'eyebrow', 'meta'], template: '<div>{{ meta }}<slot /></div>' },
   LoomnButton: { template: '<button><slot /></button>' },
 };
 

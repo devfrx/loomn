@@ -62,11 +62,11 @@ async function onSend(): Promise<void> {
 .narr__log { list-style: none; margin: 0; padding: 0; overflow: auto; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 14px; }
 .narr__entry { display: flex; flex-direction: column; gap: 4px; }
 .narr__action { color: var(--text-3); font-size: 12px; font-style: italic; margin: 0; }
-.narr__prose { font-family: var(--font-serif, Newsreader, serif); font-size: 15px; line-height: 1.55; margin: 0; color: var(--text-1); }
+.narr__prose { font-family: var(--f-read); font-size: 15px; line-height: 1.55; margin: 0; color: var(--text); }
 .narr__more { align-self: center; background: none; border: 1px solid var(--line); color: var(--text-3); padding: 4px 10px; cursor: pointer; border-radius: 6px; }
 .narr__pending { color: var(--accent); font-size: 13px; margin: 0; }
-.narr__error { color: var(--danger, #c2553d); font-size: 13px; margin: 0; }
+.narr__error { color: var(--bad); font-size: 13px; margin: 0; }
 .narr__compose { display: flex; gap: 8px; align-items: flex-end; }
-.narr__input { flex: 1; resize: none; background: var(--well); color: var(--text-1); border: 1px solid var(--line); border-radius: 8px; padding: 8px; font: inherit; }
+.narr__input { flex: 1; resize: none; background: var(--well); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px; font: inherit; }
 .narr__hint { color: var(--text-3); font-size: 12px; margin: 0; }
 </style>

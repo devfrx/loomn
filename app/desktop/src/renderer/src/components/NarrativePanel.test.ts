@@ -67,5 +67,28 @@ describe('NarrativePanel', () => {
     await flushPromises();
     expect(runTurn).toHaveBeenCalledWith({ playerAction: 'apro la porta' });
     expect(w.text()).toContain('esito');
+    expect((w.find('textarea').element as HTMLTextAreaElement).value).toBe('');
+  });
+
+  it('il bottone carica piu vecchie pagina la storia', async () => {
+    const getNarrationHistory = vi.fn((req: { before?: number }) =>
+      req.before === undefined
+        ? Promise.resolve({ ok: true as const, hasMore: true, entries: [{ seq: 5, playerAction: 'a5', narration: 'recente' }] })
+        : Promise.resolve({ ok: true as const, hasMore: false, entries: [{ seq: 2, playerAction: 'a2', narration: 'antica' }] }),
+    );
+    stubLoomn({ getNarrationHistory });
+    const w = mount(NarrativePanel, { global: { plugins: [createPinia()], stubs } });
+    await flushPromises();
+    await w.find('.narr__more').trigger('click');
+    await flushPromises();
+    expect(getNarrationHistory).toHaveBeenLastCalledWith({ before: 5 });
+    expect(w.text()).toContain('antica');
+  });
+
+  it('mostra la riga di errore se il caricamento della storia fallisce', async () => {
+    stubLoomn({ getNarrationHistory: vi.fn(() => Promise.resolve({ ok: false as const, error: 'storia non leggibile' })) });
+    const w = mount(NarrativePanel, { global: { plugins: [createPinia()], stubs } });
+    await flushPromises();
+    expect(w.text()).toContain('storia non leggibile');
   });
 });

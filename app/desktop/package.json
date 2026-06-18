@@ -8,7 +8,8 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@loomn/shared": "workspace:*",
@@ -16,7 +17,15 @@
     "@loomn/engine": "workspace:*",
     "@loomn/ai": "workspace:*",
     "better-sqlite3": "^12.10.1",
-    "drizzle-orm": "^0.38.4"
+    "drizzle-orm": "^0.38.4",
+    "pinia": "^3.0.4",
+    "vue-router": "^4.6.4",
+    "reka-ui": "^2.9.10",
+    "grid-layout-plus": "^1.1.1",
+    "@fontsource-variable/fraunces": "^5.2.9",
+    "@fontsource-variable/newsreader": "^5.2.10",
+    "@fontsource-variable/archivo": "^5.2.8",
+    "@fontsource-variable/jetbrains-mono": "^5.2.8"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.0",
@@ -26,6 +35,9 @@
     "vue": "^3.5.18",
     "vue-tsc": "^2.1.10",
     "typescript": "^5.5.4",
-    "@types/node": "^22.10.5"
+    "@types/node": "^22.10.5",
+    "vitest": "^2.1.9",
+    "@vue/test-utils": "^2.4.11",
+    "jsdom": "^29.1.1"
   }
 }

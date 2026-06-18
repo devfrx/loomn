@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import LoomnPanel from '../components/LoomnPanel.vue';
+import SheetPanel from '../components/SheetPanel.vue';
 </script>
 
 <template>
   <main class="route-view">
-    <LoomnPanel eyebrow="scheda" title="Scheda del personaggio">
-      <p>Attributi, risorse, condizioni e inventario data-driven arrivano nel Piano 10d.</p>
-    </LoomnPanel>
+    <SheetPanel />
   </main>
 </template>
 

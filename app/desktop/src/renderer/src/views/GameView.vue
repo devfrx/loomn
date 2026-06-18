@@ -23,8 +23,12 @@ const titles: Record<string, string> = {
 
 <template>
   <main class="game-view">
+    <!-- Controlled: il composable possiede `layout`; la griglia lo legge via :layout (e ri-semina
+         dal proprio watch su props.layout al cambio fase) e riporta i riarrangiamenti via
+         @layout-updated, unico write-path. v-model sarebbe inerte (update:layout scatta solo su
+         col-num/breakpoint, qui fissi). -->
     <GridLayout
-      v-model:layout="layout"
+      :layout="layout"
       :col-num="12"
       :row-height="30"
       :margin="[14, 14]"

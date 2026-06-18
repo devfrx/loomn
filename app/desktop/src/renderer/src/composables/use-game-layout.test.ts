@@ -51,7 +51,7 @@ describe('useGameLayout', () => {
   it('tornando a una fase con override persistito lo ricarica', async () => {
     const persistence = createLocalStoragePersistence(fakeStorage());
     const phase = ref<PhaseView>('combat');
-    const { onLayoutUpdated } = useGameLayout(phase, persistence);
+    const { layout, onLayoutUpdated } = useGameLayout(phase, persistence);
     const moved = [{ i: PANELS.dice, x: 0, y: 0, w: 4, h: 4 }];
     onLayoutUpdated(moved);
     phase.value = 'exploration';
@@ -59,5 +59,6 @@ describe('useGameLayout', () => {
     phase.value = 'combat';
     await nextTick();
     expect(persistence.load('combat')).toEqual(moved);
+    expect(layout.value).toEqual(moved);
   });
 });

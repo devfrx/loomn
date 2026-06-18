@@ -13,6 +13,8 @@ export function useGameLayout(
   const layout = ref<LayoutItem[]>(resolveLayout(phase.value, persistence));
 
   watch(phase, (next) => {
+    // Qualunque riarrangiamento non ancora persistito viene scartato: il preset/override per-fase
+    // e canonico (il layout e una preferenza per-fase, non stato condiviso fra fasi).
     layout.value = resolveLayout(next, persistence);
   });
 

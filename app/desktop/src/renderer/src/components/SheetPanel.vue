@@ -28,7 +28,7 @@ const kindLabel = computed(() => (sheet.value?.kind === 'pc' ? 'PG' : 'PNG'));
     <div v-if="sheet" class="sheet">
       <div class="sheet__head">
         <select v-if="store.actors.length > 1" :value="actor?.id ?? ''" class="sheet__select" aria-label="attore" @change="selectActor">
-          <option v-for="a in store.actors" :key="a.id" :value="a.id">{{ a.kind === 'pc' ? 'PG' : 'PNG' }} · {{ a.id }}</option>
+          <option v-for="a in store.actors" :key="a.id" :value="a.id">{{ a.name }} ({{ a.kind === 'pc' ? 'PG' : 'PNG' }})</option>
         </select>
         <span class="sheet__id">{{ kindLabel }} · xp {{ sheet.xp }}</span>
       </div>

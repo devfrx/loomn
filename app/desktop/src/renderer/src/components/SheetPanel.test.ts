@@ -96,9 +96,10 @@ describe('SheetPanel', () => {
   it('cambiando selezione mostra un altro attore', async () => {
     const w = mountPanel();
     await flushPromises();
+    expect(w.text()).toContain('7/10'); // Eroe selezionato di default (hp 7/10)
     await w.find('select[aria-label="attore"]').setValue('png');
-    expect(w.text()).toContain('Goblin');
-    expect(w.text()).not.toContain('Eroe');
+    expect(w.text()).toContain('3/6'); // ora Goblin (hp 3/6)
+    expect(w.text()).not.toContain('7/10'); // la scheda di Eroe non e piu mostrata
   });
 
   it('senza attori mostra lo stato vuoto', async () => {

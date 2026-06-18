@@ -6,6 +6,7 @@ import { app, safeStorage } from 'electron';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { providerConfigSchema, type ProviderConfig } from '@loomn/shared';
+import { resolveStoredKey } from './provider-config';
 
 interface StoredSettings {
   baseUrl: string;
@@ -18,16 +19,18 @@ function settingsPath(): string {
   return join(app.getPath('userData'), 'settings.json');
 }
 
-/** Salva la config provider; cifra la chiave con safeStorage se presente e disponibile. */
+/** Salva la config provider. La chiave e tri-stato (resolveStoredKey): campo vuoto -> mantieni la
+ *  esistente; '' -> rimuovi; stringa -> cifra e sostituisci (safeStorage). */
 export function saveProviderConfig(config: ProviderConfig): void {
-  const hasKey = config.apiKey !== undefined && config.apiKey !== '';
-  if (hasKey && !safeStorage.isEncryptionAvailable()) {
+  if (config.apiKey !== undefined && config.apiKey !== '' && !safeStorage.isEncryptionAvailable()) {
     throw new Error('safeStorage non disponibile: impossibile cifrare la chiave API');
   }
+  const prior = readStored(settingsPath());
+  const apiKeyEnc = resolveStoredKey(config.apiKey, prior?.apiKeyEnc, (plain) =>
+    safeStorage.encryptString(plain).toString('base64'),
+  );
   const stored: StoredSettings = { baseUrl: config.baseUrl, model: config.model };
-  if (config.apiKey !== undefined && config.apiKey !== '') {
-    stored.apiKeyEnc = safeStorage.encryptString(config.apiKey).toString('base64');
-  }
+  if (apiKeyEnc !== undefined) stored.apiKeyEnc = apiKeyEnc;
   writeFileSync(settingsPath(), JSON.stringify(stored), 'utf8');
 }
 
@@ -61,4 +64,20 @@ export function loadProviderConfig(): ProviderConfig | undefined {
   }
   const result = providerConfigSchema.safeParse(config);
   return result.success ? result.data : undefined;
+}
+
+/** Metadata della config persistita SENZA decifrare la chiave (hasApiKey = ciphertext presente).
+ *  Usato da get-status per il read-back: la chiave non viene mai decifrata ne esposta. */
+export interface ProviderMeta {
+  baseUrl: string;
+  model: string;
+  hasApiKey: boolean;
+}
+
+export function loadProviderMeta(): ProviderMeta | undefined {
+  const path = settingsPath();
+  if (!existsSync(path)) return undefined;
+  const stored = readStored(path);
+  if (stored === undefined) return undefined;
+  return { baseUrl: stored.baseUrl, model: stored.model, hasApiKey: stored.apiKeyEnc !== undefined };
 }

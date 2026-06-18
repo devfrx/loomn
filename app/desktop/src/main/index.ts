@@ -30,7 +30,7 @@ import {
   type RulesetResult,
 } from '@loomn/shared';
 import { createProviderHolder, type ProviderHolder } from './provider-holder';
-import { loadProviderConfig, saveProviderConfig } from './settings';
+import { loadProviderConfig, loadProviderMeta, saveProviderConfig } from './settings';
 import type { LanguageProviderConfig } from '@loomn/host';
 import type { ProviderConfig } from '@loomn/shared';
 
@@ -99,7 +99,9 @@ function registerHandlers(service: CampaignService): void {
     if (!parsed.success) return { ok: false, error: `Config provider non valida: ${parsed.error.message}` };
     try {
       saveProviderConfig(parsed.data);
-      holder.configure(createLanguageProvider(toLanguageProviderConfig(parsed.data)));
+      const effective = loadProviderConfig(); // config unita: include la chiave mantenuta
+      if (effective === undefined) return { ok: false, error: 'Config provider non leggibile dopo il salvataggio' };
+      holder.configure(createLanguageProvider(toLanguageProviderConfig(effective)));
       return { ok: true };
     } catch (err) {
       return { ok: false, error: errorMessage(err) };
@@ -117,14 +119,15 @@ function registerHandlers(service: CampaignService): void {
     }
   });
 
-  ipcMain.handle(
-    IPC_CHANNELS.getStatus,
-    (): StatusResult => ({
+  ipcMain.handle(IPC_CHANNELS.getStatus, (): StatusResult => {
+    const meta = loadProviderMeta();
+    return {
       version: service.getReadModel().version,
       safeStorageAvailable: safeStorage.isEncryptionAvailable(),
       providerConfigured: holder.isConfigured(),
-    }),
-  );
+      ...(meta !== undefined ? { provider: meta } : {}),
+    };
+  });
 
   ipcMain.handle(IPC_CHANNELS.narrationHistory, (_e, raw): NarrationHistoryResult => {
     const parsed = narrationHistoryRequestSchema.safeParse(raw);

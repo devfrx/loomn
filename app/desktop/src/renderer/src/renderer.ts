@@ -43,6 +43,7 @@ async function runSelfTest(
       const s0 = await window.loomn.getStatus();
       check(s0.version === 0, 'DB fresco a versione 0');
       check(s0.safeStorageAvailable, 'safeStorage disponibile');
+      check(s0.provider === undefined, 'nessun provider persistito a DB fresco');
 
       // Attende il push prodotto dal dispatch -> verifica che lo store Pinia lo proietti.
       const pushed = new Promise<ReadModelPush>((resolve) => {
@@ -114,10 +115,27 @@ async function runSelfTest(
 
       const s1 = await window.loomn.getStatus();
       check(s1.providerConfigured, 'provider configurato dopo set-provider');
+      check(
+        s1.provider?.baseUrl === 'http://localhost:1234/v1' &&
+          s1.provider?.model === 'local' &&
+          s1.provider?.hasApiKey === true,
+        'get-status espone il read-back provider dopo set-provider',
+      );
+
+      // Ri-salva cambiando solo il model, campo chiave OMESSO -> la chiave deve restare (tri-stato).
+      const sp2 = await window.loomn.setProvider({ baseUrl: 'http://localhost:1234/v1', model: 'local-2' });
+      check(sp2.ok, 'set-provider ri-salva senza chiave');
+      const s2 = await window.loomn.getStatus();
+      check(s2.provider?.model === 'local-2' && s2.provider?.hasApiKey === true, 'chiave mantenuta ri-salvando senza chiave');
+
+      // Comando GM via IPC (EnterPhase, non-combat): la fase passa da exploration a dialogue.
+      const gm = await window.loomn.dispatch({ type: 'EnterPhase', to: 'dialogue' });
+      check(gm.ok && gm.events.some((e) => e.type === 'PhaseChanged'), 'comando GM EnterPhase cambia fase');
     } else {
       const s0 = await window.loomn.getStatus();
-      check(s0.version === 1, 'versione 1 PERSISTITA dopo il riavvio (durabilita su disco)');
+      check(s0.version === 2, 'versione 2 PERSISTITA dopo il riavvio (durabilita su disco)');
       check(s0.providerConfigured, 'provider ricostruito da settings.json (chiave decifrata)');
+      check(s0.provider?.hasApiKey === true, 'read-back provider con chiave persistito dopo riavvio');
 
       const push = await Promise.race([
         firstPush,

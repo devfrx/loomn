@@ -8,14 +8,15 @@ import { useGameLayout } from '../composables/use-game-layout';
 import LoomnPanel from '../components/LoomnPanel.vue';
 import NarrativePanel from '../components/NarrativePanel.vue';
 import DicePanel from '../components/DicePanel.vue';
+import EncounterPanel from '../components/EncounterPanel.vue';
 
 const store = useReadModelStore();
 const phase = computed<PhaseView>(() => store.phase);
 const persistence = createLocalStoragePersistence();
 const { layout, onLayoutUpdated } = useGameLayout(phase, persistence);
 
-// Titoli dei pannelli ancora placeholder (scheda 10d, scontro 10c).
-const titles: Record<string, string> = { sheet: 'Scheda', encounter: 'Scontro' };
+// Titolo del pannello ancora placeholder (scheda 10d).
+const titles: Record<string, string> = { sheet: 'Scheda' };
 </script>
 
 <template>
@@ -30,8 +31,9 @@ const titles: Record<string, string> = { sheet: 'Scheda', encounter: 'Scontro' }
       <GridItem v-for="item in layout" :key="item.i" :x="item.x" :y="item.y" :w="item.w" :h="item.h" :i="item.i">
         <NarrativePanel v-if="item.i === 'narrative'" />
         <DicePanel v-else-if="item.i === 'dice'" />
+        <EncounterPanel v-else-if="item.i === 'encounter'" />
         <LoomnPanel v-else :title="titles[item.i] ?? item.i" eyebrow="pannello">
-          <p class="game-view__placeholder">Contenuto nel Piano 10c / 10d.</p>
+          <p class="game-view__placeholder">Contenuto nel Piano 10d.</p>
         </LoomnPanel>
       </GridItem>
     </GridLayout>

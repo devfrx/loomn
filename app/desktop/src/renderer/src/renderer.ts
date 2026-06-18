@@ -142,12 +142,35 @@ async function runSelfTest(
       const s2 = await window.loomn.getStatus();
       check(s2.provider?.model === 'local-2' && s2.provider?.hasApiKey === true, 'chiave mantenuta ri-salvando senza chiave');
 
+      // 10c: slice combat via IPC reale. StartEncounter (nonCombatOnly, da exploration) entra in combat;
+      // EndTurn avanza il turno; EndEncounter chiude e torna fuori combat. Prova il path combat end-to-end.
+      const enc = await window.loomn.dispatch({
+        type: 'StartEncounter',
+        encounterId: 'scontro-selftest',
+        participants: [{ actorId: 'goblin', zone: 'centro', initiative: 10 }],
+      });
+      check(enc.ok && enc.events.some((e) => e.type === 'EncounterStarted'), 'StartEncounter avvia lo scontro');
+      check(
+        enc.ok && enc.events.some((e) => e.type === 'PhaseChanged' && e.to === 'combat'),
+        'StartEncounter entra in fase combat',
+      );
+
+      const et = await window.loomn.dispatch({ type: 'EndTurn' });
+      check(et.ok && et.events.some((e) => e.type === 'TurnEnded'), 'EndTurn avanza il turno in combat');
+
+      const ee = await window.loomn.dispatch({ type: 'EndEncounter' });
+      check(ee.ok && ee.events.some((e) => e.type === 'EncounterEnded'), 'EndEncounter chiude lo scontro');
+      check(
+        ee.ok && ee.events.some((e) => e.type === 'PhaseChanged' && e.to === 'exploration'),
+        'EndEncounter torna fuori combat',
+      );
+
       // Comando GM via IPC (EnterPhase, non-combat): la fase passa da exploration a dialogue.
       const gm = await window.loomn.dispatch({ type: 'EnterPhase', to: 'dialogue' });
       check(gm.ok && gm.events.some((e) => e.type === 'PhaseChanged'), 'comando GM EnterPhase cambia fase');
     } else {
       const s0 = await window.loomn.getStatus();
-      check(s0.version === 2, 'versione 2 PERSISTITA dopo il riavvio (durabilita su disco)');
+      check(s0.version === 7, 'versione 7 PERSISTITA dopo il riavvio (durabilita: incluso lo slice combat 10c)');
       check(s0.providerConfigured, 'provider ricostruito da settings.json (chiave decifrata)');
       check(s0.provider?.hasApiKey === true, 'read-back provider con chiave persistito dopo riavvio');
 

@@ -26,6 +26,14 @@ function resetForm(): void {
   );
 }
 
+/** Apre il creatore partendo sempre da un form pulito (niente nome/feedback stantii da una sessione
+ *  annullata in precedenza). */
+function openCreator(): void {
+  resetForm();
+  feedback.value = null;
+  open.value = true;
+}
+
 onMounted(async () => {
   await ruleset.load();
   resetForm();
@@ -52,7 +60,7 @@ async function submit(): Promise<void> {
   <main class="route-view">
     <LoomnPanel eyebrow="compagnia" title="Compagnia" :meta="`${store.actors.length} attori`">
       <div class="head-actions">
-        <LoomnButton variant="solid" @click="open = true">Aggiungi PG/PNG</LoomnButton>
+        <LoomnButton variant="solid" @click="openCreator">Aggiungi PG/PNG</LoomnButton>
       </div>
 
       <ul v-if="store.actors.length" class="roster">

@@ -47,4 +47,13 @@ describe('toDicePlan', () => {
   it('considera standard i poliedri usuali', () => {
     expect([...STANDARD_SIDES].sort((a, b) => a - b)).toEqual([4, 6, 8, 10, 12, 20, 100]);
   });
+
+  it('preserva il tag sui token non-standard e lo ignora sui dadi standard', () => {
+    const plan = toDicePlan([
+      { sides: 6, value: 4, tag: 'bonus' },
+      { sides: 7, value: 2, tag: 'speciale' },
+    ]);
+    expect(plan.notation).toBe('1d6@4');
+    expect(plan.tokens).toEqual([{ sides: 7, value: 2, tag: 'speciale' }]);
+  });
 });

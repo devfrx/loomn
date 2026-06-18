@@ -3,6 +3,8 @@ import type { DispatchResult } from '@loomn/shared';
 // Tipi di vista derivati dal CONTRATTO IPC (shared resta la fonte; il renderer NON importa engine).
 type OkDispatch = Extract<DispatchResult, { ok: true }>;
 export type DomainEventView = OkDispatch['events'][number];
+// Anchor stabile per la forma del tiro: AttackResolved.check. CheckResolved.result ha la stessa
+// forma (entrambi condividono rollResultFields in domain-schema) -> DieView e identico per costruzione.
 type AttackEv = Extract<DomainEventView, { type: 'AttackResolved' }>;
 /** Forma di un tiro-prova (dice + modificatore + total/mode + dc/margin/outcome). */
 export type CheckView = AttackEv['check'];
@@ -11,7 +13,8 @@ export type DieView = CheckView['dice'][number];
 /** Grado di esito di una prova. */
 export type Outcome = CheckView['outcome'];
 
-/** Poliedri che dice-box-threejs sa renderizzare. Tutto il resto -> token numerico (spec 6). */
+/** Poliedri che dice-box-threejs sa renderizzare. Tutto il resto -> token numerico
+ *  (spec Piano 10 design §6, fallback grazioso sui sides non-standard). */
 export const STANDARD_SIDES: ReadonlySet<number> = new Set([4, 6, 8, 10, 12, 20, 100]);
 
 /** Piano di rendering di un tiro: notazione 3D coi valori FORZATI + token per i sides non-standard. */
@@ -30,7 +33,13 @@ export function toDicePlan(dice: readonly DieView[]): DicePlan {
   const byside = new Map<number, number[]>();
   for (const d of dice) {
     if (!STANDARD_SIDES.has(d.sides)) {
-      tokens.push(d.tag === undefined ? { sides: d.sides, value: d.value } : { sides: d.sides, value: d.value, tag: d.tag });
+      // Spread condizionale (exactOptionalPropertyTypes): mai tag:undefined. Il tag si preserva
+      // sui token (non-standard); sui dadi standard non entra nella notazione `@`.
+      const token: DieView =
+        d.tag === undefined
+          ? { sides: d.sides, value: d.value }
+          : { sides: d.sides, value: d.value, tag: d.tag };
+      tokens.push(token);
       continue;
     }
     if (!byside.has(d.sides)) {

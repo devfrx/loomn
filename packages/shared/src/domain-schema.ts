@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+/** Numero finito: rifiuta Infinity/-Infinity (e NaN, gia rifiutato da z.number()). I campi
+ *  numerici di eventi/stato/comandi NON sono mai legittimamente non-finiti; un non-finito al
+ *  confine corromperebbe lo stream (JSON.stringify(Infinity) === 'null' -> reparse fallisce). */
+const finiteNumber = z.number().finite();
+
 // I .transform() sui campi opzionali (tag, appliesTo) eliminano il `| undefined` che
 // z.optional() introdurrebbe, rendendo i tipi inferiti assegnabili 1:1 ai tipi engine
 // sotto exactOptionalPropertyTypes (verificato: nessun cast necessario).
@@ -7,7 +12,7 @@ import { z } from 'zod';
 const rollModeSchema = z.union([z.literal('check'), z.literal('effect')]);
 
 const dieGroupSchema = z
-  .object({ count: z.number(), sides: z.number(), tag: z.string().optional() })
+  .object({ count: finiteNumber, sides: finiteNumber, tag: z.string().optional() })
   .transform((o) =>
     o.tag === undefined
       ? { count: o.count, sides: o.sides }
@@ -15,7 +20,7 @@ const dieGroupSchema = z
   );
 
 const dieResultSchema = z
-  .object({ sides: z.number(), value: z.number(), tag: z.string().optional() })
+  .object({ sides: finiteNumber, value: finiteNumber, tag: z.string().optional() })
   .transform((o) =>
     o.tag === undefined
       ? { sides: o.sides, value: o.value }
@@ -24,8 +29,8 @@ const dieResultSchema = z
 
 const rollResultFields = {
   dice: z.array(dieResultSchema),
-  modifierTotal: z.number(),
-  total: z.number(),
+  modifierTotal: finiteNumber,
+  total: finiteNumber,
   mode: rollModeSchema,
 };
 
@@ -39,17 +44,17 @@ const outcomeSchema = z.union([
 
 const checkResultSchema = z.object({
   ...rollResultFields,
-  dc: z.number(),
-  margin: z.number(),
+  dc: finiteNumber,
+  margin: finiteNumber,
   outcome: outcomeSchema,
 });
 
-const resourcePoolSchema = z.object({ current: z.number(), max: z.number() });
+const resourcePoolSchema = z.object({ current: finiteNumber, max: finiteNumber });
 
 const conditionEffectSchema = z
   .discriminatedUnion('kind', [
-    z.object({ kind: z.literal('checkModifier'), value: z.number(), appliesTo: z.string().optional() }),
-    z.object({ kind: z.literal('resourcePerTurn'), resource: z.string(), delta: z.number() }),
+    z.object({ kind: z.literal('checkModifier'), value: finiteNumber, appliesTo: z.string().optional() }),
+    z.object({ kind: z.literal('resourcePerTurn'), resource: z.string(), delta: finiteNumber }),
   ])
   .transform((o) =>
     o.kind === 'checkModifier'
@@ -60,8 +65,8 @@ const conditionEffectSchema = z
   );
 
 const durationSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('turns'), remaining: z.number() }),
-  z.object({ kind: z.literal('scenes'), remaining: z.number() }),
+  z.object({ kind: z.literal('turns'), remaining: finiteNumber }),
+  z.object({ kind: z.literal('scenes'), remaining: finiteNumber }),
   z.object({ kind: z.literal('permanent') }),
 ]);
 
@@ -75,8 +80,8 @@ const conditionSchema = z.object({
 const itemEffectSchema = z
   .discriminatedUnion('kind', [
     z.object({ kind: z.literal('contributeDice'), dice: z.array(dieGroupSchema), mode: rollModeSchema }),
-    z.object({ kind: z.literal('checkModifier'), value: z.number(), appliesTo: z.string().optional() }),
-    z.object({ kind: z.literal('defenseModifier'), defense: z.string(), value: z.number() }),
+    z.object({ kind: z.literal('checkModifier'), value: finiteNumber, appliesTo: z.string().optional() }),
+    z.object({ kind: z.literal('defenseModifier'), defense: z.string(), value: finiteNumber }),
   ])
   .transform((o) =>
     o.kind === 'checkModifier'
@@ -95,7 +100,7 @@ const itemSchema = z.object({
   effects: z.array(itemEffectSchema),
 });
 
-const progressionSchema = z.object({ xp: z.number(), level: z.number() });
+const progressionSchema = z.object({ xp: finiteNumber, level: finiteNumber });
 
 const actorKindSchema = z.union([z.literal('pc'), z.literal('npc')]);
 
@@ -103,8 +108,8 @@ const actorSchema = z.object({
   id: z.string(),
   name: z.string(),
   kind: actorKindSchema,
-  attributes: z.record(z.string(), z.number()),
-  skills: z.record(z.string(), z.number()),
+  attributes: z.record(z.string(), finiteNumber),
+  skills: z.record(z.string(), finiteNumber),
   resources: z.record(z.string(), resourcePoolSchema),
   conditions: z.array(conditionSchema),
   items: z.array(itemSchema),
@@ -114,15 +119,15 @@ const actorSchema = z.object({
 const participantSchema = z.object({
   actorId: z.string(),
   zone: z.string(),
-  initiative: z.number(),
+  initiative: finiteNumber,
   actedThisRound: z.boolean(),
 });
 
 const encounterSchema = z.object({
   id: z.string(),
   participants: z.array(participantSchema),
-  round: z.number(),
-  turnIndex: z.number(),
+  round: finiteNumber,
+  turnIndex: finiteNumber,
 });
 
 // Enum statici di comando: shared e FOGLIA (non importa engine) -> rispecchia i const dell engine
@@ -209,14 +214,14 @@ export const domainEventSchema = z.union([
       check: checkResultSchema,
       hit: z.boolean(),
     }),
-    z.object({ type: z.literal('DamageApplied'), targetId: z.string(), resource: z.string(), amount: z.number() }),
+    z.object({ type: z.literal('DamageApplied'), targetId: z.string(), resource: z.string(), amount: finiteNumber }),
     z.object({ type: z.literal('ActorDowned'), actorId: z.string() }),
     z.object({ type: z.literal('NarrationRecorded'), playerAction: z.string(), narration: z.string() }),
     z.object({
       type: z.literal('ResourceEffectApplied'),
       targetId: z.string(),
       resource: z.string(),
-      delta: z.number(),
+      delta: finiteNumber,
       roll: z.object({ ...rollResultFields }),
     }),
     z.object({ type: z.literal('QuestStarted'), quest: questSchema }),
@@ -229,7 +234,7 @@ export const domainEventSchema = z.union([
 
 /** Schema Zod di GameState, per validare gli snapshot persistiti. */
 export const gameStateSchema = z.object({
-  version: z.number(),
+  version: finiteNumber,
   actors: z.record(z.string(), actorSchema),
   encounter: encounterSchema.nullable(),
   quests: z.record(z.string(), questSchema),
@@ -242,12 +247,12 @@ export const gameStateSchema = z.object({
 // discriminatedUnion accetta solo membri ZodObject, non i ZodEffects prodotti da .transform().
 
 // Modifier del motore (dice.ts): { value, source }.
-const modifierSchema = z.object({ value: z.number(), source: z.string() });
+const modifierSchema = z.object({ value: finiteNumber, source: z.string() });
 
 const participantInputSchema = z.object({
   actorId: z.string(),
   zone: z.string(),
-  initiative: z.number(),
+  initiative: finiteNumber,
 });
 
 // Attack ha 3 campi opzionali: il .transform() li OMETTE quando assenti, cosi il tipo inferito
@@ -260,7 +265,7 @@ const attackCommandSchema = z
     attribute: z.string().optional(),
     skill: z.string().optional(),
     defense: z.string(),
-    defenseBase: z.number(),
+    defenseBase: finiteNumber,
     damageResource: z.string(),
     damageModifiers: z.array(modifierSchema).optional(),
   })
@@ -304,7 +309,7 @@ const applyEffectCommandSchema = z
     resource: z.string(),
     direction: z.enum(RESOURCE_DIRECTIONS),
     dice: z.array(dieGroupSchema),
-    bonus: z.number().optional(),
+    bonus: finiteNumber.optional(),
   })
   .transform((o) => ({
     type: o.type,

@@ -210,6 +210,27 @@ describe('commandSchema', () => {
   });
 });
 
+describe('finiteNumber — commandSchema rifiuta i numeri non-finiti', () => {
+  it('rifiuta defenseBase non-finito (Infinity)', () => {
+    expect(commandSchema.safeParse({
+      type: 'Attack', attackerId: 'a', targetId: 'b',
+      defense: 'difesa', defenseBase: Infinity, damageResource: 'hp',
+    }).success).toBe(false);
+  });
+  it('rifiuta initiative non-finito in StartEncounter', () => {
+    expect(commandSchema.safeParse({
+      type: 'StartEncounter', encounterId: 'e',
+      participants: [{ actorId: 'a', zone: 'z', initiative: Infinity }],
+    }).success).toBe(false);
+  });
+  it('accetta un defenseBase finito normale', () => {
+    expect(commandSchema.safeParse({
+      type: 'Attack', attackerId: 'a', targetId: 'b',
+      defense: 'difesa', defenseBase: 12, damageResource: 'hp',
+    }).success).toBe(true);
+  });
+});
+
 describe('enum statici di comando esportati (per i form GM)', () => {
   it('DIFFICULTIES elenca le sei band di difficolta', () => {
     expect([...DIFFICULTIES]).toEqual(['trivial', 'easy', 'moderate', 'hard', 'formidable', 'legendary']);

@@ -190,6 +190,12 @@ describe('domainEventSchema', () => {
   });
 });
 
+describe('finiteNumber — gli eventi rifiutano i numeri non-finiti', () => {
+  it('domainEventSchema rifiuta un amount non-finito', () => {
+    expect(domainEventSchema.safeParse({ type: 'DamageApplied', targetId: 'a', resource: 'hp', amount: Infinity }).success).toBe(false);
+  });
+});
+
 describe('gameStateSchema', () => {
   it('fa round-trip di uno stato con encounter null e non null', () => {
     const s1 = { version: 2, actors: { eroe: fullActor }, encounter: null, quests: {}, phase: 'exploration' };

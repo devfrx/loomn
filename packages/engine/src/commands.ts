@@ -116,6 +116,9 @@ export function decide(state: GameState, command: Command, rng: RandomSource, ru
       return [{ type: 'ActorAdded', actor: { ...command.actor, resources } }];
     }
     case 'StartEncounter': {
+      if (command.participants.length === 0) {
+        throw new Error('Uno scontro richiede almeno un partecipante');
+      }
       for (const p of command.participants) {
         if (state.actors[p.actorId] === undefined) {
           throw new Error(`Attore sconosciuto: ${p.actorId}`);

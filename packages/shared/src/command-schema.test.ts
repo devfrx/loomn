@@ -231,6 +231,12 @@ describe('finiteNumber — commandSchema rifiuta i numeri non-finiti', () => {
   });
 });
 
+describe('commandSchema — StartEncounter richiede partecipanti', () => {
+  it('rifiuta participants vuoto', () => {
+    expect(commandSchema.safeParse({ type: 'StartEncounter', encounterId: 'e', participants: [] }).success).toBe(false);
+  });
+});
+
 describe('dieGroupSchema — vincoli su count/sides (difesa al confine)', () => {
   it('ApplyEffect rifiuta dadi con count frazionario o sides < 2', () => {
     expect(commandSchema.safeParse({ type: 'ApplyEffect', targetId: 't', resource: 'hp', direction: 'restore', dice: [{ count: 1.5, sides: 6 }] }).success).toBe(false);

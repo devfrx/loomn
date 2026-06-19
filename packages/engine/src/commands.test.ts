@@ -82,6 +82,10 @@ describe('decide StartEncounter', () => {
       decide(s, { type: 'StartEncounter', encounterId: 'e', participants: [{ actorId: 'ignoto', zone: 'a', initiative: 5 }] }, rng, TEST_RULESET),
     ).toThrow('Attore sconosciuto');
   });
+  it('lancia su participants vuoto, senza eventi', () => {
+    const s = withActors(actor('eroe'));
+    expect(() => decide(s, { type: 'StartEncounter', encounterId: 'e', participants: [] }, rng, TEST_RULESET)).toThrow('almeno un partecipante');
+  });
 });
 
 describe('decide EndTurn e NextRound', () => {

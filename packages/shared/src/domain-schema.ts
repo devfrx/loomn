@@ -350,7 +350,7 @@ export const commandSchema = z.union([
   z.object({
     type: z.literal('StartEncounter'),
     encounterId: z.string(),
-    participants: z.array(participantInputSchema),
+    participants: z.array(participantInputSchema).min(1),
   }),
   z.object({ type: z.literal('EndTurn') }),
   z.object({ type: z.literal('NextRound') }),

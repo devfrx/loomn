@@ -1,5 +1,6 @@
 import type { RandomSource } from './random';
 import type { Actor } from './actor';
+import { clampPool } from './resource';
 import { rollExpression, type Modifier, type DieGroup, type RollExpr } from './dice';
 import { createEncounter, type ParticipantInput } from './encounter';
 import { performAttack } from './combat';
@@ -106,7 +107,12 @@ export function decide(state: GameState, command: Command, rng: RandomSource, ru
       for (const k of Object.keys(command.actor.skills)) requireMember(vocab.skills, k, 'Abilita');
       for (const k of Object.keys(command.actor.resources)) requireMember(vocab.resources, k, 'Risorsa');
       // Auto-fill combat-ready: le risorse mancanti dal template; quelle fornite sovrascrivono.
-      const resources = { ...vocab.defaultResources, ...command.actor.resources };
+      // clampPool impone l invariante current in [0,max] anche alla CREAZIONE (l arbitro: nessun
+      // garbage nello stato), come adjustResource fa su ogni mutazione successiva.
+      const merged = { ...vocab.defaultResources, ...command.actor.resources };
+      const resources = Object.fromEntries(
+        Object.entries(merged).map(([k, pool]) => [k, clampPool(pool)]),
+      );
       return [{ type: 'ActorAdded', actor: { ...command.actor, resources } }];
     }
     case 'StartEncounter': {

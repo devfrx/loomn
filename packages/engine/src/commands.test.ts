@@ -520,6 +520,20 @@ describe('decide(AddActor) — vocabolario e auto-fill', () => {
     const events = decide(initialState, { type: 'AddActor', actor: npc({ attributes: { forza: 3 }, skills: { arcano: 1 } }) }, stub([0.5]), VOCAB);
     expect(events).toHaveLength(1);
   });
+
+  it('clampa una risorsa fornita fuori range (current > max)', () => {
+    const events = decide(initialState, { type: 'AddActor', actor: npc({ resources: { hp: { current: 999, max: 10 } } }) }, stub([0.5]), VOCAB);
+    const added = events[0];
+    if (added?.type !== 'ActorAdded') throw new Error('atteso ActorAdded');
+    expect(added.actor.resources['hp']).toEqual({ current: 10, max: 10 });
+  });
+
+  it('clampa una risorsa con current negativo a 0', () => {
+    const events = decide(initialState, { type: 'AddActor', actor: npc({ resources: { hp: { current: -5, max: 10 } } }) }, stub([0.5]), VOCAB);
+    const added = events[0];
+    if (added?.type !== 'ActorAdded') throw new Error('atteso ActorAdded');
+    expect(added.actor.resources['hp']).toEqual({ current: 0, max: 10 });
+  });
 });
 
 describe('decide(Attack) — vocabolario', () => {

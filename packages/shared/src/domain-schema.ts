@@ -218,6 +218,7 @@ const checkResolvedEventSchema = z
     difficulty: difficultySchema,
     result: checkResultSchema,
   })
+  .strict()
   .transform((o) => ({
     type: o.type,
     actorId: o.actorId,
@@ -231,31 +232,35 @@ const checkResolvedEventSchema = z
  *  di persistenza (spec 4/12). */
 export const domainEventSchema = z.union([
   z.discriminatedUnion('type', [
-    z.object({ type: z.literal('ActorAdded'), actor: actorSchema }),
-    z.object({ type: z.literal('EncounterStarted'), encounter: encounterSchema }),
-    z.object({ type: z.literal('TurnEnded') }),
-    z.object({ type: z.literal('RoundAdvanced') }),
-    z.object({
-      type: z.literal('AttackResolved'),
-      attackerId: z.string(),
-      targetId: z.string(),
-      check: checkResultSchema,
-      hit: z.boolean(),
-    }),
-    z.object({ type: z.literal('DamageApplied'), targetId: z.string(), resource: z.string(), amount: finiteNumber }),
-    z.object({ type: z.literal('ActorDowned'), actorId: z.string() }),
-    z.object({ type: z.literal('NarrationRecorded'), playerAction: z.string(), narration: z.string() }),
-    z.object({
-      type: z.literal('ResourceEffectApplied'),
-      targetId: z.string(),
-      resource: z.string(),
-      delta: finiteNumber,
-      roll: z.object({ ...rollResultFields }),
-    }),
-    z.object({ type: z.literal('QuestStarted'), quest: questSchema }),
-    z.object({ type: z.literal('QuestAdvanced'), questId: z.string(), status: questOutcomeSchema }),
-    z.object({ type: z.literal('PhaseChanged'), from: phaseSchema, to: phaseSchema }),
-    z.object({ type: z.literal('EncounterEnded'), encounterId: z.string() }),
+    z.object({ type: z.literal('ActorAdded'), actor: actorSchema }).strict(),
+    z.object({ type: z.literal('EncounterStarted'), encounter: encounterSchema }).strict(),
+    z.object({ type: z.literal('TurnEnded') }).strict(),
+    z.object({ type: z.literal('RoundAdvanced') }).strict(),
+    z
+      .object({
+        type: z.literal('AttackResolved'),
+        attackerId: z.string(),
+        targetId: z.string(),
+        check: checkResultSchema,
+        hit: z.boolean(),
+      })
+      .strict(),
+    z.object({ type: z.literal('DamageApplied'), targetId: z.string(), resource: z.string(), amount: finiteNumber }).strict(),
+    z.object({ type: z.literal('ActorDowned'), actorId: z.string() }).strict(),
+    z.object({ type: z.literal('NarrationRecorded'), playerAction: z.string(), narration: z.string() }).strict(),
+    z
+      .object({
+        type: z.literal('ResourceEffectApplied'),
+        targetId: z.string(),
+        resource: z.string(),
+        delta: finiteNumber,
+        roll: z.object({ ...rollResultFields }),
+      })
+      .strict(),
+    z.object({ type: z.literal('QuestStarted'), quest: questSchema }).strict(),
+    z.object({ type: z.literal('QuestAdvanced'), questId: z.string(), status: questOutcomeSchema }).strict(),
+    z.object({ type: z.literal('PhaseChanged'), from: phaseSchema, to: phaseSchema }).strict(),
+    z.object({ type: z.literal('EncounterEnded'), encounterId: z.string() }).strict(),
   ]),
   checkResolvedEventSchema,
 ]);

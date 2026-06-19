@@ -74,6 +74,29 @@ describe('createSqliteEventStore - isolamento e validazione', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('domainEventSchema e strict: un campo non dichiarato fa fallire il load (drift evento RUMOROSO)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'loomn-mem-'));
+    const path = join(dir, 'drift.db');
+    try {
+      const inject = openDatabase(path);
+      // NarrationRecorded VALIDO + un campo top-level non dichiarato: col vecchio schema veniva
+      // strippato in silenzio (drift cieco); ora .strict() lo rifiuta al confine di lettura.
+      inject.db
+        .insert(events)
+        .values({
+          type: 'NarrationRecorded',
+          payload: JSON.stringify({ type: 'NarrationRecorded', playerAction: 'a', narration: 'b', campoFantasma: 1 }),
+        })
+        .run();
+      inject.close();
+      const store = createSqliteEventStore(path);
+      expect(() => store.load()).toThrow(ZodError);
+      store.close();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('createSqliteEventStore - snapshot', () => {

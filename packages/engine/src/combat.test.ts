@@ -51,7 +51,7 @@ function target(extraItems: Item[] = []): Actor {
 }
 
 describe('performAttack', () => {
-  it('colpo riuscito: applica il danno e segna morente a 0 HP', () => {
+  it('colpo riuscito: applica il danno e segna downed a 0 HP', () => {
     // rng: d20=0.95 -> faccia 20 ; danno 2d6 con 0.5,0.5 -> 4+4=8 ; +2 (forza) = 10
     const rng = stubRandom([0.95, 0.5, 0.5]);
     const res = performAttack(
@@ -71,7 +71,9 @@ describe('performAttack', () => {
     expect(res.damage).toBe(10);
     expect(res.target.resources['hp']!.current).toBe(0);
     expect(res.downed).toBe(true);
-    expect(res.target.conditions.some((c) => c.key === 'morente')).toBe(true);
+    // La condizione 'morente' e materializzata da applyEvent(ActorDowned), non da performAttack
+    // (single-source in condition.ts/events.ts; coperto da events.test.ts "ActorDowned aggiunge morente").
+    expect(res.target.conditions.some((c) => c.key === 'morente')).toBe(false);
   });
 
   it('colpo mancato: nessun danno e bersaglio invariato', () => {

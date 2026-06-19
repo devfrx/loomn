@@ -5,7 +5,7 @@ import type { Difficulty } from './difficulty';
 import type { Quest, QuestOutcome } from './quest';
 import { INITIAL_PHASE, type Phase } from './phase';
 import { adjustResource } from './resource';
-import { addCondition } from './condition';
+import { addCondition, DOWNED_CONDITION_KEY, dyingCondition } from './condition';
 import { endTurn, nextRound, type Encounter } from './encounter';
 
 export type DomainEvent =
@@ -95,15 +95,10 @@ export function applyEvent(state: GameState, event: DomainEvent): GameState {
     }
     case 'ActorDowned': {
       const actor = requireActor(state, event.actorId);
-      if (actor.conditions.some((c) => c.key === 'morente')) {
+      if (actor.conditions.some((c) => c.key === DOWNED_CONDITION_KEY)) {
         return bumped;
       }
-      const downed = addCondition(actor, {
-        key: 'morente',
-        source: 'combat',
-        effects: [],
-        duration: { kind: 'permanent' },
-      });
+      const downed = addCondition(actor, dyingCondition());
       return { ...bumped, actors: { ...state.actors, [event.actorId]: downed } };
     }
     case 'PhaseChanged':

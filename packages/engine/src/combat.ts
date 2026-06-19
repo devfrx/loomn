@@ -5,7 +5,7 @@ import type { Actor } from './actor';
 import type { CheckResult } from './check';
 import { actorCheck, type CheckRequest } from './actor-check';
 import { adjustResource, isDepleted } from './resource';
-import { addCondition } from './condition';
+
 import { equippedItems, collectItemDice, defenseValue } from './item';
 
 export interface AttackInput {
@@ -28,10 +28,12 @@ export interface AttackResult {
 }
 
 /** Esegue un attacco. Prova-colpo dell'attaccante (con oggetti equipaggiati) contro la
- *  CD = difesa del bersaglio; in caso di colpo, tira i dadi-effetto dell'arma equipaggiata,
- *  applica il danno alla risorsa indicata e segna 'morente' se la risorsa arriva a 0.
- *  Funzione pura; ogni casualità passa per `rng`.
- *  Nota: la condizione 'morente' è un segnaposto pre-Event-Sourcing (sarà formalizzata nel Piano 5). */
+ *  CD = difesa del bersaglio; in caso di colpo, tira i dadi-effetto dell'arma equipaggiata
+ *  e applica il danno alla risorsa indicata. Ritorna il bersaglio con il danno applicato e
+ *  `downed=true` se la risorsa e esaurita. La condizione 'morente' NON viene aggiunta qui:
+ *  decide(Attack) usa result.downed per emettere ActorDowned -> applyEvent(ActorDowned) e
+ *  l unico punto che materializza la condizione (single-source in condition.ts, single-responsibility).
+ *  Funzione pura; ogni casualita passa per `rng`. */
 export function performAttack(input: AttackInput, rng: RandomSource): AttackResult {
   const dc = defenseValue(input.target, input.defense, input.defenseBase);
 
@@ -59,16 +61,11 @@ export function performAttack(input: AttackInput, rng: RandomSource): AttackResu
   );
   const damage = damageRoll.total;
 
-  let target = adjustResource(input.target, input.damageResource, -damage);
+  const target = adjustResource(input.target, input.damageResource, -damage);
   const downed = isDepleted(target, input.damageResource);
-  if (downed && !target.conditions.some((c) => c.key === 'morente')) {
-    target = addCondition(target, {
-      key: 'morente',
-      source: 'combat',
-      effects: [],
-      duration: { kind: 'permanent' },
-    });
-  }
 
+  // La condizione 'morente' NON viene aggiunta qui: decide(Attack) scarta result.target ed emette
+  // ActorDowned -> applyEvent(ActorDowned) e l unico punto che materializza la condizione
+  // (single-source, single-responsibility). performAttack ritorna il bersaglio col danno applicato.
   return { check, hit: true, damage, target, downed };
 }

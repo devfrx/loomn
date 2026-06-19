@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Actor, Condition } from './actor';
-import { addCondition, checkModifierFrom, tickConditions } from './condition';
+import { addCondition, checkModifierFrom, tickConditions, DOWNED_CONDITION_KEY, dyingCondition } from './condition';
 
 function baseActor(): Actor {
   return {
@@ -36,6 +36,15 @@ const poisoned: Condition = {
   effects: [{ kind: 'resourcePerTurn', resource: 'hp', delta: -2 }],
   duration: { kind: 'turns', remaining: 2 },
 };
+
+describe('dyingCondition / DOWNED_CONDITION_KEY', () => {
+  it('la chiave e morente', () => {
+    expect(DOWNED_CONDITION_KEY).toBe('morente');
+  });
+  it('la factory produce la condizione morente permanente', () => {
+    expect(dyingCondition()).toEqual({ key: 'morente', source: 'combat', effects: [], duration: { kind: 'permanent' } });
+  });
+});
 
 describe('addCondition', () => {
   it('aggiunge la condizione restituendo un nuovo attore', () => {

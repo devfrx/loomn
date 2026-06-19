@@ -12,11 +12,30 @@ const finiteNumber = z.number().finite();
 const rollModeSchema = z.union([z.literal('check'), z.literal('effect')]);
 
 // Rispecchiano MAX_DICE_COUNT/MAX_DICE_SIDES di @loomn/engine (shared e FOGLIA, non importa engine).
-// L arbitro autorevole resta rollExpression nel motore; qui e difesa-in-profondita al confine IPC.
+// Usati SOLO da dieGroupCommandSchema (difesa-in-profondita al confine IPC del comando ApplyEffect).
 const MAX_DICE_COUNT = 100;
 const MAX_DICE_SIDES = 1000;
 
+// Variante di LETTURA (permissiva): usata da itemEffectSchema -> actorSchema -> domainEventSchema /
+// gameStateSchema (percorso di persistenza, riparsato a ogni load/replay). NON porta i bound dei dadi:
+// rifiuterebbe item storici con dadi fuori-range (debt-free: mai restringere lo schema di lettura).
+// L arbitro autorevole e rollExpression/assertDieGroup nel motore, al momento del tiro.
 const dieGroupSchema = z
+  .object({
+    count: finiteNumber,
+    sides: finiteNumber,
+    tag: z.string().optional(),
+  })
+  .transform((o) =>
+    o.tag === undefined
+      ? { count: o.count, sides: o.sides }
+      : { count: o.count, sides: o.sides, tag: o.tag },
+  );
+
+// Variante di COMANDO (difesa-in-profondita al confine IPC): bound che rispecchiano MAX_DICE_COUNT/
+// MAX_DICE_SIDES di @loomn/engine. Usata SOLO da applyEffectCommandSchema (dadi diretti del comando
+// ApplyEffect, input non fidato). NON sul percorso di lettura. L arbitro resta rollExpression nel motore.
+const dieGroupCommandSchema = z
   .object({
     count: finiteNumber.int().min(1).max(MAX_DICE_COUNT),
     sides: finiteNumber.int().min(2).max(MAX_DICE_SIDES),
@@ -317,7 +336,7 @@ const applyEffectCommandSchema = z
     targetId: z.string(),
     resource: z.string(),
     direction: z.enum(RESOURCE_DIRECTIONS),
-    dice: z.array(dieGroupSchema),
+    dice: z.array(dieGroupCommandSchema),
     bonus: finiteNumber.optional(),
   })
   .transform((o) => ({

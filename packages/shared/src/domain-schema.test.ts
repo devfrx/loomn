@@ -196,6 +196,25 @@ describe('finiteNumber — gli eventi rifiutano i numeri non-finiti', () => {
   });
 });
 
+describe('domainEventSchema (lettura) — non rifiuta item storici con dadi fuori-bound', () => {
+  it('ActorAdded con un item dai dadi fuori-range si carica (debt-free di lettura)', () => {
+    const actor = {
+      id: 'storico',
+      name: 'Storico',
+      kind: 'pc',
+      attributes: {},
+      skills: {},
+      resources: { hp: { current: 10, max: 10 } },
+      conditions: [],
+      items: [
+        { id: 'dado-token', name: 'Dado token', equipped: false, effects: [{ kind: 'contributeDice', dice: [{ count: 200, sides: 1 }], mode: 'effect' }] },
+      ],
+      progression: { xp: 0, level: 1 },
+    };
+    expect(domainEventSchema.safeParse({ type: 'ActorAdded', actor }).success).toBe(true);
+  });
+});
+
 describe('gameStateSchema', () => {
   it('fa round-trip di uno stato con encounter null e non null', () => {
     const s1 = { version: 2, actors: { eroe: fullActor }, encounter: null, quests: {}, phase: 'exploration' };

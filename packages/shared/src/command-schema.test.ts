@@ -237,13 +237,32 @@ describe('commandSchema — StartEncounter richiede partecipanti', () => {
   });
 });
 
-describe('dieGroupSchema — vincoli su count/sides (difesa al confine)', () => {
+describe('dieGroupCommandSchema — vincoli su count/sides (difesa al confine ApplyEffect)', () => {
   it('ApplyEffect rifiuta dadi con count frazionario o sides < 2', () => {
     expect(commandSchema.safeParse({ type: 'ApplyEffect', targetId: 't', resource: 'hp', direction: 'restore', dice: [{ count: 1.5, sides: 6 }] }).success).toBe(false);
     expect(commandSchema.safeParse({ type: 'ApplyEffect', targetId: 't', resource: 'hp', direction: 'restore', dice: [{ count: 1, sides: 1 }] }).success).toBe(false);
   });
   it('ApplyEffect accetta dadi validi', () => {
     expect(commandSchema.safeParse({ type: 'ApplyEffect', targetId: 't', resource: 'hp', direction: 'restore', dice: [{ count: 2, sides: 6 }] }).success).toBe(true);
+  });
+});
+
+describe('commandSchema — i dadi degli item NON sono ristretti dallo schema (arbitro = motore)', () => {
+  it('AddActor accetta un item con dadi fuori-bound (sides 1, count 200)', () => {
+    const actor = {
+      id: 'prova',
+      name: 'Prova',
+      kind: 'pc',
+      attributes: {},
+      skills: {},
+      resources: { hp: { current: 10, max: 10 } },
+      conditions: [],
+      items: [
+        { id: 'dado-token', name: 'Dado token', equipped: false, effects: [{ kind: 'contributeDice', dice: [{ count: 200, sides: 1 }], mode: 'effect' }] },
+      ],
+      progression: { xp: 0, level: 1 },
+    };
+    expect(commandSchema.safeParse({ type: 'AddActor', actor }).success).toBe(true);
   });
 });
 

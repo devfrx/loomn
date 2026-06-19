@@ -71,7 +71,6 @@ export function groupSummaries(summaries: readonly SummaryDto[]): SummaryGroup[]
   for (const level of SUMMARY_LEVELS) {
     const items = summaries
       .filter((s) => s.level === level)
-      .slice()
       .sort((a, b) => b.eventSeqTo - a.eventSeqTo)
       .map(toSummaryLine);
     if (items.length > 0) groups.push({ level, items });

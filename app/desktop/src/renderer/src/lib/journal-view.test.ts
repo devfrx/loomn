@@ -40,6 +40,11 @@ describe('toCanonLine', () => {
     expect(line.text).toBe('Eroe odia Goblin');
     expect(line.retracted).toBe(true);
   });
+
+  it('marca un fatto attivo come non ritirato', () => {
+    const line = toCanonLine(fact({ id: 'f2', status: 'active' }));
+    expect(line.retracted).toBe(false);
+  });
 });
 
 describe('sortCanonBySalience', () => {
@@ -48,7 +53,7 @@ describe('sortCanonBySalience', () => {
     expect(out.map((f) => f.id)).toEqual(['b', 'c', 'a']);
   });
 
-  it('mette i fatti ritirati in coda a parita di rilevanza', () => {
+  it('mette i fatti ritirati sempre in coda', () => {
     const out = sortCanonBySalience([fact({ id: 'r', salience: 0.9, status: 'retracted' }), fact({ id: 'a', salience: 0.1, status: 'active' })]);
     expect(out.map((f) => f.id)).toEqual(['a', 'r']);
   });

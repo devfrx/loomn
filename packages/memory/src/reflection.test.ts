@@ -146,6 +146,35 @@ describe('runReflection', () => {
     // transazione il ledger e VUOTO: il retry puo ri-riflettere senza collidere.
     expect(ledger.active()).toEqual([]);
   });
+
+  it('rollback per un fatto FUNZIONALE (supersede): il retract viene annullato, il fatto precedente resta attivo (M-13)', async () => {
+    open = openDatabase(':memory:');
+    const ledger = createCanonLedger(open.db);
+    const realSummaries = createSummaryStore(open.db);
+    const throwingSummaries: SummaryStore = {
+      record: () => {
+        throw new Error('disco pieno a meta scrittura');
+      },
+      list: (filter) => realSummaries.list(filter),
+    };
+    // Fatto funzionale gia attivo: writeScene fara supersede (retract + insert) dentro un savepoint
+    // annidato nella transazione esterna.
+    ledger.record({ id: 'loc0', subject: 'pc1', predicate: 'si_trova_a', object: 'Taverna', eventSeq: 1 });
+    const facts: ExtractedFact[] = [{ subject: 'pc1', predicate: 'si_trova_a', object: 'Foresta', functional: true, importance: 4 }];
+    const deps: ReflectionDeps = {
+      ledger,
+      summaries: throwingSummaries,
+      extractor: fakeExtractor(facts),
+      summarizer: fakeSummarizer({ text: 'scena', importance: 4 }),
+      clock: fixedClock(1),
+      runInTransaction: <T>(fn: () => T): T => open!.db.transaction(() => fn()),
+    };
+    await expect(runReflection(deps, { events, scope: 'sess1' })).rejects.toThrow('disco pieno');
+    // La transazione esterna rolla-back il savepoint del supersede: loc0 resta ATTIVO e nessun nuovo
+    // fatto e stato inserito. Senza atomicita, loc0 sarebbe ritirato e il nuovo fatto orfano.
+    expect(ledger.active({ subject: 'pc1', predicate: 'si_trova_a' }).map((f) => f.object)).toEqual(['Taverna']);
+    expect(ledger.all({ subject: 'pc1', predicate: 'si_trova_a' }).map((f) => f.id)).toEqual(['loc0']);
+  });
 });
 
 function fakeCursor(initial = 0): ReflectionCursor {

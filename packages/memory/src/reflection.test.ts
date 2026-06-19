@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { openDatabase, type OpenDb } from './db';
 import { createCanonLedger } from './canon-ledger';
-import { createSummaryStore } from './summary-store';
+import { createSummaryStore, type SummaryStore } from './summary-store';
 import {
   runReflection,
   runScenesReflection,
@@ -118,6 +118,32 @@ describe('runReflection', () => {
     const deps = { ...d, summarizer: throwingSummarizer };
     await expect(runReflection(deps, { events, scope: 'sess1' })).rejects.toThrow('summarize fallita');
     // Atomicita: il summarizer lancia DOPO extract ma PRIMA di scrivere i fatti -> ledger vuoto.
+    expect(ledger.active()).toEqual([]);
+  });
+
+  it('le scritture di scena sono atomiche dietro runInTransaction: fallimento a meta-scrittura -> rollback (M-13)', async () => {
+    open = openDatabase(':memory:');
+    const ledger = createCanonLedger(open.db);
+    const realSummaries = createSummaryStore(open.db);
+    // Summaries che lancia DOPO che i fatti sono gia stati scritti nel ledger (dentro lo stesso writeScene).
+    const throwingSummaries: SummaryStore = {
+      record: () => {
+        throw new Error('disco pieno a meta scrittura');
+      },
+      list: (filter) => realSummaries.list(filter),
+    };
+    const facts: ExtractedFact[] = [{ subject: 'pc1', predicate: 'trova', object: 'gemma', functional: false, importance: 7 }];
+    const deps: ReflectionDeps = {
+      ledger,
+      summaries: throwingSummaries,
+      extractor: fakeExtractor(facts),
+      summarizer: fakeSummarizer({ text: 'scena', importance: 7 }),
+      clock: fixedClock(1),
+      runInTransaction: <T>(fn: () => T): T => open!.db.transaction(() => fn()),
+    };
+    await expect(runReflection(deps, { events, scope: 'sess1' })).rejects.toThrow('disco pieno');
+    // Senza transazione i fatti resterebbero (auto-commit) -> al retry UNIQUE collision. Con la
+    // transazione il ledger e VUOTO: il retry puo ri-riflettere senza collidere.
     expect(ledger.active()).toEqual([]);
   });
 });

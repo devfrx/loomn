@@ -53,6 +53,10 @@ export interface ReflectionDeps {
   extractor: FactExtractor;
   summarizer: Summarizer;
   clock: Clock;
+  /** Confine transazionale opzionale per le SCRITTURE di scena (fatti + riassunto; in
+   *  runScenesReflection anche il cursor): committano o falliscono insieme (M-13). Default
+   *  pass-through (le impl a fake / senza db non transazionano). Lo fornisce il MemorySystem (host). */
+  runInTransaction?: <T>(fn: () => T) => T;
 }
 
 export interface ReflectionResult {
@@ -62,44 +66,50 @@ export interface ReflectionResult {
   summary: Summary | null;
 }
 
-/** Esegue la Reflection di una scena. Id deterministici dal range di seq della scena
- *  (`f-<from>-<to>-<i>`, `s-scene-<from>-<to>`) -> precondizione: una sola Reflection per
- *  range (i call site 8a lanciano su id duplicato). Non fa rete: usa le porte iniettate. */
-export async function runReflection(deps: ReflectionDeps, input: ReflectionInput): Promise<ReflectionResult> {
+/** Esito della fase async (LLM) di una scena: i dati da scrivere, ancora NON scritti. */
+interface SceneComputation {
+  from: number;
+  to: number;
+  extracted: ExtractedFact[];
+  draft: SceneSummaryDraft;
+}
+
+/** Fase ASYNC: estrae fatti e riassunto (chiamate LLM). FUORI da qualunque transazione
+ *  (better-sqlite3 e sincrono). Ritorna null se la scena e vuota. */
+async function computeScene(deps: ReflectionDeps, input: ReflectionInput): Promise<SceneComputation | null> {
   if (input.events.length === 0) {
-    return { facts: [], summary: null };
+    return null;
   }
   const seqs = input.events.map((e) => e.seq);
   const from = Math.min(...seqs);
   const to = Math.max(...seqs);
-
-  // Entrambe le chiamate LLM PRIMA di qualunque scrittura: la scena diventa ATOMICA contro un
-  // fallimento di extract/summarize (niente fatti scritti senza summary -> niente collisione su
-  // un retry, item 6). L output e identico: lo snapshot di ricorrenza resta calcolato sul ledger
-  // PRIMA delle scritture di questa scena.
+  // Entrambe le chiamate LLM PRIMA di qualunque scrittura: la scena e atomica anche contro un
+  // fallimento di extract/summarize (niente fatti scritti senza summary).
   const extracted = await deps.extractor.extract(input);
   const draft = await deps.summarizer.summarize(input);
+  return { from, to, extracted, draft };
+}
 
-  // Ricorrenza = fatti attivi del soggetto PRIMA di questa Reflection, presa come SNAPSHOT
-  // (un solo conteggio per soggetto, prima di ogni scrittura): cosi piu fatti dello stesso
-  // soggetto nello stesso batch condividono la stessa baseline e la salienza NON dipende
-  // dall ordine nel batch (coerente con la purezza/determinismo del progetto).
+/** Fase SYNC: scrive fatti + riassunto nel DB. Da invocare dentro runInTransaction quando fornito,
+ *  cosi le scritture sono atomiche (M-13). La ricorrenza e uno SNAPSHOT calcolato PRIMA delle scritture
+ *  di questa scena (un conteggio per soggetto), cosi la salienza NON dipende dall ordine nel batch. */
+function writeScene(deps: ReflectionDeps, input: ReflectionInput, c: SceneComputation): ReflectionResult {
   const recurrenceBySubject = new Map<string, number>();
-  for (const ef of extracted) {
+  for (const ef of c.extracted) {
     if (!recurrenceBySubject.has(ef.subject)) {
       recurrenceBySubject.set(ef.subject, deps.ledger.active({ subject: ef.subject }).length);
     }
   }
   const facts: CanonFact[] = [];
-  extracted.forEach((ef, i) => {
+  c.extracted.forEach((ef, i) => {
     const recurrence = recurrenceBySubject.get(ef.subject) ?? 0;
     const salience = scoreSalience({ importance: ef.importance, recurrence });
     const factInput = {
-      id: `f-${from}-${to}-${i}`,
+      id: `f-${c.from}-${c.to}-${i}`,
       subject: ef.subject,
       predicate: ef.predicate,
       object: ef.object,
-      eventSeq: to,
+      eventSeq: c.to,
       salience,
     };
     if (ef.functional) {
@@ -111,19 +121,32 @@ export async function runReflection(deps: ReflectionDeps, input: ReflectionInput
   });
 
   const summary: Summary = {
-    id: `s-scene-${from}-${to}`,
+    id: `s-scene-${c.from}-${c.to}`,
     level: 'scene',
     scope: input.scope,
-    text: draft.text,
-    importance: draft.importance,
-    salience: scoreSalience({ importance: draft.importance, recurrence: 0 }),
+    text: c.draft.text,
+    importance: c.draft.importance,
+    salience: scoreSalience({ importance: c.draft.importance, recurrence: 0 }),
     createdAt: deps.clock.now(),
-    eventSeqFrom: from,
-    eventSeqTo: to,
+    eventSeqFrom: c.from,
+    eventSeqTo: c.to,
   };
   deps.summaries.record(summary);
 
   return { facts, summary };
+}
+
+/** Esegue la Reflection di una scena. Id deterministici dal range di seq della scena
+ *  (`f-<from>-<to>-<i>`, `s-scene-<from>-<to>`) -> precondizione: una sola Reflection per range
+ *  (i call site 8a lanciano su id duplicato). Non fa rete: usa le porte iniettate. Le scritture
+ *  sono avvolte in runInTransaction quando fornito (atomicita, M-13). */
+export async function runReflection(deps: ReflectionDeps, input: ReflectionInput): Promise<ReflectionResult> {
+  const c = await computeScene(deps, input);
+  if (c === null) {
+    return { facts: [], summary: null };
+  }
+  const run = deps.runInTransaction ?? (<T>(fn: () => T): T => fn());
+  return run(() => writeScene(deps, input, c));
 }
 
 /** Deps della riflessione multi-scena: le ReflectionDeps single-scene + il cursor (watermark).
@@ -133,10 +156,10 @@ export interface ScenesReflectionDeps extends ReflectionDeps {
 }
 
 /** Riflette tutte le scene non ancora riflesse (seq > cursor), segmentate ai confini PhaseChanged
- *  (item 6). Riusa runReflection per ogni scena (range [from,to] per-scena -> id globalmente unici
- *  -> niente collisione su chiamate ripetute). Avanza il cursor DOPO ogni scena riuscita: un
- *  fallimento a meta lascia il cursor all ultima scena committata, cosi il retry riprende da li
- *  senza ri-riflettere ne collidere. La coda aperta (oltre l ultimo PhaseChanged) viene riflessa
+ *  (item 6). Per ogni scena: fase LLM async FUORI dalla transazione, poi {scritture + avanzamento
+ *  cursor} in UNA transazione (quando runInTransaction e fornito) -> la scena e atomica (M-13): un
+ *  crash o committa tutto (cursor avanzato, retry salta) o rolla-back tutto (cursor fermo, nessun
+ *  fatto, retry ri-riflette pulito). La coda aperta (oltre l ultimo PhaseChanged) viene riflessa
  *  (flush). Nessun evento nuovo -> []. */
 export async function runScenesReflection(
   deps: ScenesReflectionDeps,
@@ -145,12 +168,21 @@ export async function runScenesReflection(
   const through = deps.cursor.get();
   const fresh = input.events.filter((e) => e.seq > through);
   const scenes = segmentScenes(fresh);
+  const run = deps.runInTransaction ?? (<T>(fn: () => T): T => fn());
   const results: ReflectionResult[] = [];
   for (const scene of scenes) {
-    const res = await runReflection(deps, { events: scene, scope: input.scope });
+    const sceneInput: ReflectionInput = { events: scene, scope: input.scope };
+    // Fase async (LLM) FUORI dalla transazione.
+    const c = await computeScene(deps, sceneInput);
+    if (c === null) continue; // segmentScenes non produce scene vuote; guardia difensiva.
+    // Fase sync atomica: scritture + avanzamento cursor insieme.
+    const res = run(() => {
+      const r = writeScene(deps, sceneInput, c);
+      const lastSeq = scene[scene.length - 1]?.seq;
+      if (lastSeq !== undefined) deps.cursor.set(lastSeq);
+      return r;
+    });
     results.push(res);
-    const lastSeq = scene[scene.length - 1]?.seq;
-    if (lastSeq !== undefined) deps.cursor.set(lastSeq); // avanza per scena (crash-safe)
   }
   return results;
 }

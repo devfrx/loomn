@@ -121,5 +121,6 @@ export function reflectionDepsFor(system: MemorySystem, port: StructuredOutputPo
     summarizer: createLlmSummarizer(port),
     clock: system.clock,
     cursor: system.cursor,
+    runInTransaction: system.runInTransaction,
   };
 }

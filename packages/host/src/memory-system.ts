@@ -44,6 +44,10 @@ export interface MemorySystem {
   /** Context Assembler reale (read path 8c), gia chiuso su ledger/summaries/clock. Da iniettare
    *  in runMasterTurn al posto di assembleContextStub. */
   assembleContext: (state: GameState) => string;
+  /** Esegue `fn` in UNA transazione sulla connessione condivisa: tutte le scritture (ledger +
+   *  summaries + cursor) committano o rollano-back insieme. La Reflection lo usa per l atomicita
+   *  per-scena (M-13). better-sqlite3 e sincrono -> `fn` deve essere sincrono (niente await dentro). */
+  runInTransaction<T>(fn: () => T): T;
   /** Chiude la connessione SQLite condivisa. */
   close(): void;
 }
@@ -67,5 +71,14 @@ export function createMemorySystem(dbPath: string, config: MemorySystemConfig = 
       ...(config.estimateTokens !== undefined ? { estimateTokens: config.estimateTokens } : {}),
     },
   );
-  return { eventStore, ledger, summaries, cursor, clock, assembleContext, close };
+  return {
+    eventStore,
+    ledger,
+    summaries,
+    cursor,
+    clock,
+    assembleContext,
+    runInTransaction: <T>(fn: () => T): T => db.transaction(() => fn()),
+    close,
+  };
 }

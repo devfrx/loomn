@@ -83,6 +83,27 @@ describe('createMemorySystem - connessione condivisa', () => {
       sys.close();
     }
   });
+
+  it('runInTransaction committa il blocco e rolla-back su throw (M-13)', () => {
+    const sys = createMemorySystem(':memory:', { clock: { now: () => 1000 } });
+    try {
+      // Commit: la scrittura sopravvive.
+      sys.runInTransaction(() => {
+        sys.ledger.record({ id: 'f1', subject: 's', predicate: 'p', object: 'o', eventSeq: 1 });
+      });
+      expect(sys.ledger.active().map((f) => f.id)).toEqual(['f1']);
+      // Rollback: una scrittura seguita da throw NON sopravvive (atomicita).
+      expect(() =>
+        sys.runInTransaction(() => {
+          sys.ledger.record({ id: 'f2', subject: 's', predicate: 'p', object: 'o', eventSeq: 2 });
+          throw new Error('boom');
+        }),
+      ).toThrow('boom');
+      expect(sys.ledger.active().map((f) => f.id)).toEqual(['f1']); // f2 rolled back
+    } finally {
+      sys.close();
+    }
+  });
 });
 
 describe('systemClock', () => {

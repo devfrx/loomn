@@ -64,8 +64,10 @@ describe('canonForActor', () => {
   });
 
   it('trova i fatti per id quando il subject o l object e l id', () => {
-    const out = canonForActor([fact({ id: 'r', subject: 'pg-eroe', predicate: 'guida', object: 'gruppo' })], actor({ id: 'pg-eroe', name: 'Altro Nome' }));
-    expect(out.map((f) => f.id)).toEqual(['r']);
+    const a = actor({ id: 'pg-eroe', name: 'Altro Nome' });
+    const bySubject = fact({ id: 'r1', subject: 'pg-eroe', predicate: 'guida', object: 'gruppo' });
+    const byObject = fact({ id: 'r2', subject: 'Mastino', predicate: 'segue', object: 'pg-eroe' });
+    expect(canonForActor([bySubject, byObject], a).map((f) => f.id).sort()).toEqual(['r1', 'r2']);
   });
 
   it('ritorna vuoto senza match', () => {

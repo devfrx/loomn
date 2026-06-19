@@ -43,8 +43,9 @@ function norm(s: string): string {
 }
 
 /** Fatti canon che coinvolgono l attore (relazioni DISPLAY-ONLY): match per nome (case-insensitive) o
- *  per id su subject/object. Le relazioni strutturate sono deferite (spec §11) → qui sono solo una
- *  proiezione dei fatti canon. Pura. */
+ *  per id su subject/object. Falsi positivi possibili se il nome di un attore coincide con l id di un
+ *  altro (slug collision); accettabile in display-only, le relazioni strutturate (spec §11, deferite)
+ *  elimineranno l ambiguita. Pura. */
 export function canonForActor(facts: readonly CanonFactDto[], actor: ActorView): CanonFactDto[] {
   const name = norm(actor.name);
   const id = actor.id;

@@ -30,7 +30,8 @@
 | File | Responsabilità | Modifica |
 |---|---|---|
 | `packages/shared/src/domain-schema.ts` | Schema Zod confine IPC/persistenza | `finiteNumber` ovunque (I‑13); bound dadi su `dieGroupSchema` (I‑07 DiD); `.min(1)` su `participants` del **comando** StartEncounter (M‑02) |
-| `packages/shared/src/domain-schema.test.ts` | Test schema | nuovi test finite/dadi/participants |
+| `packages/shared/src/command-schema.test.ts` | Test `commandSchema` | finite (Attack/StartEncounter) + bound dadi (ApplyEffect) + `.min(1)` participants |
+| `packages/shared/src/domain-schema.test.ts` | Test `domainEventSchema` | finite (amount evento) |
 | `packages/engine/src/dice.ts` | `rollExpression` | `MAX_DICE_COUNT`/`MAX_DICE_SIDES` + `assertDieGroup` (I‑07 arbiter) |
 | `packages/engine/src/dice.test.ts` | Test dadi | nuovi test di rifiuto |
 | `packages/engine/src/resource.ts` | clamp risorse | estrai `clampCurrent`, aggiungi `clampPool` (I‑06) |
@@ -51,52 +52,50 @@
 
 **Files:**
 - Modify: `packages/shared/src/domain-schema.ts`
-- Test: `packages/shared/src/domain-schema.test.ts`
+- Test: `packages/shared/src/command-schema.test.ts` (test di `commandSchema`) + `packages/shared/src/domain-schema.test.ts` (test di `domainEventSchema`)
 
 **Razionale:** `z.number()` accetta `Infinity`/`-Infinity`. Un comando con `Infinity` (la clone strutturata IPC lo trasporta, a differenza di JSON) entra in un evento → `JSON.stringify` lo persiste come `null` → al reload `domainEventSchema.parse` fallisce → stream irreplayabile. `.finite()` chiude il buco al confine. Il tipo inferito resta `number` → i drift guard di compile-time in host restano verdi.
 
 - [ ] **Step 1: Aggiungi i test (falliscono)**
 
-In `packages/shared/src/domain-schema.test.ts`, appendi:
+In **`packages/shared/src/command-schema.test.ts`** (dove vivono i test di `commandSchema`), appendi dentro `describe('commandSchema', ...)`:
 
 ```ts
-describe('finiteNumber — i campi numerici rifiutano i non-finiti', () => {
-  it('commandSchema rifiuta defenseBase Infinity', () => {
-    const res = commandSchema.safeParse({
+  it('rifiuta defenseBase non-finito (Infinity)', () => {
+    expect(commandSchema.safeParse({
       type: 'Attack', attackerId: 'a', targetId: 'b',
       defense: 'difesa', defenseBase: Infinity, damageResource: 'hp',
-    });
-    expect(res.success).toBe(false);
+    }).success).toBe(false);
   });
-
-  it('commandSchema rifiuta initiative Infinity in StartEncounter', () => {
-    const res = commandSchema.safeParse({
+  it('rifiuta initiative non-finito in StartEncounter', () => {
+    expect(commandSchema.safeParse({
       type: 'StartEncounter', encounterId: 'e',
       participants: [{ actorId: 'a', zone: 'z', initiative: Infinity }],
-    });
-    expect(res.success).toBe(false);
+    }).success).toBe(false);
   });
-
-  it('domainEventSchema rifiuta un amount non-finito', () => {
-    const res = domainEventSchema.safeParse({ type: 'DamageApplied', targetId: 'a', resource: 'hp', amount: Infinity });
-    expect(res.success).toBe(false);
-  });
-
-  it('un valore finito normale resta valido', () => {
-    const res = commandSchema.safeParse({
+  it('accetta un defenseBase finito normale', () => {
+    expect(commandSchema.safeParse({
       type: 'Attack', attackerId: 'a', targetId: 'b',
       defense: 'difesa', defenseBase: 12, damageResource: 'hp',
-    });
-    expect(res.success).toBe(true);
+    }).success).toBe(true);
+  });
+```
+
+In **`packages/shared/src/domain-schema.test.ts`** (test di `domainEventSchema`), appendi:
+
+```ts
+describe('finiteNumber — gli eventi rifiutano i numeri non-finiti', () => {
+  it('domainEventSchema rifiuta un amount non-finito', () => {
+    expect(domainEventSchema.safeParse({ type: 'DamageApplied', targetId: 'a', resource: 'hp', amount: Infinity }).success).toBe(false);
   });
 });
 ```
 
-(Se `commandSchema`/`domainEventSchema` non sono già importati nel file di test, aggiungili all'import esistente da `./domain-schema`.)
+(`commandSchema` è già importato in `command-schema.test.ts`; verifica che `domainEventSchema` sia importato in `domain-schema.test.ts` da `./domain-schema`.)
 
 - [ ] **Step 2: Esegui — atteso FAIL**
 
-Run: `pnpm exec vitest run packages/shared/src/domain-schema.test.ts`
+Run: `pnpm exec vitest run packages/shared`
 Atteso: i 3 test di rifiuto FALLISCONO (`z.number()` accetta Infinity), il test "finito" passa.
 
 - [ ] **Step 3: Implementa `finiteNumber` e applicalo**
@@ -121,13 +120,13 @@ Poi sostituisci **ogni** occorrenza di `z.number()` con `finiteNumber` nel file 
 
 - [ ] **Step 4: Esegui — atteso PASS**
 
-Run: `pnpm exec vitest run packages/shared/src/domain-schema.test.ts`
+Run: `pnpm exec vitest run packages/shared`
 Atteso: tutti verdi. Poi `pnpm -C packages/shared typecheck` pulito (il tipo inferito resta `number`).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/shared/src/domain-schema.ts packages/shared/src/domain-schema.test.ts
+git add packages/shared/src/domain-schema.ts packages/shared/src/command-schema.test.ts packages/shared/src/domain-schema.test.ts
 git commit -m "fix(shared): finiteNumber sui campi numerici di domain-schema (rifiuta Infinity al confine) [I-13]"
 ```
 
@@ -139,7 +138,7 @@ git commit -m "fix(shared): finiteNumber sui campi numerici di domain-schema (ri
 - Modify: `packages/engine/src/dice.ts`
 - Test: `packages/engine/src/dice.test.ts`
 - Modify: `packages/shared/src/domain-schema.ts` (solo `dieGroupSchema`)
-- Test: `packages/shared/src/domain-schema.test.ts`
+- Test: `packages/shared/src/command-schema.test.ts` (la barriera è esercitata via `ApplyEffect`)
 
 **Razionale:** `rollExpression` itera `for (i<group.count)` e usa `group.sides` senza vincoli → `count` frazionario/negativo/enorme (es. allucinato dall'AI = `1e8`) produce dadi inesistenti o **freeza il main process**. L'arbitro è il motore: `rollExpression` valida ogni `DieGroup` (interi, count≥1, sides≥2, entro un tetto sano) e lancia (errore reiniettabile, coerente con `requireMember`). Lo schema `dieGroupSchema` aggiunge la stessa barriera al confine IPC.
 
@@ -203,7 +202,7 @@ e in `rollExpression` chiama `assertDieGroup(group)` come prima riga del ciclo:
 
 - [ ] **Step 4: Aggiungi i test schema (shared)**
 
-In `packages/shared/src/domain-schema.test.ts`, appendi:
+In `packages/shared/src/command-schema.test.ts` (i test di `commandSchema`; `dieGroupSchema` è esercitato via `ApplyEffect`), appendi:
 
 ```ts
 describe('dieGroupSchema — vincoli su count/sides (difesa al confine)', () => {
@@ -246,13 +245,13 @@ const dieGroupSchema = z
 
 - [ ] **Step 6: Esegui — atteso PASS**
 
-Run: `pnpm exec vitest run packages/engine/src/dice.test.ts packages/shared/src/domain-schema.test.ts`
+Run: `pnpm exec vitest run packages/engine/src/dice.test.ts packages/shared`
 Atteso: tutti verdi (i tiri esistenti usano count 1-2 / sides 4-20 → passano). Typecheck engine+shared puliti.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add packages/engine/src/dice.ts packages/engine/src/dice.test.ts packages/shared/src/domain-schema.ts packages/shared/src/domain-schema.test.ts
+git add packages/engine/src/dice.ts packages/engine/src/dice.test.ts packages/shared/src/domain-schema.ts packages/shared/src/command-schema.test.ts
 git commit -m "fix(engine): rollExpression valida i DieGroup (interi, count>=1, sides>=2, tetto); dieGroupSchema rispecchia i bound [I-07]"
 ```
 
@@ -406,7 +405,7 @@ git commit -m "fix(engine): decide(AddActor) clampa le risorse alla creazione vi
 - Modify: `packages/engine/src/commands.ts`
 - Test: `packages/engine/src/commands.test.ts`
 - Modify: `packages/shared/src/domain-schema.ts` (solo il `participants` del comando StartEncounter)
-- Test: `packages/shared/src/domain-schema.test.ts`
+- Test: `packages/shared/src/command-schema.test.ts` (test di `commandSchema`)
 
 **Razionale:** uno scontro a 0 partecipanti (`roundComplete` subito true, `currentParticipant` lancerebbe) è uno stato incoerente che il motore accetta. Il motore è l'arbitro → rifiuta. `.min(1)` sul **comando** (input) è sicuro; l'`encounterSchema` di **lettura** resta permissivo (non rifiutare scontri storici).
 
@@ -421,7 +420,7 @@ In `packages/engine/src/commands.test.ts`, nel `describe('decide StartEncounter'
   });
 ```
 
-In `packages/shared/src/domain-schema.test.ts`, appendi:
+In `packages/shared/src/command-schema.test.ts` (test di `commandSchema`), appendi:
 
 ```ts
 describe('commandSchema — StartEncounter richiede partecipanti', () => {
@@ -433,7 +432,7 @@ describe('commandSchema — StartEncounter richiede partecipanti', () => {
 
 - [ ] **Step 2: Esegui — atteso FAIL**
 
-Run: `pnpm exec vitest run packages/engine/src/commands.test.ts packages/shared/src/domain-schema.test.ts`
+Run: `pnpm exec vitest run packages/engine/src/commands.test.ts packages/shared`
 Atteso: i 2 nuovi test FALLISCONO.
 
 - [ ] **Step 3: Guard nel motore + `.min(1)` nello schema di comando**
@@ -452,13 +451,13 @@ In `packages/shared/src/domain-schema.ts`, nel `commandSchema`, l'arm StartEncou
 
 - [ ] **Step 4: Esegui — atteso PASS**
 
-Run: `pnpm exec vitest run packages/engine/src/commands.test.ts packages/shared/src/domain-schema.test.ts`
+Run: `pnpm exec vitest run packages/engine/src/commands.test.ts packages/shared`
 Atteso: verdi.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/engine/src/commands.ts packages/engine/src/commands.test.ts packages/shared/src/domain-schema.ts packages/shared/src/domain-schema.test.ts
+git add packages/engine/src/commands.ts packages/engine/src/commands.test.ts packages/shared/src/domain-schema.ts packages/shared/src/command-schema.test.ts
 git commit -m "fix(engine): decide(StartEncounter) rifiuta uno scontro senza partecipanti; commandSchema .min(1) [M-02]"
 ```
 

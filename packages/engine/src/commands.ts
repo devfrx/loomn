@@ -2,7 +2,7 @@ import type { RandomSource } from './random';
 import type { Actor } from './actor';
 import { clampPool } from './resource';
 import { rollExpression, type Modifier, type DieGroup, type RollExpr } from './dice';
-import { createEncounter, type ParticipantInput } from './encounter';
+import { createEncounter, endTurn, roundComplete, type ParticipantInput } from './encounter';
 import { performAttack } from './combat';
 import type { GameState, DomainEvent } from './events';
 import { actorCheck } from './actor-check';
@@ -129,10 +129,32 @@ export function decide(state: GameState, command: Command, rng: RandomSource, ru
         { type: 'PhaseChanged', from: state.phase, to: 'combat' },
       ];
     }
-    case 'EndTurn':
-      return [{ type: 'TurnEnded' }];
-    case 'NextRound':
+    case 'EndTurn': {
+      const enc = state.encounter; // il gate garantisce phase==='combat' => enc!==null
+      if (enc === null) {
+        throw new Error('Nessuno scontro attivo'); // difesa in profondita (invariante mai violata)
+      }
+      if (roundComplete(enc)) {
+        throw new Error('Round gia completo: avanza al round successivo');
+      }
+      // Il motore possiede la FSM: se questo turno chiude il round, auto-emette RoundAdvanced
+      // (coppia atomica) cosi il round non resta mai in stato "completo" e nessun partecipante
+      // viene saltato. applyEvent rigioca [TurnEnded, RoundAdvanced] in ordine.
+      const after = endTurn(enc);
+      return roundComplete(after)
+        ? [{ type: 'TurnEnded' }, { type: 'RoundAdvanced' }]
+        : [{ type: 'TurnEnded' }];
+    }
+    case 'NextRound': {
+      const enc = state.encounter;
+      if (enc === null) {
+        throw new Error('Nessuno scontro attivo');
+      }
+      if (!roundComplete(enc)) {
+        throw new Error('Round non ancora completo: tutti i partecipanti devono agire prima di avanzare');
+      }
       return [{ type: 'RoundAdvanced' }];
+    }
     case 'Attack': {
       const attacker = state.actors[command.attackerId];
       const target = state.actors[command.targetId];

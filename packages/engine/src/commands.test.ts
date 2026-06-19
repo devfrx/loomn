@@ -88,25 +88,61 @@ describe('decide StartEncounter', () => {
   });
 });
 
-describe('decide EndTurn e NextRound', () => {
-  function withEncounter(): GameState {
-    let s = withActors(actor('eroe'));
+describe('decide EndTurn e NextRound — FSM round/turno (il motore e l arbitro)', () => {
+  // Scontro a 2 partecipanti, turnIndex pilotabile, in fase combat.
+  function enc(turnIndex: number): GameState {
+    let s = withActors(actor('eroe'), actor('goblin'));
     s = applyEvent(s, {
       type: 'EncounterStarted',
-      encounter: { id: 'e', participants: [{ actorId: 'eroe', zone: 'a', initiative: 10, actedThisRound: false }], round: 1, turnIndex: 0 },
+      encounter: {
+        id: 'e',
+        participants: [
+          { actorId: 'eroe', zone: 'a', initiative: 10, actedThisRound: false },
+          { actorId: 'goblin', zone: 'a', initiative: 5, actedThisRound: false },
+        ],
+        round: 1,
+        turnIndex,
+      },
     });
-    s = applyEvent(s, { type: 'PhaseChanged', from: s.phase, to: 'combat' });
-    return s;
+    return applyEvent(s, { type: 'PhaseChanged', from: s.phase, to: 'combat' });
   }
-  it('EndTurn emette TurnEnded quando c è uno scontro', () => {
-    expect(decide(withEncounter(), { type: 'EndTurn' }, rng, TEST_RULESET)).toEqual([{ type: 'TurnEnded' }]);
+
+  it('EndTurn su un partecipante non-ultimo emette solo TurnEnded', () => {
+    expect(decide(enc(0), { type: 'EndTurn' }, rng, TEST_RULESET)).toEqual([{ type: 'TurnEnded' }]);
   });
+
+  it('EndTurn sull ultimo partecipante auto-avanza il round: [TurnEnded, RoundAdvanced]', () => {
+    expect(decide(enc(1), { type: 'EndTurn' }, rng, TEST_RULESET)).toEqual([
+      { type: 'TurnEnded' },
+      { type: 'RoundAdvanced' },
+    ]);
+  });
+
+  it('ciclo decide->apply sull ultimo turno: round+1, turnIndex 0, actedThisRound azzerati', () => {
+    let s = enc(1);
+    for (const e of decide(s, { type: 'EndTurn' }, rng, TEST_RULESET)) s = applyEvent(s, e);
+    expect(s.encounter?.round).toBe(2);
+    expect(s.encounter?.turnIndex).toBe(0);
+    expect(s.encounter?.participants.every((p) => p.actedThisRound === false)).toBe(true);
+  });
+
+  it('EndTurn quando il round e gia completo e illegale', () => {
+    // turnIndex === participants.length (stato raggiungibile solo da dati storici col vecchio bug)
+    expect(() => decide(enc(2), { type: 'EndTurn' }, rng, TEST_RULESET)).toThrow('Round gia completo');
+  });
+
+  it('NextRound a meta round e illegale (throw, 0 eventi)', () => {
+    expect(() => decide(enc(1), { type: 'NextRound' }, rng, TEST_RULESET)).toThrow('Round non ancora completo');
+  });
+
+  it('NextRound a round completo emette RoundAdvanced (recupero esplicito)', () => {
+    expect(decide(enc(2), { type: 'NextRound' }, rng, TEST_RULESET)).toEqual([{ type: 'RoundAdvanced' }]);
+  });
+
   it('EndTurn lancia fuori dalla fase combat', () => {
     expect(() => decide(initialState, { type: 'EndTurn' }, rng, TEST_RULESET)).toThrow('non disponibile in fase exploration');
   });
-  it('NextRound emette RoundAdvanced', () => {
-    expect(decide(withEncounter(), { type: 'NextRound' }, rng, TEST_RULESET)).toEqual([{ type: 'RoundAdvanced' }]);
-  });
+
   it('NextRound lancia fuori dalla fase combat', () => {
     expect(() => decide(initialState, { type: 'NextRound' }, rng, TEST_RULESET)).toThrow('non disponibile in fase exploration');
   });

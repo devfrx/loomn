@@ -88,8 +88,14 @@ async function runSelfTest(
       check(p.state.actors['goblin']?.name === 'Goblin', 'read-model push ricevuto dopo dispatch');
       check(readModel.version === 1 && readModel.actors.length === 1, 'store Pinia riflette il push read-side');
 
+      // 10e: Diario (narrazione + L2 + canon, read-only) e Compagnia (roster dal read-model + relazioni
+      // canon) montano via le route reali e leggono i canali read del Piano 0. Read-only → nessun
+      // evento, la versione resta invariata (la fase 2 verifica 7).
       await appRouter.push('/diario');
-      check(appRouter.currentRoute.value.name === 'journal', 'router naviga al Diario');
+      check(appRouter.currentRoute.value.name === 'journal', 'router naviga al Diario (JournalView montato)');
+      await appRouter.push('/compagnia');
+      check(appRouter.currentRoute.value.name === 'company', 'router naviga alla Compagnia (CompanyView montato)');
+      check(readModel.actors.some((a) => a.id === 'goblin'), 'la Compagnia vede il roster dal read-model');
       await appRouter.push('/');
       check(appRouter.currentRoute.value.name === 'game', 'router torna al Gioco');
 

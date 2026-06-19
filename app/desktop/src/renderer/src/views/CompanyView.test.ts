@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { setActivePinia, createPinia } from 'pinia';
-import type { RulesetResult } from '@loomn/shared';
+import type { RulesetResult, ReadModelPush, CanonResult } from '@loomn/shared';
 import CompanyView from './CompanyView.vue';
+import { useReadModelStore } from '../stores/read-model';
 
 const RULESET: Extract<RulesetResult, { ok: true }> = {
   ok: true,
@@ -20,6 +21,27 @@ const RULESET: Extract<RulesetResult, { ok: true }> = {
   commandPhaseRules: { combatOnly: [], nonCombatOnly: [] },
 };
 
+const CANON: CanonResult = {
+  ok: true,
+  facts: [{ id: 'f1', subject: 'Eroe', predicate: 'protegge', object: 'Villaggio', eventSeq: 1, salience: 0.7, status: 'active' }],
+};
+
+function rosterPush(): ReadModelPush {
+  return {
+    version: 1,
+    state: {
+      version: 1,
+      phase: 'exploration',
+      quests: {},
+      encounter: null,
+      actors: {
+        eroe: { id: 'eroe', name: 'Eroe', kind: 'pc', attributes: {}, skills: {}, resources: { hp: { current: 7, max: 10 } }, conditions: [], items: [], progression: { xp: 0, level: 1 } },
+        goblin: { id: 'goblin', name: 'Goblin', kind: 'npc', attributes: {}, skills: {}, resources: { hp: { current: 3, max: 6 } }, conditions: [], items: [], progression: { xp: 0, level: 1 } },
+      },
+    },
+  };
+}
+
 describe('CompanyView', () => {
   let dispatch: ReturnType<typeof vi.fn>;
   beforeEach(() => {
@@ -27,6 +49,8 @@ describe('CompanyView', () => {
     dispatch = vi.fn(() => Promise.resolve({ ok: true as const, version: 1, events: [] }));
     window.loomn = {
       getRuleset: () => Promise.resolve(RULESET),
+      getSummaries: () => Promise.resolve({ ok: true, summaries: [] }),
+      getCanon: () => Promise.resolve(CANON),
       dispatch,
     } as unknown as typeof window.loomn;
   });
@@ -52,5 +76,26 @@ describe('CompanyView', () => {
     expect(a.name).toBe('Kaelen');
     expect(a.id).toBe('kaelen');
     expect(a.progression).toEqual({ xp: 0, level: 1 });
+  });
+
+  it('elenca i PG e i PNG con le carte', async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    useReadModelStore().applyPush(rosterPush());
+    const w = mount(CompanyView, { global: { plugins: [pinia] } });
+    await flushPromises();
+    expect(w.text()).toContain('Eroe');
+    expect(w.text()).toContain('Goblin');
+    expect(w.text()).toContain('liv. 1');
+    expect(w.text()).toContain('hp 7/10');
+  });
+
+  it('mostra le relazioni canon per attore', async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    useReadModelStore().applyPush(rosterPush());
+    const w = mount(CompanyView, { global: { plugins: [pinia] } });
+    await flushPromises();
+    expect(w.text()).toContain('Eroe protegge Villaggio');
   });
 });

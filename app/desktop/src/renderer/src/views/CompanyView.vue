@@ -2,12 +2,24 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import LoomnPanel from '../components/LoomnPanel.vue';
 import LoomnButton from '../components/LoomnButton.vue';
-import { useReadModelStore } from '../stores/read-model';
+import { useReadModelStore, type ActorView } from '../stores/read-model';
 import { useRulesetStore } from '../stores/ruleset';
+import { useJournalStore } from '../stores/journal';
 import { buildActor, type ActorFormState } from '../lib/actor-form';
+import { toCompanyCard, canonForActor } from '../lib/company-view';
+import { toCanonLine } from '../lib/journal-view';
 
 const store = useReadModelStore();
 const ruleset = useRulesetStore();
+const journal = useJournalStore();
+
+// Carte per gruppo: identita/livello/risorse (toCompanyCard) + relazioni canon (canonForActor →
+// toCanonLine, display-only). Le relazioni strutturate sono deferite (spec §11).
+function cardsFor(actors: ActorView[]) {
+  return actors.map((a) => ({ card: toCompanyCard(a), relations: canonForActor(journal.canon, a).map(toCanonLine) }));
+}
+const pcCards = computed(() => cardsFor(store.pcs));
+const npcCards = computed(() => cardsFor(store.npcs));
 
 const open = ref(false);
 const feedback = ref<string | null>(null);
@@ -35,6 +47,7 @@ function openCreator(): void {
 }
 
 onMounted(async () => {
+  void journal.load();
   await ruleset.load();
   resetForm();
 });
@@ -68,13 +81,45 @@ async function submit(): Promise<void> {
         <LoomnButton variant="solid" @click="openCreator">Aggiungi PG/PNG</LoomnButton>
       </div>
 
-      <ul v-if="store.actors.length" class="roster">
-        <li v-for="a in store.actors" :key="a.id" class="roster__row">
-          <span class="roster__name">{{ a.name }}</span>
-          <span class="roster__kind">{{ a.kind }}</span>
-        </li>
-      </ul>
-      <p v-else>Nessun attore ancora. Relazioni e dettagli arrivano nel Piano 10e.</p>
+      <div v-if="store.actors.length" class="roster">
+        <section v-if="pcCards.length" class="group">
+          <h3 class="group__title">Personaggi</h3>
+          <ul class="cards">
+            <li v-for="row in pcCards" :key="row.card.id" class="card">
+              <div class="card__head">
+                <span class="card__name">{{ row.card.name }}</span>
+                <span class="card__lvl">liv. {{ row.card.level }}</span>
+              </div>
+              <div v-if="row.card.resources.length" class="card__res">
+                <span v-for="r in row.card.resources" :key="r.key" class="res">{{ r.key }} {{ r.current }}/{{ r.max }}</span>
+              </div>
+              <span class="card__meta">xp {{ row.card.xp }} · {{ row.card.itemCount }} oggetti · {{ row.card.conditionCount }} condizioni</span>
+              <ul v-if="row.relations.length" class="rel">
+                <li v-for="f in row.relations" :key="f.id" class="rel__row">{{ f.text }}</li>
+              </ul>
+            </li>
+          </ul>
+        </section>
+        <section v-if="npcCards.length" class="group">
+          <h3 class="group__title">Personaggi non giocanti</h3>
+          <ul class="cards">
+            <li v-for="row in npcCards" :key="row.card.id" class="card">
+              <div class="card__head">
+                <span class="card__name">{{ row.card.name }}</span>
+                <span class="card__lvl">liv. {{ row.card.level }}</span>
+              </div>
+              <div v-if="row.card.resources.length" class="card__res">
+                <span v-for="r in row.card.resources" :key="r.key" class="res">{{ r.key }} {{ r.current }}/{{ r.max }}</span>
+              </div>
+              <span class="card__meta">xp {{ row.card.xp }} · {{ row.card.itemCount }} oggetti · {{ row.card.conditionCount }} condizioni</span>
+              <ul v-if="row.relations.length" class="rel">
+                <li v-for="f in row.relations" :key="f.id" class="rel__row">{{ f.text }}</li>
+              </ul>
+            </li>
+          </ul>
+        </section>
+      </div>
+      <p v-else>Nessun attore ancora. Crea un PG o PNG per iniziare.</p>
 
       <div v-if="open" class="creator">
         <h3 class="creator__title">Nuovo attore</h3>
@@ -128,10 +173,19 @@ async function submit(): Promise<void> {
 <style scoped>
 .route-view { flex: 1; min-height: 0; }
 .head-actions { margin-bottom: 14px; }
-.roster { list-style: none; display: flex; flex-direction: column; gap: 8px; padding: 0; }
-.roster__row { display: flex; justify-content: space-between; padding: 9px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--well); }
-.roster__name { color: var(--text); }
-.roster__kind { font-family: var(--f-mono); font-size: 11px; color: var(--text-3); }
+.roster { display: flex; flex-direction: column; gap: 18px; }
+.group { display: flex; flex-direction: column; gap: 10px; }
+.group__title { margin: 0; font-family: var(--f-display); font-size: 15px; color: var(--text-2); }
+.cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.card { display: flex; flex-direction: column; gap: 7px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--well); }
+.card__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.card__name { font-family: var(--f-display); font-size: 16px; color: var(--text); }
+.card__lvl { font-family: var(--f-mono); font-size: 11px; color: var(--accent); }
+.card__res { display: flex; flex-wrap: wrap; gap: 8px; }
+.res { font-family: var(--f-mono); font-size: 11px; color: var(--text-2); border: 1px solid var(--line); border-radius: var(--r-xs); padding: 2px 7px; }
+.card__meta { font-family: var(--f-mono); font-size: 10.5px; color: var(--text-3); }
+.rel { list-style: none; margin: 4px 0 0; padding: 8px 0 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
+.rel__row { font-family: var(--f-ui); font-size: 12px; color: var(--text-2); }
 .creator { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
 .creator__title { font-family: var(--f-display); font-size: 16px; margin: 0 0 12px; }
 .form { display: flex; flex-direction: column; gap: 12px; }

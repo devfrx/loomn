@@ -9,6 +9,7 @@ import {
   decide,
   applyEvent,
   rebuild,
+  takeSnapshot,
   isCommandLegalInPhase,
   COMMAND_TYPES,
   DIFFICULTIES,
@@ -38,6 +39,9 @@ export interface CampaignServiceDeps {
   rng: RandomSource;
   /** Ruleset iniettato (vocabolario + dcForDifficulty): passato a decide e runMasterTurn. */
   ruleset: Ruleset;
+  /** Ogni quanti eventi salvare uno snapshot dello stato (default 100). Riduce il costo d avvio:
+   *  all avvio si ricostruisce dallo snapshot piu recente + la sola coda fresca (M-03). */
+  snapshotEvery?: number;
 }
 
 /** Proiezione di sola lettura (read side, spec 5.2). Snapshot completo (delta rimandato, spec 13).
@@ -135,8 +139,12 @@ export interface CampaignService {
 }
 
 export function createCampaignService(deps: CampaignServiceDeps): CampaignService {
-  // Proiezione in-memory ricostruita dallo stream all avvio (spec 9: proiezioni in-memory + snapshot).
-  let state: GameState = rebuild(deps.memory.eventStore.load());
+  const snapshotEvery = deps.snapshotEvery ?? 100;
+  // Avvio: ricostruisce dallo snapshot piu recente + la sola coda fresca (loadSince), invece del
+  // full-replay O(stream) (M-03). Senza snapshot, loadSince(0) = tutti gli eventi -> replay completo.
+  const latestSnapshot = deps.memory.eventStore.latestSnapshot();
+  let state: GameState = rebuild(deps.memory.eventStore.loadSince(latestSnapshot?.version ?? 0), latestSnapshot);
+  let lastSnapshotVersion = latestSnapshot?.version ?? 0;
 
   // Coda FIFO: serializza le operazioni mutanti (niente interfogliamento del turno async col dispatch).
   let tail: Promise<unknown> = Promise.resolve();
@@ -151,6 +159,15 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
 
   const readModel = (): ReadModel => ({ version: state.version, state });
 
+  // Salva uno snapshot quando lo stream e cresciuto di almeno snapshotEvery eventi dall ultimo (M-03).
+  // Chiamato dentro la coda FIFO dopo aver avanzato `state` (mai concorrente con un altra scrittura).
+  function maybeSnapshot(): void {
+    if (state.version - lastSnapshotVersion >= snapshotEvery) {
+      deps.memory.eventStore.saveSnapshot(takeSnapshot(state));
+      lastSnapshotVersion = state.version;
+    }
+  }
+
   return {
     getReadModel: readModel,
 
@@ -160,6 +177,7 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
         const events = decide(state, command, deps.rng, deps.ruleset);
         deps.memory.eventStore.append(events, expected);
         for (const ev of events) state = applyEvent(state, ev);
+        maybeSnapshot();
         return { events, readModel: readModel() };
       });
     },
@@ -193,6 +211,7 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
         if (toStore.length > 0) {
           deps.memory.eventStore.append(toStore, startVersion);
           state = nextState;
+          maybeSnapshot();
         }
         // TurnOutcome.events resta la lista MECCANICA: il NarrationRecorded e persistenza di stream,
         // non un esito meccanico del turno. La version del read model riflette comunque il bump.

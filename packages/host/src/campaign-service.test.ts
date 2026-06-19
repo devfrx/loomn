@@ -594,6 +594,86 @@ describe('createCampaignService - read on-demand (narrazione / canon / L2)', () 
   });
 });
 
+describe('createCampaignService - snapshot cablato (M-03)', () => {
+  it('scrive uno snapshot alla soglia di eventi (snapshotEvery)', async () => {
+    const memory = createMemorySystem(':memory:', { clock: { now: () => 1000 } });
+    const service = createCampaignService({
+      memory,
+      model: fakeModel([{ type: 'finish', reason: 'stop' }]),
+      structured: idlePort,
+      rng: createSeededRandom(1),
+      ruleset: SERVICE_RULESET,
+      snapshotEvery: 2,
+    });
+    try {
+      expect(memory.eventStore.latestSnapshot()).toBeUndefined();
+      await service.dispatch({ type: 'AddActor', actor: actor('a', 'A') }); // v1: sotto soglia
+      expect(memory.eventStore.latestSnapshot()).toBeUndefined();
+      await service.dispatch({ type: 'AddActor', actor: actor('b', 'B') }); // v2: soglia raggiunta
+      expect(memory.eventStore.latestSnapshot()?.version).toBe(2);
+    } finally {
+      memory.close();
+    }
+  });
+
+  it('all avvio ricostruisce dallo snapshot + coda fresca: stesso stato del full-replay', async () => {
+    const memory = createMemorySystem(':memory:', { clock: { now: () => 1000 } });
+    try {
+      const s1 = createCampaignService({
+        memory,
+        model: fakeModel([{ type: 'finish', reason: 'stop' }]),
+        structured: idlePort,
+        rng: createSeededRandom(1),
+        ruleset: SERVICE_RULESET,
+        snapshotEvery: 2,
+      });
+      await s1.dispatch({ type: 'AddActor', actor: actor('a', 'A') });
+      await s1.dispatch({ type: 'AddActor', actor: actor('b', 'B') }); // snapshot @ v2
+      await s1.dispatch({ type: 'AddActor', actor: actor('c', 'C') }); // v3 oltre lo snapshot
+      // Nuovo servizio sulla stessa memoria: rebuild = snapshot(v2) + coda fresca(v3).
+      const s2 = createCampaignService({
+        memory,
+        model: fakeModel([{ type: 'finish', reason: 'stop' }]),
+        structured: idlePort,
+        rng: createSeededRandom(1),
+        ruleset: SERVICE_RULESET,
+        snapshotEvery: 2,
+      });
+      expect(s2.getReadModel().version).toBe(3);
+      expect(Object.keys(s2.getReadModel().state.actors).sort()).toEqual(['a', 'b', 'c']);
+    } finally {
+      memory.close();
+    }
+  });
+
+  it('senza snapshot l avvio resta un full-replay corretto (retro-compatibile)', async () => {
+    const memory = createMemorySystem(':memory:', { clock: { now: () => 1000 } });
+    try {
+      const s1 = createCampaignService({
+        memory,
+        model: fakeModel([{ type: 'finish', reason: 'stop' }]),
+        structured: idlePort,
+        rng: createSeededRandom(1),
+        ruleset: SERVICE_RULESET,
+        snapshotEvery: 1000, // soglia alta: nessuno snapshot scritto
+      });
+      await s1.dispatch({ type: 'AddActor', actor: actor('a', 'A') });
+      expect(memory.eventStore.latestSnapshot()).toBeUndefined();
+      const s2 = createCampaignService({
+        memory,
+        model: fakeModel([{ type: 'finish', reason: 'stop' }]),
+        structured: idlePort,
+        rng: createSeededRandom(1),
+        ruleset: SERVICE_RULESET,
+      });
+      expect(s2.getReadModel().version).toBe(1);
+      expect(s2.getReadModel().state.actors['a']?.name).toBe('A');
+    } finally {
+      memory.close();
+    }
+  });
+});
+
 describe('createCampaignService - getRuleset (vocabolario + enum + regole di fase)', () => {
   it('espone il vocabolario iniettato', () => {
     const { service, memory } = makeService();

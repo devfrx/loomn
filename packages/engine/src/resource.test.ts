@@ -73,4 +73,7 @@ describe('clampPool', () => {
     expect(() => clampPool({ current: 1, max: -1 })).toThrow(/max/);
     expect(() => clampPool({ current: 1, max: Infinity })).toThrow(/max/);
   });
+  it('lancia su current non finito (NaN)', () => {
+    expect(() => clampPool({ current: NaN, max: 10 })).toThrow(/current/);
+  });
 });

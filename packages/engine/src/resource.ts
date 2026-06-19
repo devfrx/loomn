@@ -12,6 +12,9 @@ export function clampPool(pool: ResourcePool): ResourcePool {
   if (!Number.isFinite(pool.max) || pool.max < 0) {
     throw new Error(`Risorsa con max non valido: ${pool.max}`);
   }
+  if (!Number.isFinite(pool.current)) {
+    throw new Error(`Risorsa con current non valido: ${pool.current}`);
+  }
   return { current: clampCurrent(pool.current, pool.max), max: pool.max };
 }
 

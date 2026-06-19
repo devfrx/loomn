@@ -64,6 +64,9 @@ describe('rollExpression', () => {
   it('rifiuta sides < 2 e sides non intero', () => {
     expect(() => rollExpression({ dice: [{ count: 1, sides: 1 }], modifiers: [], mode: 'effect' }, stubRandom([0.5]))).toThrow(/Facce/);
     expect(() => rollExpression({ dice: [{ count: 1, sides: 2.5 }], modifiers: [], mode: 'effect' }, stubRandom([0.5]))).toThrow(/Facce/);
+    expect(() =>
+      rollExpression({ dice: [{ count: 1, sides: 1001 }], modifiers: [], mode: 'effect' }, stubRandom([0.5]))
+    ).toThrow(/Facce/);
   });
   it('un gruppo dadi vuoto (nessun gruppo) resta valido', () => {
     const res = rollExpression({ dice: [], modifiers: [{ value: 3, source: 'x' }], mode: 'effect' }, stubRandom([0.5]));

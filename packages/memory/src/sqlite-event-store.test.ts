@@ -109,3 +109,81 @@ describe('createSqliteEventStore - snapshot', () => {
     }
   });
 });
+
+describe('createSqliteEventStore - letture finestrate (I-05/M-03)', () => {
+  const narr = (action: string, text: string): DomainEvent => ({
+    type: 'NarrationRecorded',
+    playerAction: action,
+    narration: text,
+  });
+
+  it('loadSince ritorna solo gli eventi con seq maggiore della soglia, in ordine', () => {
+    const store = createSqliteEventStore(':memory:');
+    try {
+      store.append(evs, 0); // 3 eventi: seq 1,2,3
+      expect(store.loadSince(0).map((s) => s.seq)).toEqual([1, 2, 3]);
+      expect(store.loadSince(2).map((s) => s.seq)).toEqual([3]);
+      expect(store.loadSince(3)).toEqual([]);
+    } finally {
+      store.close();
+    }
+  });
+
+  it('loadNarration ritorna i soli NarrationRecorded, newest-first, rispettando il limit', () => {
+    const store = createSqliteEventStore(':memory:');
+    try {
+      store.append([narr('a1', 'n1'), { type: 'TurnEnded' }, narr('a2', 'n2'), narr('a3', 'n3')], 0);
+      const all = store.loadNarration({ limit: 50 });
+      expect(all.map((s) => s.seq)).toEqual([4, 3, 1]); // newest-first, salta il TurnEnded
+      const page = store.loadNarration({ limit: 2 });
+      expect(page.map((s) => s.seq)).toEqual([4, 3]);
+    } finally {
+      store.close();
+    }
+  });
+
+  it('loadNarration con before pagina gli eventi con seq minore del cursore', () => {
+    const store = createSqliteEventStore(':memory:');
+    try {
+      store.append([narr('a1', 'n1'), narr('a2', 'n2'), narr('a3', 'n3')], 0); // seq 1,2,3
+      expect(store.loadNarration({ before: 3, limit: 50 }).map((s) => s.seq)).toEqual([2, 1]);
+      expect(store.loadNarration({ before: 2, limit: 50 }).map((s) => s.seq)).toEqual([1]);
+    } finally {
+      store.close();
+    }
+  });
+
+  it('loadNarration NON parsa le righe non-narrazione fuori dal filtro (niente Zod sull intero stream)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'loomn-mem-'));
+    const path = join(dir, 'win.db');
+    try {
+      const inject = openDatabase(path);
+      // Riga NON-narrazione con payload corrotto: load() ci morirebbe sopra; loadNarration la filtra DB-side.
+      inject.db.insert(events).values({ type: 'DamageApplied', payload: '{"type":"DamageApplied"}' }).run();
+      inject.db.insert(events).values({ type: 'NarrationRecorded', payload: JSON.stringify(narr('a', 'storia')) }).run();
+      inject.close();
+      const store = createSqliteEventStore(path);
+      const got = store.loadNarration({ limit: 50 });
+      expect(got.map((s) => s.seq)).toEqual([2]); // solo la narrazione; la riga corrotta non e mai parsata
+      store.close();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('loadSince NON parsa gli eventi sotto la soglia (finestra fresca)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'loomn-mem-'));
+    const path = join(dir, 'since.db');
+    try {
+      const inject = openDatabase(path);
+      inject.db.insert(events).values({ type: 'DamageApplied', payload: '{"type":"DamageApplied"}' }).run(); // seq 1 corrotto
+      inject.db.insert(events).values({ type: 'NarrationRecorded', payload: JSON.stringify(narr('a', 'storia')) }).run(); // seq 2 valido
+      inject.close();
+      const store = createSqliteEventStore(path);
+      expect(store.loadSince(1).map((s) => s.seq)).toEqual([2]); // la riga 1 corrotta non e parsata
+      store.close();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

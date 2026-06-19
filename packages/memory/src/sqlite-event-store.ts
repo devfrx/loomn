@@ -1,4 +1,4 @@
-import { sql, desc } from 'drizzle-orm';
+import { sql, desc, eq, gt, lt, and, type SQL } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   ConcurrencyError,
@@ -13,11 +13,25 @@ import { domainEventSchema, gameStateSchema } from '@loomn/shared';
 import { openDatabase } from './db';
 import { events, snapshots } from './schema';
 
+/** Finestra cursor-by-seq per la cronologia di narrazione (newest-first). */
+export interface NarrationWindow {
+  /** Solo eventi con seq < before (assente = dal piu recente). */
+  before?: number;
+  /** Numero massimo di righe restituite. */
+  limit: number;
+}
+
 export interface SqliteEventStore extends EventStore {
   /** Persiste uno snapshot (sovrascrive quello con la stessa versione). */
   saveSnapshot(snapshot: Snapshot): void;
   /** Lo snapshot a versione massima, o undefined se non ce ne sono. */
   latestSnapshot(): Snapshot | undefined;
+  /** Eventi con seq > throughSeq, in ordine di seq. Parsa SOLO la finestra (rebuild-da-snapshot,
+   *  reflect incrementale): evita il full-scan O(stream) di load(). */
+  loadSince(throughSeq: number): StoredEvent[];
+  /** Finestra DB-side dei soli NarrationRecorded, newest-first. Filtra per `type` (gia persistito)
+   *  e seq < before nel DB → parsa O(limit) righe, non l intero stream. */
+  loadNarration(query: NarrationWindow): StoredEvent[];
   /** Rilascia la connessione SQLite sottostante. */
   close(): void;
 }
@@ -54,6 +68,16 @@ export function createSqliteEventStoreOn(db: BetterSQLite3Database): SqliteEvent
     },
     load(): StoredEvent[] {
       const rows = db.select().from(events).orderBy(events.seq).all();
+      return rows.map((r) => ({ seq: r.seq, event: domainEventSchema.parse(JSON.parse(r.payload)) }));
+    },
+    loadSince(throughSeq: number): StoredEvent[] {
+      const rows = db.select().from(events).where(gt(events.seq, throughSeq)).orderBy(events.seq).all();
+      return rows.map((r) => ({ seq: r.seq, event: domainEventSchema.parse(JSON.parse(r.payload)) }));
+    },
+    loadNarration(query: NarrationWindow): StoredEvent[] {
+      const conds: SQL[] = [eq(events.type, 'NarrationRecorded')];
+      if (query.before !== undefined) conds.push(lt(events.seq, query.before));
+      const rows = db.select().from(events).where(and(...conds)).orderBy(desc(events.seq)).limit(query.limit).all();
       return rows.map((r) => ({ seq: r.seq, event: domainEventSchema.parse(JSON.parse(r.payload)) }));
     },
     saveSnapshot(snapshot: Snapshot): void {

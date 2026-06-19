@@ -4,6 +4,7 @@ export {
   createSqliteEventStoreOn,
   type SqliteEventStore,
   type SqliteEventStoreOn,
+  type NarrationWindow,
 } from './sqlite-event-store';
 export {
   createCanonLedger,

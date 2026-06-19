@@ -32,6 +32,7 @@ function reflectNow(): void {
     <LoomnPanel eyebrow="diario" title="Diario" :meta="`${journal.canon.length} fatti`">
       <div class="journal">
         <section class="block">
+          <h4 class="block__title">Riflessione</h4>
           <div class="reflect">
             <input
               v-model="scope"
@@ -56,7 +57,7 @@ function reflectNow(): void {
             </li>
           </ul>
           <p v-else class="empty">Nessuna scena ancora narrata.</p>
-          <LoomnButton v-if="narration.hasMore" variant="ghost" @click="narration.loadOlder">Carica piu vecchie</LoomnButton>
+          <LoomnButton v-if="narration.hasMore" variant="ghost" @click="narration.loadOlder()">Carica piu vecchie</LoomnButton>
         </section>
 
         <section class="block">

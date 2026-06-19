@@ -550,6 +550,23 @@ describe('createCampaignService - read on-demand (narrazione / canon / L2)', () 
     }
   });
 
+  it('getNarrationHistory con limit NaN viene clampato a >=1, non ritorna tutto (M-05)', async () => {
+    const model = scriptedModel([
+      [{ type: 'text', delta: 'Prima.' }, { type: 'finish', reason: 'stop' }],
+      [{ type: 'text', delta: 'Seconda.' }, { type: 'finish', reason: 'stop' }],
+    ]);
+    const { service, memory } = makeService({ model });
+    try {
+      await service.runTurn('a1.');
+      await service.runTurn('a2.');
+      const h = service.getNarrationHistory({ limit: Number.NaN });
+      expect(h.entries.length).toBe(1); // clamp a 1, NON le 2
+      expect(h.hasMore).toBe(true);
+    } finally {
+      memory.close();
+    }
+  });
+
   it('getCanon ritorna i fatti attivi di default e tutti con includeRetracted', () => {
     const { service, memory } = makeService();
     try {

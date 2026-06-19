@@ -220,7 +220,9 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
     getNarrationHistory(query: NarrationHistoryQuery = {}): NarrationHistory {
       // Clamp difensivo: limit<=0 o frazionario ritornerebbe garbage (M-05). Il confine IPC gia impone
       // .int().positive().max(200), ma CampaignService e chiamabile direttamente (difesa in profondita).
-      const limit = Math.max(1, Math.trunc(query.limit ?? 50));
+      // `|| 1` mappa anche NaN (Math.trunc(NaN)=NaN) a 1 prima del clamp: un limit non-finito da un
+      // chiamante diretto su ABI Node non deve diventare LIMIT NaN (SQLite lo tratterebbe come "tutto").
+      const limit = Math.max(1, Math.trunc(query.limit ?? 50) || 1);
       // Finestra DB-side: chiediamo limit+1 righe per sapere se c e un altra pagina (hasMore), senza
       // contare/caricare l intero stream (I-05).
       const window: NarrationWindow = {

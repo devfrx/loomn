@@ -231,6 +231,16 @@ describe('finiteNumber — commandSchema rifiuta i numeri non-finiti', () => {
   });
 });
 
+describe('dieGroupSchema — vincoli su count/sides (difesa al confine)', () => {
+  it('ApplyEffect rifiuta dadi con count frazionario o sides < 2', () => {
+    expect(commandSchema.safeParse({ type: 'ApplyEffect', targetId: 't', resource: 'hp', direction: 'restore', dice: [{ count: 1.5, sides: 6 }] }).success).toBe(false);
+    expect(commandSchema.safeParse({ type: 'ApplyEffect', targetId: 't', resource: 'hp', direction: 'restore', dice: [{ count: 1, sides: 1 }] }).success).toBe(false);
+  });
+  it('ApplyEffect accetta dadi validi', () => {
+    expect(commandSchema.safeParse({ type: 'ApplyEffect', targetId: 't', resource: 'hp', direction: 'restore', dice: [{ count: 2, sides: 6 }] }).success).toBe(true);
+  });
+});
+
 describe('enum statici di comando esportati (per i form GM)', () => {
   it('DIFFICULTIES elenca le sei band di difficolta', () => {
     expect([...DIFFICULTIES]).toEqual(['trivial', 'easy', 'moderate', 'hard', 'formidable', 'legendary']);

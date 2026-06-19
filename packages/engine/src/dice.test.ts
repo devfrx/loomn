@@ -51,4 +51,22 @@ describe('rollExpression', () => {
     );
     expect(res.dice[0]!.value).toBe(11);
   });
+
+  it('rifiuta un count non intero', () => {
+    expect(() => rollExpression({ dice: [{ count: 1.5, sides: 6 }], modifiers: [], mode: 'effect' }, stubRandom([0.5]))).toThrow(/Numero di dadi/);
+  });
+  it('rifiuta un count < 1', () => {
+    expect(() => rollExpression({ dice: [{ count: 0, sides: 6 }], modifiers: [], mode: 'effect' }, stubRandom([0.5]))).toThrow(/Numero di dadi/);
+  });
+  it('rifiuta un count oltre il tetto', () => {
+    expect(() => rollExpression({ dice: [{ count: 1e8, sides: 6 }], modifiers: [], mode: 'effect' }, stubRandom([0.5]))).toThrow(/Numero di dadi/);
+  });
+  it('rifiuta sides < 2 e sides non intero', () => {
+    expect(() => rollExpression({ dice: [{ count: 1, sides: 1 }], modifiers: [], mode: 'effect' }, stubRandom([0.5]))).toThrow(/Facce/);
+    expect(() => rollExpression({ dice: [{ count: 1, sides: 2.5 }], modifiers: [], mode: 'effect' }, stubRandom([0.5]))).toThrow(/Facce/);
+  });
+  it('un gruppo dadi vuoto (nessun gruppo) resta valido', () => {
+    const res = rollExpression({ dice: [], modifiers: [{ value: 3, source: 'x' }], mode: 'effect' }, stubRandom([0.5]));
+    expect(res.total).toBe(3);
+  });
 });

@@ -11,8 +11,17 @@ const finiteNumber = z.number().finite();
 
 const rollModeSchema = z.union([z.literal('check'), z.literal('effect')]);
 
+// Rispecchiano MAX_DICE_COUNT/MAX_DICE_SIDES di @loomn/engine (shared e FOGLIA, non importa engine).
+// L arbitro autorevole resta rollExpression nel motore; qui e difesa-in-profondita al confine IPC.
+const MAX_DICE_COUNT = 100;
+const MAX_DICE_SIDES = 1000;
+
 const dieGroupSchema = z
-  .object({ count: finiteNumber, sides: finiteNumber, tag: z.string().optional() })
+  .object({
+    count: finiteNumber.int().min(1).max(MAX_DICE_COUNT),
+    sides: finiteNumber.int().min(2).max(MAX_DICE_SIDES),
+    tag: z.string().optional(),
+  })
   .transform((o) =>
     o.tag === undefined
       ? { count: o.count, sides: o.sides }

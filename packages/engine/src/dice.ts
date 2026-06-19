@@ -32,10 +32,26 @@ export interface RollResult {
   mode: RollMode;
 }
 
+/** Tetti sani sui dadi proposti da AI/utente: prevengono il freeze del processo (un count
+ *  allucinato = milioni di iterazioni sincrone) e i dadi non-standard. Generosi per qualsiasi
+ *  tiro realistico. Lo schema dieGroupSchema (@loomn/shared) li rispecchia come difesa al confine. */
+export const MAX_DICE_COUNT = 100;
+export const MAX_DICE_SIDES = 1000;
+
+function assertDieGroup(group: DieGroup): void {
+  if (!Number.isInteger(group.count) || group.count < 1 || group.count > MAX_DICE_COUNT) {
+    throw new Error(`Numero di dadi non valido: ${group.count} (atteso intero 1..${MAX_DICE_COUNT})`);
+  }
+  if (!Number.isInteger(group.sides) || group.sides < 2 || group.sides > MAX_DICE_SIDES) {
+    throw new Error(`Facce del dado non valide: ${group.sides} (atteso intero 2..${MAX_DICE_SIDES})`);
+  }
+}
+
 /** Risolve un'espressione di dadi in modo deterministico data una RandomSource. */
 export function rollExpression(expr: RollExpr, rng: RandomSource): RollResult {
   const dice: DieResult[] = [];
   for (const group of expr.dice) {
+    assertDieGroup(group);
     for (let i = 0; i < group.count; i++) {
       const value = 1 + Math.floor(rng.next() * group.sides);
       dice.push(

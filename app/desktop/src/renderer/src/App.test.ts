@@ -39,6 +39,9 @@ describe('App shell', () => {
         }),
       // App monta GameView (rotta /) -> NarrativePanel -> narration.loadInitial() chiama getNarrationHistory.
       getNarrationHistory: () => Promise.resolve({ ok: true, entries: [], hasMore: false }),
+      // 10e: navigando a /diario il JournalView reale chiama journal.load() (getSummaries/getCanon).
+      getSummaries: () => Promise.resolve({ ok: true, summaries: [] }),
+      getCanon: () => Promise.resolve({ ok: true, facts: [] }),
     } as unknown as typeof window.loomn;
   });
 

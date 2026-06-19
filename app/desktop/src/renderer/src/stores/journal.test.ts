@@ -40,6 +40,16 @@ describe('useJournalStore', () => {
     expect(store.error).toBe('ledger ko');
   });
 
+  it('su un canale fallito conserva l elenco gia caricato per quel canale', async () => {
+    const store = useJournalStore();
+    await store.load();
+    expect(store.canon.map((f) => f.id)).toEqual(['f1']);
+    stub({ getCanon: vi.fn(() => Promise.resolve({ ok: false, error: 'ledger ko' })) });
+    await store.load();
+    expect(store.canon.map((f) => f.id)).toEqual(['f1']);
+    expect(store.error).toBe('ledger ko');
+  });
+
   it('runReflect ok pubblica il messaggio e ricarica', async () => {
     const reflect = vi.fn((): Promise<ReflectResult> => Promise.resolve({ ok: true, factCount: 2, summarized: true }));
     const getCanon = vi.fn(() => Promise.resolve(CANON));

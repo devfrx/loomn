@@ -2,8 +2,8 @@ import type { Actor, Condition } from './actor';
 import { adjustResource } from './resource';
 
 /** Chiave canonica della condizione "a terra" (morente). Single-source nel motore: referenziata
- *  da applyEvent(ActorDowned). Esposta dal barrel; il renderer la consuma via il DTO get-ruleset
- *  (non importa engine per il dominio). Sostituisce i literal sparsi (rischio di drift). */
+ *  da applyEvent(ActorDowned). Esposta dal barrel; il renderer la consumera via il DTO get-ruleset
+ *  (F6), senza importare engine per il dominio. Sostituisce i literal sparsi (rischio di drift). */
 export const DOWNED_CONDITION_KEY = 'morente';
 
 /** Costruisce la condizione "morente" permanente applicata a chi va a 0 sulla risorsa di combat. */

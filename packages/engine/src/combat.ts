@@ -5,7 +5,6 @@ import type { Actor } from './actor';
 import type { CheckResult } from './check';
 import { actorCheck, type CheckRequest } from './actor-check';
 import { adjustResource, isDepleted } from './resource';
-
 import { equippedItems, collectItemDice, defenseValue } from './item';
 
 export interface AttackInput {

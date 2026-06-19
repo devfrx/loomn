@@ -405,6 +405,30 @@ describe('createCampaignService - reflect e serializzazione', () => {
     }
   });
 
+  it('reflect legge solo gli eventi freschi (loadSince dal cursore), riflettendo la scena nuova', async () => {
+    const port: StructuredOutputPort = {
+      generate: async <T>(request: StructuredOutputRequest<T>): Promise<StructuredOutputResult<T>> => {
+        if (request.schemaName === 'extract_facts') {
+          const value = { facts: [{ subject: 'Goblin', predicate: 'fugge', object: 'nel bosco', functional: false, importance: 5 }] };
+          return { value: value as T, strategy: 'function-call' };
+        }
+        return { value: { text: 'Il goblin fugge.', importance: 5 } as T, strategy: 'function-call' };
+      },
+    };
+    const { service, memory } = makeService({ structured: port });
+    try {
+      await service.dispatch({ type: 'AddActor', actor: actor('goblin', 'Goblin') });
+      const first = await service.reflect('sess-1');
+      expect(first.factCount).toBe(1);
+      // Il cursore e avanzato: una seconda reflect senza nuovi eventi e un no-op (legge loadSince(v) = []).
+      const second = await service.reflect('sess-1');
+      expect(second.factCount).toBe(0);
+      expect(second.summarized).toBe(false);
+    } finally {
+      memory.close();
+    }
+  });
+
   it('serializza turno e dispatch concorrenti: nessun ConcurrencyError, ordine FIFO', async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
@@ -489,6 +513,37 @@ describe('createCampaignService - read on-demand (narrazione / canon / L2)', () 
       await service.dispatch({ type: 'AddActor', actor: actor('goblin', 'Goblin') });
       const h = service.getNarrationHistory();
       expect(h.entries).toEqual([]);
+      expect(h.hasMore).toBe(false);
+    } finally {
+      memory.close();
+    }
+  });
+
+  it('getNarrationHistory con limit=0 NON ritorna tutto: clamp a >=1 (M-05)', async () => {
+    const model = scriptedModel([
+      [{ type: 'text', delta: 'Prima.' }, { type: 'finish', reason: 'stop' }],
+      [{ type: 'text', delta: 'Seconda.' }, { type: 'finish', reason: 'stop' }],
+    ]);
+    const { service, memory } = makeService({ model });
+    try {
+      await service.runTurn('a1.');
+      await service.runTurn('a2.');
+      const h = service.getNarrationHistory({ limit: 0 });
+      expect(h.entries.length).toBe(1); // clamp a 1, NON le 2 (slice(-0) ritornava tutto)
+      expect(h.entries[0]?.seq).toBe(2); // la piu recente
+      expect(h.hasMore).toBe(true);
+    } finally {
+      memory.close();
+    }
+  });
+
+  it('getNarrationHistory con limit negativo viene clampato a >=1 (M-05)', async () => {
+    const model = scriptedModel([[{ type: 'text', delta: 'Sola.' }, { type: 'finish', reason: 'stop' }]]);
+    const { service, memory } = makeService({ model });
+    try {
+      await service.runTurn('a1.');
+      const h = service.getNarrationHistory({ limit: -5 });
+      expect(h.entries.length).toBe(1);
       expect(h.hasMore).toBe(false);
     } finally {
       memory.close();

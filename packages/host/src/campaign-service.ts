@@ -23,7 +23,7 @@ import {
 } from '@loomn/engine';
 import { runMasterTurn, type LanguageModel, type StructuredOutputPort } from '@loomn/ai';
 import { runScenesReflection } from '@loomn/memory';
-import type { CanonFact, CanonFactFilter, Summary, SummaryFilter } from '@loomn/memory';
+import type { CanonFact, CanonFactFilter, NarrationWindow, Summary, SummaryFilter } from '@loomn/memory';
 import type { MemorySystem } from './memory-system';
 import { reflectionDepsFor } from './reflection-ports';
 
@@ -202,9 +202,11 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
 
     reflect(scope: string): Promise<ReflectOutcome> {
       return enqueue(async () => {
-        const stored = deps.memory.eventStore.load();
+        // Legge SOLO gli eventi freschi (seq > watermark): evita di Zod-parsare l intero stream a ogni
+        // reflect (I-05). runScenesReflection ri-filtra sullo STESSO cursore (no-op) e avanza il watermark.
+        const fresh = deps.memory.eventStore.loadSince(deps.memory.cursor.get());
         const results = await runScenesReflection(reflectionDepsFor(deps.memory, deps.structured), {
-          events: stored,
+          events: fresh,
           scope,
         });
         const factCount = results.reduce((n, r) => n + r.facts.length, 0);
@@ -216,17 +218,25 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
     // Read on-demand (spec 5.2). NON accodati: la coda FIFO serializza solo le mutazioni; questi
     // leggono stato SQLite gia committato (vista coerente anche durante un turno async).
     getNarrationHistory(query: NarrationHistoryQuery = {}): NarrationHistory {
-      const limit = query.limit ?? 50;
-      const before = query.before;
-      const all: NarrationEntry[] = [];
-      for (const s of deps.memory.eventStore.load()) {
-        if (s.event.type === 'NarrationRecorded') {
-          all.push({ seq: s.seq, playerAction: s.event.playerAction, narration: s.event.narration });
+      // Clamp difensivo: limit<=0 o frazionario ritornerebbe garbage (M-05). Il confine IPC gia impone
+      // .int().positive().max(200), ma CampaignService e chiamabile direttamente (difesa in profondita).
+      const limit = Math.max(1, Math.trunc(query.limit ?? 50));
+      // Finestra DB-side: chiediamo limit+1 righe per sapere se c e un altra pagina (hasMore), senza
+      // contare/caricare l intero stream (I-05).
+      const window: NarrationWindow = {
+        limit: limit + 1,
+        ...(query.before !== undefined ? { before: query.before } : {}),
+      };
+      const rows = deps.memory.eventStore.loadNarration(window); // gia newest-first
+      const hasMore = rows.length > limit;
+      const entries: NarrationEntry[] = rows.slice(0, limit).map((s) => {
+        // loadNarration filtra type='NarrationRecorded' DB-side; il narrowing rende esplicito il tipo.
+        if (s.event.type !== 'NarrationRecorded') {
+          throw new Error('loadNarration ha restituito un evento non-narrazione');
         }
-      }
-      const eligible = before !== undefined ? all.filter((e) => e.seq < before) : all;
-      const page = eligible.slice(-limit); // le `limit` piu recenti (ancora ascendenti)
-      return { entries: page.reverse(), hasMore: eligible.length > page.length };
+        return { seq: s.seq, playerAction: s.event.playerAction, narration: s.event.narration };
+      });
+      return { entries, hasMore };
     },
 
     getCanon(query: CanonQuery = {}): CanonFact[] {

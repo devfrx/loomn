@@ -79,4 +79,13 @@ describe('useReadModelStore', () => {
     expect(s.version).toBe(2);
     expect(s.actors).toEqual([]);
   });
+
+  it('ignora un push con versione precedente (monotonia anti-clobber pull/push)', () => {
+    const s = useReadModelStore();
+    s.applyPush(push({ actors: { a: actor('a', 'A', 'pc') } }, 2));
+    // un pull stantio (versione 1) non deve sovrascrivere lo stato a versione 2
+    s.applyPush(push({ actors: {} }, 1));
+    expect(s.version).toBe(2);
+    expect(s.actors.map((a) => a.id)).toEqual(['a']);
+  });
 });

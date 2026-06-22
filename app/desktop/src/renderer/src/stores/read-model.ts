@@ -19,8 +19,12 @@ export const useReadModelStore = defineStore('readModel', () => {
   const version = ref(0);
   const state = ref<GameStateView | null>(null);
 
-  /** Applica un push read-side (lo chiama il bootstrap su onReadModelPush). */
+  /** Applica un push read-side (lo chiama il bootstrap su onReadModelPush e sul pull-on-mount I-02).
+   *  Monotonia: ignora un push/pull con versione PRECEDENTE per non sovrascrivere uno stato piu
+   *  recente. Race possibile tra il pull-on-mount (emesso prima) e un push concorrente piu fresco;
+   *  lo stream e monotono (event-sourced) -> una versione minore e sempre stantia. */
   function applyPush(push: ReadModelPush): void {
+    if (state.value !== null && push.version < version.value) return;
     version.value = push.version;
     state.value = push.state;
   }

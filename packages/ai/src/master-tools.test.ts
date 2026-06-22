@@ -1,22 +1,32 @@
 import { describe, it, expect } from 'vitest';
-import { createVocabulary } from '@loomn/engine';
+import { createVocabulary, PHASES } from '@loomn/engine';
 import { masterToolDefs, resolveToolCall } from './master-tools';
 
 const VOCAB = createVocabulary({ attributes: ['forza'], skills: ['arcano'], resources: ['hp'], defenses: ['riflessi'] });
 
 describe('masterToolDefs', () => {
-  it('in combat espone i 9 strumenti di combat con schemi JSON inline (niente ref)', () => {
+  it('in combat espone gli 8 strumenti di combat con schemi JSON inline (niente ref)', () => {
     const defs = masterToolDefs('combat', VOCAB);
     const names = defs.map((d) => d.name).sort();
     expect(names).toEqual([
       'advance_quest', 'apply_effect', 'attack', 'end_encounter', 'end_turn',
-      'next_round', 'request_check', 'spawn_npc', 'start_quest',
+      'request_check', 'spawn_npc', 'start_quest',
     ]);
     for (const d of defs) {
       expect(typeof d.description).toBe('string');
       expect((d.parameters as { type?: string }).type).toBe('object');
       expect(JSON.stringify(d.parameters)).not.toContain('$ref');
     }
+  });
+
+  it('next_round non e piu esposto come strumento in nessuna fase (il motore avanza il round)', () => {
+    for (const phase of PHASES) {
+      expect(masterToolDefs(phase, VOCAB).map((d) => d.name)).not.toContain('next_round');
+    }
+    const r = resolveToolCall('next_round', '{}', VOCAB);
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('atteso errore');
+    expect(r.error).toContain('sconosciuto');
   });
 
   it('in una fase soft espone i 7 strumenti non-combat (start_encounter/enter_phase, niente attack)', () => {

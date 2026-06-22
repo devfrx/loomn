@@ -38,7 +38,7 @@ export type AssembleContext = (state: GameState) => string;
 const PHASE_GUIDANCE: Record<Phase, string> = {
   exploration: 'Fase: esplorazione. Descrivi luoghi e dettagli sensoriali; per iniziare uno scontro usa start_encounter.',
   dialogue: 'Fase: dialogo. Interpreta i PNG in prima persona; dai peso alle scelte sociali.',
-  combat: 'Fase: combattimento. Sii tattico e conciso; usa attack/end_turn/next_round e chiudi con end_encounter quando lo scontro e risolto.',
+  combat: 'Fase: combattimento. Sii tattico e conciso; usa attack/end_turn e chiudi con end_encounter quando lo scontro e risolto. Il motore avanza il round automaticamente quando tutti hanno agito.',
   downtime: 'Fase: tempo libero. Ritmo riflessivo: recupero, preparativi, relazioni.',
 };
 

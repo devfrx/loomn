@@ -57,7 +57,6 @@ const advanceQuestSchema = z.object({
 });
 
 const endTurnSchema = z.object({});
-const nextRoundSchema = z.object({});
 
 const enterPhaseSchema = z.object({
   to: z.enum(SOFT_PHASES), // enum auto-validante: niente combat, niente fasi inventate
@@ -216,9 +215,6 @@ function buildTools(vocab: Vocabulary): Record<string, ToolEntry> {
       (a) => ({ type: 'StartEncounter', encounterId: a.encounterId, participants: a.participants }),
     ),
     end_turn: makeEntry('Termina il turno corrente nello scontro attivo.', 'EndTurn', endTurnSchema, () => ({ type: 'EndTurn' })),
-    next_round: makeEntry('Avanza al round successivo dello scontro attivo.', 'NextRound', nextRoundSchema, () => ({
-      type: 'NextRound',
-    })),
     enter_phase: makeEntry(
       'Cambia la fase narrativa di gioco: exploration (esplorazione), dialogue (dialogo) o downtime (tempo libero). Per iniziare un combattimento usa invece start_encounter.',
       'EnterPhase',

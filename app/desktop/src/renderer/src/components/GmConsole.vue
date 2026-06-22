@@ -13,6 +13,13 @@ type ApplyEffectCmd = Extract<DispatchCommand, { type: 'ApplyEffect' }>;
 type AdvanceQuestCmd = Extract<DispatchCommand, { type: 'AdvanceQuest' }>;
 type EnterPhaseCmd = Extract<DispatchCommand, { type: 'EnterPhase' }>;
 
+/** Barriera UI I-07: forza un intero >= min (l arbitro autorevole resta assertDieGroup nel motore,
+ *  F1). Non finito / frazionario / negativo collassa al minimo. */
+function intAtLeast(value: number, min: number): number {
+  const n = Math.trunc(value);
+  return Number.isFinite(n) ? Math.max(min, n) : min;
+}
+
 const store = useReadModelStore();
 const ruleset = useRulesetStore();
 const { dispatch } = useDispatch();
@@ -99,12 +106,16 @@ function submitRequestCheck(): void {
   });
 }
 function submitApplyEffect(): void {
+  // Barriera UI I-07: count intero >= 1, sides intero >= 2 (un dado ha almeno 2 facce). Il motore
+  // (F1 assertDieGroup) resta l arbitro autorevole sui bound superiori.
+  const count = intAtLeast(ae.count, 1);
+  const sides = intAtLeast(ae.sides, 2);
   void send({
     type: 'ApplyEffect',
     targetId: ae.targetId,
     resource: ae.resource,
     direction: ae.direction as ApplyEffectCmd['direction'],
-    dice: [{ count: ae.count, sides: ae.sides }],
+    dice: [{ count, sides }],
     ...(ae.bonus ? { bonus: ae.bonus } : {}),
   });
 }
@@ -149,8 +160,8 @@ const v = computed(() => ruleset.vocabulary);
               <select v-model="ae.targetId" class="inp"><option value="">bersaglio</option><option v-for="a in store.actors" :key="a.id" :value="a.id">{{ a.name }}</option></select>
               <select v-model="ae.resource" class="inp"><option value="">risorsa</option><option v-for="r in v?.resources ?? []" :key="r" :value="r">{{ r }}</option></select>
               <select v-model="ae.direction" class="inp"><option value="">direzione</option><option v-for="d in ruleset.directions" :key="d" :value="d">{{ d }}</option></select>
-              <input v-model.number="ae.count" class="inp" type="number" aria-label="count" />
-              <input v-model.number="ae.sides" class="inp" type="number" aria-label="sides" />
+              <input v-model.number="ae.count" class="inp" type="number" min="1" step="1" aria-label="count" />
+              <input v-model.number="ae.sides" class="inp" type="number" min="2" step="1" aria-label="sides" />
               <input v-model.number="ae.bonus" class="inp" type="number" aria-label="bonus" />
               <LoomnButton variant="solid" :disabled="!ae.targetId || !ae.resource || !ae.direction || !ae.count || !ae.sides" @click="submitApplyEffect">Applica</LoomnButton>
             </template>

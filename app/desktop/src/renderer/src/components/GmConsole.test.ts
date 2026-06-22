@@ -92,4 +92,28 @@ describe('GmConsole', () => {
     await w.find('button').trigger('click'); // apre la Regia
     expect(w.text()).toContain('vocabolario non caricato');
   });
+
+  it('ApplyEffect tronca count e sides frazionari a interi positivi', async () => {
+    useReadModelStore().applyPush(pushState('exploration', { a: actor('a', 'Alfa') }));
+    const w = mount(GmConsole);
+    await flushPromises();
+    await w.find('button').trigger('click'); // apre la Regia
+    const ae = w.findAll('.cmd').find((f) => f.text().includes('Applica effetto'))!;
+    const selects = ae.findAll('select');
+    await selects[0]!.setValue('a'); // bersaglio
+    await selects[1]!.setValue('hp'); // risorsa (RULESET.vocabulary.resources)
+    await selects[2]!.setValue('drain'); // direzione (RULESET.directions)
+    await ae.find('input[aria-label="count"]').setValue(1.5);
+    await ae.find('input[aria-label="sides"]').setValue(2.5);
+    const applica = ae.findAll('button').find((b) => b.text() === 'Applica')!;
+    await applica.trigger('click');
+    await flushPromises();
+    expect(dispatch).toHaveBeenCalledWith({
+      type: 'ApplyEffect',
+      targetId: 'a',
+      resource: 'hp',
+      direction: 'drain',
+      dice: [{ count: 1, sides: 2 }],
+    });
+  });
 });

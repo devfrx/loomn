@@ -5,7 +5,7 @@
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import type { Command, Phase, Vocabulary } from '@loomn/engine';
-import { DIFFICULTIES, QUEST_OUTCOMES, SOFT_PHASES, isCommandLegalInPhase } from '@loomn/engine';
+import { DIFFICULTIES, MAX_DICE_COUNT, MAX_DICE_SIDES, QUEST_OUTCOMES, SOFT_PHASES, isCommandLegalInPhase } from '@loomn/engine';
 import type { LlmToolDef } from './language-model';
 import { parseJson } from './json-repair';
 import { llmNumber, llmArray, llmInt } from './coercion';
@@ -41,8 +41,8 @@ const startEncounterSchema = z.object({
 });
 
 const dieGroupArgSchema = z.object({
-  count: llmInt(1), // almeno 1 dado
-  sides: llmInt(2), // almeno un d2
+  count: llmInt(1, MAX_DICE_COUNT), // intero 1..100: mirror della barriera AI su assertDieGroup del motore
+  sides: llmInt(2, MAX_DICE_SIDES), // intero 2..1000: idem (un count/sides allucinato e ARGOMENTI NON VALIDI, non un freeze)
 });
 
 const startQuestSchema = z.object({

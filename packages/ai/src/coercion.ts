@@ -46,9 +46,11 @@ export function llmArray<S extends z.ZodTypeAny>(schema: S) {
 }
 
 // Coercivo-intero: gemello di llmNumber per i campi che DEVONO essere interi (count/sides dei
-// dadi). z.number().int() rifiuta gia decimali, Infinity e NaN; .min(min) il sotto-minimo. Factory
-// perche il minimo varia per campo e va dentro lo schema avvolto dal preprocess (un ZodEffects non
-// concatena .int()).
-export function llmInt(min: number) {
-  return z.preprocess(coerceNumericString, z.number().int().min(min));
+// dadi). z.number().int() rifiuta gia decimali, Infinity e NaN; .min(min) il sotto-minimo;
+// .max(max) il sopra-massimo (opzionale: la barriera dadi lato AI rispecchia assertDieGroup del
+// motore). Factory perche min/max variano per campo e vanno dentro lo schema avvolto dal
+// preprocess (un ZodEffects non concatena .int()/.max()).
+export function llmInt(min: number, max?: number) {
+  const bounded = max !== undefined ? z.number().int().min(min).max(max) : z.number().int().min(min);
+  return z.preprocess(coerceNumericString, bounded);
 }

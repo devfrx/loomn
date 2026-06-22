@@ -51,7 +51,9 @@ const isDev = import.meta.env.DEV;
         <GmConsole v-if="isDev" />
       </header>
       <FirstRunBanner />
-      <RouterView />
+      <div class="stage__view">
+        <RouterView />
+      </div>
     </div>
   </div>
 </template>
@@ -60,6 +62,7 @@ const isDev = import.meta.env.DEV;
 .app-shell {
   display: grid;
   grid-template-columns: 66px 1fr;
+  grid-template-rows: minmax(0, 1fr);
   height: 100vh;
   padding: 14px;
   gap: 14px;
@@ -117,6 +120,13 @@ const isDev = import.meta.env.DEV;
   flex-direction: column;
   gap: 14px;
   min-width: 0;
+  min-height: 0;
+}
+.stage__view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: auto;
 }
 .topbar {
   display: flex;

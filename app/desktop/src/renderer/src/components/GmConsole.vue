@@ -198,7 +198,7 @@ const v = computed(() => ruleset.vocabulary);
 .gm__close { background: none; border: none; color: var(--text-3); cursor: pointer; padding: 4px 6px; line-height: 1; }
 .gm__feedback { font-size: 12px; }
 .gm__feedback--ok { color: var(--accent); }
-.gm__feedback--error { color: #d98b6b; }
+.gm__feedback--error { color: var(--bad); }
 .cmd { padding: 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--well); }
 .cmd--disabled { opacity: 0.45; }
 .cmd__title { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-2); margin: 0 0 10px; }

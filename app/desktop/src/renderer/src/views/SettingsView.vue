@@ -120,7 +120,7 @@ legend.field__label { padding: 0; }
 .actions { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
 .feedback { font-size: 12px; }
 .feedback--ok { color: var(--accent); }
-.feedback--error { color: #d98b6b; }
+.feedback--error { color: var(--bad); }
 .diag { margin-top: 22px; display: flex; gap: 22px; font-size: 12px; color: var(--text-3); }
 .diag dt { text-transform: uppercase; letter-spacing: 0.08em; font-size: 10px; }
 .diag dd { font-family: var(--f-mono); color: var(--text-2); margin: 2px 0 0; }

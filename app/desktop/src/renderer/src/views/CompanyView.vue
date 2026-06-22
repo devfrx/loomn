@@ -202,5 +202,5 @@ async function submit(): Promise<void> {
 .pool { display: flex; align-items: center; gap: 6px; }
 .pool .field__input { width: 64px; }
 .actions { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
-.feedback { font-size: 12px; color: #d98b6b; }
+.feedback { font-size: 12px; color: var(--bad); }
 </style>

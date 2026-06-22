@@ -559,3 +559,27 @@ describe('z.enum dal vocabolario', () => {
     expect(r.ok).toBe(true);
   });
 });
+
+// M-04: buildTools (zodToJsonSchema su ~10 schemi) e chiamato da masterToolDefs E resolveToolCall.
+// Memoizzato per identita del Vocabulary: stesso vocab -> stesso registro (e quindi la STESSA
+// referenza di jsonSchema, osservabile da parameters); vocaboli diversi -> registri distinti.
+describe('memoizzazione del registro tool (M-04)', () => {
+  it('stesso Vocabulary: lo schema JSON e la stessa referenza tra chiamate (registro memoizzato)', () => {
+    const a = masterToolDefs('combat', VOCAB).find((d) => d.name === 'attack');
+    const b = masterToolDefs('combat', VOCAB).find((d) => d.name === 'attack');
+    expect(a?.parameters).toBe(b?.parameters); // stessa referenza => buildTools NON ri-eseguito
+  });
+
+  it('Vocabulary diversi: schemi JSON con referenze distinte (cache miss -> rebuild)', () => {
+    const other = createVocabulary({ attributes: ['mente'], skills: ['logica'], resources: ['psiche'], defenses: ['guardia'] });
+    const a = masterToolDefs('combat', VOCAB).find((d) => d.name === 'attack');
+    const b = masterToolDefs('combat', other).find((d) => d.name === 'attack');
+    expect(a?.parameters).not.toBe(b?.parameters);
+  });
+
+  it('behaviour-preserving: stesso output per valore e resolveToolCall continua a funzionare', () => {
+    expect(masterToolDefs('combat', VOCAB)).toEqual(masterToolDefs('combat', VOCAB));
+    const r = resolveToolCall('end_turn', '{}', VOCAB);
+    expect(r).toEqual({ ok: true, toolName: 'end_turn', command: { type: 'EndTurn' } });
+  });
+});

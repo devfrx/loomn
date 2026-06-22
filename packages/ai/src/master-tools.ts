@@ -230,6 +230,22 @@ function buildTools(vocab: Vocabulary): Record<string, ToolEntry> {
   };
 }
 
+// M-04: buildTools ricostruisce l intero registro (zodToJsonSchema su ~10 schemi) a ogni chiamata,
+// mentre masterToolDefs (per-iterazione) e resolveToolCall (per-call) lo invocano di continuo. Il
+// Vocabulary e dato-only stabile per ruleset -> memoizziamo il registro per identita del Vocabulary.
+// WeakMap: nessun leak (GC del registro quando il vocab e irraggiungibile). Behaviour-preserving:
+// stesso Vocabulary -> stesso registro; vocaboli diversi -> cache miss -> rebuild. buildTools resta puro.
+const toolRegistryCache = new WeakMap<Vocabulary, Record<string, ToolEntry>>();
+
+function getTools(vocab: Vocabulary): Record<string, ToolEntry> {
+  let tools = toolRegistryCache.get(vocab);
+  if (tools === undefined) {
+    tools = buildTools(vocab);
+    toolRegistryCache.set(vocab, tools);
+  }
+  return tools;
+}
+
 export type ToolResolution =
   | { ok: true; toolName: string; command: Command }
   | { ok: false; toolName: string; error: string };
@@ -237,7 +253,7 @@ export type ToolResolution =
 /** Definizioni degli strumenti ABILITATI nella fase corrente: consuma lo stesso
  *  isCommandLegalInPhase dell engine (single source of truth, niente mappa duplicata). */
 export function masterToolDefs(phase: Phase, vocabulary: Vocabulary): LlmToolDef[] {
-  const tools = buildTools(vocabulary);
+  const tools = getTools(vocabulary);
   return Object.entries(tools)
     .filter(([, t]) => isCommandLegalInPhase(phase, t.commandType))
     .map(([name, t]) => ({ name, description: t.description, parameters: t.jsonSchema }));
@@ -245,7 +261,7 @@ export function masterToolDefs(phase: Phase, vocabulary: Vocabulary): LlmToolDef
 
 /** Parsa+valida gli argomenti grezzi di una tool-call e li mappa a un Command, oppure spiega l errore. */
 export function resolveToolCall(name: string, rawArgs: string, vocabulary: Vocabulary): ToolResolution {
-  const tools = buildTools(vocabulary);
+  const tools = getTools(vocabulary);
   const tool = tools[name];
   if (tool === undefined) return { ok: false, toolName: name, error: `strumento sconosciuto: ${name}` };
   const parsed = parseJson(rawArgs);

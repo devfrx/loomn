@@ -2,6 +2,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import LoomnPanel from '../components/LoomnPanel.vue';
 import LoomnButton from '../components/LoomnButton.vue';
+import LoomnDialog from '../components/LoomnDialog.vue';
 import PanelError from '../components/PanelError.vue';
 import { useReadModelStore, type ActorView } from '../stores/read-model';
 import { useRulesetStore } from '../stores/ruleset';
@@ -124,8 +125,7 @@ async function submit(): Promise<void> {
       </div>
       <p v-else>Nessun attore ancora. Crea un PG o PNG per iniziare.</p>
 
-      <div v-if="open" class="creator">
-        <h3 class="creator__title">Nuovo attore</h3>
+      <LoomnDialog v-model:open="open" title="Nuovo attore">
         <div class="form">
           <label class="field">
             <span class="field__label">Nome</span>
@@ -168,7 +168,7 @@ async function submit(): Promise<void> {
             <span v-if="feedback" class="feedback">{{ feedback }}</span>
           </div>
         </div>
-      </div>
+      </LoomnDialog>
     </LoomnPanel>
   </main>
 </template>
@@ -189,8 +189,6 @@ async function submit(): Promise<void> {
 .card__meta { font-family: var(--f-mono); font-size: 10.5px; color: var(--text-3); }
 .rel { list-style: none; margin: 4px 0 0; padding: 8px 0 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
 .rel__row { font-family: var(--f-ui); font-size: 12px; color: var(--text-2); }
-.creator { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
-.creator__title { font-family: var(--f-display); font-size: 16px; margin: 0 0 12px; }
 .form { display: flex; flex-direction: column; gap: 12px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field__label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }

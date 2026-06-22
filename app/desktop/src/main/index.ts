@@ -124,13 +124,18 @@ function registerHandlers(service: CampaignService): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.getStatus, (): StatusResult => {
-    const meta = loadProviderMeta();
-    return {
-      version: service.getReadModel().version,
-      safeStorageAvailable: safeStorage.isEncryptionAvailable(),
-      providerConfigured: holder.isConfigured(),
-      ...(meta !== undefined ? { provider: meta } : {}),
-    };
+    try {
+      const meta = loadProviderMeta();
+      return {
+        ok: true,
+        version: service.getReadModel().version,
+        safeStorageAvailable: safeStorage.isEncryptionAvailable(),
+        providerConfigured: holder.isConfigured(),
+        ...(meta !== undefined ? { provider: meta } : {}),
+      };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
   });
 
   ipcMain.handle(IPC_CHANNELS.narrationHistory, (_e, raw): NarrationHistoryResult => {

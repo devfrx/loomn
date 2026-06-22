@@ -131,46 +131,57 @@ describe('schemi run-turn / provider / reflect / status', () => {
     expect(() => reflectResultSchema.parse({ ok: true })).toThrow();
   });
 
-  it('statusResult richiede i tre flag diagnostici', () => {
-    expect(statusResultSchema.parse({ version: 0, safeStorageAvailable: true, providerConfigured: false })).toEqual({
-      version: 0,
-      safeStorageAvailable: true,
-      providerConfigured: false,
-    });
+  it('statusResult ok porta i tre flag diagnostici', () => {
+    expect(
+      statusResultSchema.parse({ ok: true, version: 0, safeStorageAvailable: true, providerConfigured: false }),
+    ).toEqual({ ok: true, version: 0, safeStorageAvailable: true, providerConfigured: false });
   });
 
-  it('statusResult accetta il read-back provider opzionale (baseUrl/model/hasApiKey)', () => {
+  it('statusResult ok accetta il read-back provider opzionale (baseUrl/model/hasApiKey)', () => {
     const withProvider = statusResultSchema.parse({
+      ok: true,
       version: 2,
       safeStorageAvailable: true,
       providerConfigured: true,
       provider: { baseUrl: 'http://localhost:1234/v1', model: 'local', hasApiKey: true },
     });
-    expect(withProvider.provider).toEqual({
-      baseUrl: 'http://localhost:1234/v1',
-      model: 'local',
-      hasApiKey: true,
+    expect(withProvider).toEqual({
+      ok: true,
+      version: 2,
+      safeStorageAvailable: true,
+      providerConfigured: true,
+      provider: { baseUrl: 'http://localhost:1234/v1', model: 'local', hasApiKey: true },
     });
   });
 
-  it('statusResult resta valido senza provider (nessuna config persistita)', () => {
+  it('statusResult ok resta valido senza provider (nessuna config persistita)', () => {
     const noProvider = statusResultSchema.parse({
+      ok: true,
       version: 0,
       safeStorageAvailable: true,
       providerConfigured: false,
     });
-    expect(noProvider.provider).toBeUndefined();
+    expect(noProvider).toEqual({ ok: true, version: 0, safeStorageAvailable: true, providerConfigured: false });
   });
 
-  it('statusResult con provider rifiuta hasApiKey mancante', () => {
+  it('statusResult ok con provider rifiuta hasApiKey mancante', () => {
     expect(() =>
       statusResultSchema.parse({
+        ok: true,
         version: 0,
         safeStorageAvailable: true,
         providerConfigured: true,
         provider: { baseUrl: 'http://x/v1', model: 'm' },
       }),
     ).toThrow();
+  });
+
+  it('statusResult arm di errore porta ok false e error', () => {
+    expect(statusResultSchema.parse({ ok: false, error: 'safeStorage non disponibile' })).toEqual({
+      ok: false,
+      error: 'safeStorage non disponibile',
+    });
+    expect(() => statusResultSchema.parse({ version: 0, safeStorageAvailable: true, providerConfigured: false })).toThrow();
   });
 });
 

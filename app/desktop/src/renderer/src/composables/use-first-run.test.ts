@@ -17,7 +17,7 @@ describe('runFirstRun', () => {
   beforeEach(() => setActivePinia(createPinia()));
 
   it('guida a Impostazioni quando nessun provider e configurato', async () => {
-    stubStatus({ version: 0, safeStorageAvailable: true, providerConfigured: false });
+    stubStatus({ ok: true, version: 0, safeStorageAvailable: true, providerConfigured: false });
     const r = router();
     await r.push('/');
     await runFirstRun(r, useProviderStatusStore());
@@ -26,6 +26,7 @@ describe('runFirstRun', () => {
 
   it('resta dove e quando il provider e gia configurato', async () => {
     stubStatus({
+      ok: true,
       version: 1,
       safeStorageAvailable: true,
       providerConfigured: true,

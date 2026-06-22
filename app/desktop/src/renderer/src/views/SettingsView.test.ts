@@ -17,6 +17,7 @@ describe('SettingsView', () => {
 
   it('pre-compila baseUrl e model dal read-back', async () => {
     stub({
+      ok: true,
       version: 1,
       safeStorageAvailable: true,
       providerConfigured: true,
@@ -31,6 +32,7 @@ describe('SettingsView', () => {
 
   it('salvando con keyAction keep OMETTE apiKey nel payload', async () => {
     const { setProvider } = stub({
+      ok: true,
       version: 1,
       safeStorageAvailable: true,
       providerConfigured: true,

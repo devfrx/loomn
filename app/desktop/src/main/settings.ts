@@ -66,9 +66,9 @@ export function loadProviderConfig(): ProviderConfig | undefined {
   return result.success ? result.data : undefined;
 }
 
-/** = StatusResult['provider'] (read-drift guard, come canon/summary del Piano 0): se il DTO di
- *  get-status cambiasse, questo alias romperebbe qui. La chiave non e mai inclusa (solo hasApiKey). */
-export type ProviderMeta = NonNullable<StatusResult['provider']>;
+/** = arm ok di StatusResult -> provider (read-drift guard, come canon/summary del Piano 0): se il DTO
+ *  di get-status cambiasse, questo alias romperebbe qui. La chiave non e mai inclusa (solo hasApiKey). */
+export type ProviderMeta = NonNullable<Extract<StatusResult, { ok: true }>['provider']>;
 
 export function loadProviderMeta(): ProviderMeta | undefined {
   const path = settingsPath();

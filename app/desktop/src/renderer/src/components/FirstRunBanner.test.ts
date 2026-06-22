@@ -11,7 +11,7 @@ function mountBanner() {
 describe('FirstRunBanner', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
-    window.loomn = { getStatus: () => Promise.resolve({ version: 0, safeStorageAvailable: true, providerConfigured: false }) } as unknown as typeof window.loomn;
+    window.loomn = { getStatus: () => Promise.resolve({ ok: true, version: 0, safeStorageAvailable: true, providerConfigured: false }) } as unknown as typeof window.loomn;
   });
 
   it('non mostra nulla finche lo status non e caricato', () => {
@@ -35,7 +35,7 @@ describe('FirstRunBanner', () => {
   });
 
   it('non mostra il banner quando il provider e configurato', async () => {
-    window.loomn = { getStatus: () => Promise.resolve({ version: 1, safeStorageAvailable: true, providerConfigured: true, provider: { baseUrl: 'http://x/v1', model: 'm', hasApiKey: true } }) } as unknown as typeof window.loomn;
+    window.loomn = { getStatus: () => Promise.resolve({ ok: true, version: 1, safeStorageAvailable: true, providerConfigured: true, provider: { baseUrl: 'http://x/v1', model: 'm', hasApiKey: true } }) } as unknown as typeof window.loomn;
     const store = useProviderStatusStore();
     await store.refresh();
     const w = mountBanner();
@@ -50,6 +50,7 @@ describe('FirstRunBanner', () => {
     window.loomn = {
       getStatus: () =>
         Promise.resolve({
+          ok: true,
           version: 1,
           safeStorageAvailable: true,
           providerConfigured: true,

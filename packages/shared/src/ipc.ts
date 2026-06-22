@@ -94,15 +94,20 @@ export type ReflectResult = z.infer<typeof reflectResultSchema>;
 
 // --- getStatus (diagnostica + read-back config provider) ---
 /** provider e il read-back della config persistita per pre-compilare Impostazioni (10f): baseUrl/model
- *  + hasApiKey (la chiave non attraversa MAI l IPC). Opzionale-assente quando nessun provider e salvato. */
-export const statusResultSchema = z.object({
-  version: z.number().int().nonnegative(),
-  safeStorageAvailable: z.boolean(),
-  providerConfigured: z.boolean(),
-  provider: z
-    .object({ baseUrl: z.string(), model: z.string(), hasApiKey: z.boolean() })
-    .optional(),
-});
+ *  + hasApiKey (la chiave non attraversa MAI l IPC). Opzionale-assente quando nessun provider e salvato.
+ *  Union ok/errore come gli altri canali (M-06): l handler non propaga throw grezzi al renderer. */
+export const statusResultSchema = z.union([
+  z.object({
+    ok: z.literal(true),
+    version: z.number().int().nonnegative(),
+    safeStorageAvailable: z.boolean(),
+    providerConfigured: z.boolean(),
+    provider: z
+      .object({ baseUrl: z.string(), model: z.string(), hasApiKey: z.boolean() })
+      .optional(),
+  }),
+  z.object({ ok: z.literal(false), error: z.string() }),
+]);
 export type StatusResult = z.infer<typeof statusResultSchema>;
 
 // --- narrationHistory (storia di narrazione, cursor-by-seq) ---

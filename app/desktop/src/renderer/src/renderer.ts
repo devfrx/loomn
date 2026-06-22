@@ -51,9 +51,9 @@ async function runSelfTest(
   try {
     if (phase === '1') {
       const s0 = await window.loomn.getStatus();
-      check(s0.version === 0, 'DB fresco a versione 0');
-      check(s0.safeStorageAvailable, 'safeStorage disponibile');
-      check(s0.provider === undefined, 'nessun provider persistito a DB fresco');
+      check(s0.ok && s0.version === 0, 'DB fresco a versione 0');
+      check(s0.ok && s0.safeStorageAvailable, 'safeStorage disponibile');
+      check(s0.ok && s0.provider === undefined, 'nessun provider persistito a DB fresco');
 
       // Attende il push prodotto dal dispatch -> verifica che lo store Pinia lo proietti.
       const pushed = new Promise<ReadModelPush>((resolve) => {
@@ -137,9 +137,10 @@ async function runSelfTest(
       check(sp.ok, 'set-provider ok (chiave cifrata con safeStorage)');
 
       const s1 = await window.loomn.getStatus();
-      check(s1.providerConfigured, 'provider configurato dopo set-provider');
+      check(s1.ok && s1.providerConfigured, 'provider configurato dopo set-provider');
       check(
-        s1.provider?.baseUrl === 'http://localhost:1234/v1' &&
+        s1.ok &&
+          s1.provider?.baseUrl === 'http://localhost:1234/v1' &&
           s1.provider?.model === 'local' &&
           s1.provider?.hasApiKey === true,
         'get-status espone il read-back provider dopo set-provider',
@@ -149,7 +150,7 @@ async function runSelfTest(
       const sp2 = await window.loomn.setProvider({ baseUrl: 'http://localhost:1234/v1', model: 'local-2' });
       check(sp2.ok, 'set-provider ri-salva senza chiave');
       const s2 = await window.loomn.getStatus();
-      check(s2.provider?.model === 'local-2' && s2.provider?.hasApiKey === true, 'chiave mantenuta ri-salvando senza chiave');
+      check(s2.ok && s2.provider?.model === 'local-2' && s2.provider?.hasApiKey === true, 'chiave mantenuta ri-salvando senza chiave');
 
       // 10c: slice combat via IPC reale. StartEncounter (nonCombatOnly, da exploration) entra in combat;
       // EndTurn avanza il turno; EndEncounter chiude e torna fuori combat. Prova il path combat end-to-end.
@@ -194,9 +195,9 @@ async function runSelfTest(
       check(appRouter.currentRoute.value.name === 'game', 'router torna al Gioco dopo la Scheda');
     } else {
       const s0 = await window.loomn.getStatus();
-      check(s0.version === 7, 'versione 7 PERSISTITA dopo il riavvio (durabilita: incluso lo slice combat 10c)');
-      check(s0.providerConfigured, 'provider ricostruito da settings.json (chiave decifrata)');
-      check(s0.provider?.hasApiKey === true, 'read-back provider con chiave persistito dopo riavvio');
+      check(s0.ok && s0.version === 7, 'versione 7 PERSISTITA dopo il riavvio (durabilita: incluso lo slice combat 10c)');
+      check(s0.ok && s0.providerConfigured, 'provider ricostruito da settings.json (chiave decifrata)');
+      check(s0.ok && s0.provider?.hasApiKey === true, 'read-back provider con chiave persistito dopo riavvio');
 
       const push = await Promise.race([
         firstPush,

@@ -8,7 +8,7 @@ import { useNarrationStore } from '../stores/narration';
 function stubLoomn(over: Partial<typeof window.loomn> = {}): void {
   window.loomn = {
     getNarrationHistory: vi.fn(() => Promise.resolve({ ok: true as const, entries: [], hasMore: false })),
-    getStatus: vi.fn(() => Promise.resolve({ version: 0, safeStorageAvailable: true, providerConfigured: true })),
+    getStatus: vi.fn(() => Promise.resolve({ ok: true as const, version: 0, safeStorageAvailable: true, providerConfigured: true })),
     runTurn: vi.fn(() => Promise.resolve({ ok: true as const, narration: 'narrato', version: 1, events: [] })),
     ...over,
   } as unknown as typeof window.loomn;
@@ -35,7 +35,7 @@ describe('NarrativePanel', () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const provider = useProviderStatusStore();
-    window.loomn = { ...window.loomn, getStatus: vi.fn(() => Promise.resolve({ version: 0, safeStorageAvailable: true, providerConfigured: false })) } as typeof window.loomn;
+    window.loomn = { ...window.loomn, getStatus: vi.fn(() => Promise.resolve({ ok: true as const, version: 0, safeStorageAvailable: true, providerConfigured: false })) } as typeof window.loomn;
     await provider.refresh();
     const w = mount(NarrativePanel, { global: { plugins: [pinia], stubs } });
     await flushPromises();

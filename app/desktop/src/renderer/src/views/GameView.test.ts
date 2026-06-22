@@ -28,7 +28,7 @@ describe('GameView', () => {
     setActivePinia(createPinia());
     window.loomn = {
       getNarrationHistory: vi.fn(() => Promise.resolve({ ok: true, entries: [], hasMore: false })),
-      getStatus: vi.fn(() => Promise.resolve({ version: 0, safeStorageAvailable: true, providerConfigured: false })),
+      getStatus: vi.fn(() => Promise.resolve({ ok: true, version: 0, safeStorageAvailable: true, providerConfigured: false })),
     } as unknown as typeof window.loomn;
   });
 

@@ -15,8 +15,10 @@ import {
   narrationHistoryResultSchema,
   canonRequestSchema,
   canonResultSchema,
+  canonFactSchema,
   summariesRequestSchema,
   summariesResultSchema,
+  summarySchema,
   rulesetResultSchema,
 } from './ipc';
 
@@ -222,6 +224,35 @@ describe('canali read on-demand (narrazione / canon / L2)', () => {
   it('summariesResult ok porta i summaries', () => {
     const s = { id: 's1', level: 'scene', scope: 'sess-1', text: 'riassunto', importance: 5, salience: 0.5, createdAt: 1000, eventSeqFrom: 1, eventSeqTo: 3 };
     expect(summariesResultSchema.parse({ ok: true, summaries: [s] })).toEqual({ ok: true, summaries: [s] });
+  });
+
+  it('canonFact salience rifiuta Infinity (finite, read-DTO sicuro)', () => {
+    const base = {
+      id: 'f1',
+      subject: 'krix',
+      predicate: 'teme',
+      object: 'il barone',
+      eventSeq: 3,
+      status: 'active' as const,
+    };
+    expect(canonFactSchema.parse({ ...base, salience: 0.7 }).salience).toBe(0.7);
+    expect(() => canonFactSchema.parse({ ...base, salience: Infinity })).toThrow();
+    expect(() => canonFactSchema.parse({ ...base, salience: -Infinity })).toThrow();
+  });
+
+  it('summary importance e salience rifiutano Infinity (finite, read-DTO sicuro)', () => {
+    const base = {
+      id: 's1',
+      level: 'scene' as const,
+      scope: 'campaign',
+      text: 'riassunto',
+      createdAt: 1,
+      eventSeqFrom: 1,
+      eventSeqTo: 5,
+    };
+    expect(summarySchema.parse({ ...base, importance: 6, salience: 0.5 }).importance).toBe(6);
+    expect(() => summarySchema.parse({ ...base, importance: Infinity, salience: 0.5 })).toThrow();
+    expect(() => summarySchema.parse({ ...base, importance: 6, salience: Infinity })).toThrow();
   });
 });
 

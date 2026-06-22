@@ -143,7 +143,7 @@ export const canonFactSchema = z.object({
   predicate: z.string(),
   object: z.string(),
   eventSeq: z.number().int().nonnegative(),
-  salience: z.number(),
+  salience: z.number().finite(),
   status: z.enum(['active', 'retracted']),
 });
 export type CanonFactDto = z.infer<typeof canonFactSchema>;
@@ -167,8 +167,8 @@ export const summarySchema = z.object({
   level: z.enum(['scene', 'session', 'arc', 'campaign']),
   scope: z.string(),
   text: z.string(),
-  importance: z.number(),
-  salience: z.number(),
+  importance: z.number().finite(),
+  salience: z.number().finite(),
   createdAt: z.number().int().nonnegative(),
   eventSeqFrom: z.number().int().nonnegative(),
   eventSeqTo: z.number().int().nonnegative(),

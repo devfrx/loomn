@@ -87,7 +87,7 @@ function buildWhere(filter: CanonFactFilter | undefined, activeOnly: boolean): S
  *  `canon_facts` e creata dalla migrazione 0001. */
 export function createCanonLedger(db: BetterSQLite3Database): CanonLedger {
   const query = (filter: CanonFactFilter | undefined, activeOnly: boolean): CanonFact[] => {
-    const rows = db.select().from(canonFacts).where(buildWhere(filter, activeOnly)).orderBy(canonFacts.eventSeq).all();
+    const rows = db.select().from(canonFacts).where(buildWhere(filter, activeOnly)).orderBy(canonFacts.eventSeq, canonFacts.id).all();
     return rows.map(toFact);
   };
   return {

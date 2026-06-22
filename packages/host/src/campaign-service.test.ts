@@ -712,4 +712,17 @@ describe('createCampaignService - getRuleset (vocabolario + enum + regole di fas
       memory.close();
     }
   });
+
+  it('deriva le regole verificando la legalita su TUTTE le soft-phase (non solo exploration) [M-14]', () => {
+    const { service, memory } = makeService();
+    try {
+      // Le soft-phase trattano i comandi in modo identico oggi -> la derivazione e coerente, niente throw,
+      // e l output resta stabile. (Il guard interno lancerebbe se una soft-phase divergesse.)
+      const rs = service.getRuleset();
+      expect([...rs.commandPhaseRules.combatOnly].sort()).toEqual(['Attack', 'EndEncounter', 'EndTurn', 'NextRound']);
+      expect([...rs.commandPhaseRules.nonCombatOnly].sort()).toEqual(['EnterPhase', 'StartEncounter']);
+    } finally {
+      memory.close();
+    }
+  });
 });

@@ -89,4 +89,13 @@ describe('CanonLedger', () => {
     l.supersede({ id: 'loc2', subject: 'pc1', predicate: 'si_trova_a', object: 'Foresta', eventSeq: 5, salience: 0.6 });
     expect(l.active({ subject: 'pc1', predicate: 'si_trova_a' })[0]?.salience).toBe(0.6);
   });
+
+  it('a parita di eventSeq ordina per id (tie-break deterministico, non l ordine di inserimento)', () => {
+    const l = ledger();
+    // Inserisco in ordine di id DECRESCENTE ma stesso eventSeq: l uscita deve essere per id crescente.
+    l.record({ id: 'f-5-7-1', subject: 's', predicate: 'p', object: 'b', eventSeq: 7 });
+    l.record({ id: 'f-5-7-0', subject: 's', predicate: 'p', object: 'a', eventSeq: 7 });
+    expect(l.active().map((f) => f.id)).toEqual(['f-5-7-0', 'f-5-7-1']);
+    expect(l.all().map((f) => f.id)).toEqual(['f-5-7-0', 'f-5-7-1']);
+  });
 });

@@ -281,12 +281,19 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
       // esaustivo a compile-time) filtrato con isCommandLegalInPhase: una sola fonte di verita. Un
       // comando combat-only aggiunto in futuro al motore compare qui automaticamente. L ordine e
       // quello (deterministico) di COMMAND_TYPES; il renderer usa membership (.includes), non la posizione.
-      const combatOnly = COMMAND_TYPES.filter(
-        (t) => isCommandLegalInPhase('combat', t) && !isCommandLegalInPhase('exploration', t),
-      );
-      const nonCombatOnly = COMMAND_TYPES.filter(
-        (t) => !isCommandLegalInPhase('combat', t) && isCommandLegalInPhase('exploration', t),
-      );
+      // Invece di usare 'exploration' come proxy di "qualsiasi non-combat" (M-14), verifichiamo che la
+      // legalita sia COSTANTE su TUTTE le SOFT_PHASES: se una soft-phase divergesse, questa derivazione
+      // lancerebbe (rumoroso) invece di produrre regole silenziosamente sbagliate.
+      const legalInAllSoftPhases = (type: Command['type']): boolean => {
+        const results = SOFT_PHASES.map((p) => isCommandLegalInPhase(p, type));
+        const first = results[0] ?? true;
+        if (results.some((r) => r !== first)) {
+          throw new Error(`Legalita di fase incoerente per ${type} tra le soft-phase: ${SOFT_PHASES.join(', ')}`);
+        }
+        return first;
+      };
+      const combatOnly = COMMAND_TYPES.filter((t) => isCommandLegalInPhase('combat', t) && !legalInAllSoftPhases(t));
+      const nonCombatOnly = COMMAND_TYPES.filter((t) => !isCommandLegalInPhase('combat', t) && legalInAllSoftPhases(t));
       return {
         vocabulary: {
           attributes: [...v.attributes],

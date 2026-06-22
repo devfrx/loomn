@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import LoomnPanel from './LoomnPanel.vue';
+import PanelError from './PanelError.vue';
 import { useReadModelStore } from '../stores/read-model';
 import { useRulesetStore } from '../stores/ruleset';
 import { resolveSelectedActor, toSheetView } from '../lib/sheet-view';
@@ -25,6 +26,7 @@ const kindLabel = computed(() => (sheet.value?.kind === 'pc' ? 'PG' : 'PNG'));
 
 <template>
   <LoomnPanel eyebrow="scheda" :title="sheet?.name ?? 'Scheda'" :meta="sheet ? `liv. ${sheet.level}` : ''">
+    <PanelError :error="ruleset.error" />
     <div v-if="sheet" class="sheet">
       <div class="sheet__head">
         <select v-if="store.actors.length > 1" :value="actor?.id ?? ''" class="sheet__select" aria-label="attore" @change="selectActor">

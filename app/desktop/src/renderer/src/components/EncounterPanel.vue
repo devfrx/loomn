@@ -2,6 +2,7 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import LoomnPanel from './LoomnPanel.vue';
 import LoomnButton from './LoomnButton.vue';
+import PanelError from './PanelError.vue';
 import { useReadModelStore } from '../stores/read-model';
 import { useRulesetStore } from '../stores/ruleset';
 import { useDispatch } from '../composables/use-dispatch';
@@ -53,6 +54,7 @@ function attack(): void {
 
 <template>
   <LoomnPanel title="Scontro" eyebrow="combattimento" :meta="view ? `round ${view.round}` : ''">
+    <PanelError :error="ruleset.error" />
     <div v-if="view" class="cockpit">
       <p class="cockpit__turn">Turno di <strong>{{ view.current?.name ?? '-' }}</strong></p>
 

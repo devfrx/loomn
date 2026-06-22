@@ -126,4 +126,14 @@ describe('SheetPanel', () => {
     expect(w.find('select[aria-label="attore"]').exists()).toBe(false);
     expect(w.text()).toContain('Solitario');
   });
+
+  it('mostra l errore del vocabolario quando get-ruleset fallisce', async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    window.loomn = { getRuleset: () => Promise.resolve({ ok: false, error: 'vocabolario non caricato' }) } as unknown as typeof window.loomn;
+    useReadModelStore().applyPush(push());
+    const w = mount(SheetPanel, { global: { plugins: [pinia], stubs } });
+    await flushPromises();
+    expect(w.text()).toContain('vocabolario non caricato');
+  });
 });

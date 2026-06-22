@@ -69,4 +69,15 @@ describe('JournalView', () => {
     expect(w.text()).toContain('Nessun riassunto');
     expect(w.text()).toContain('Nessun fatto');
   });
+
+  it('mostra l errore del canale read quando una lettura fallisce', async () => {
+    window.loomn = {
+      getNarrationHistory: () => Promise.resolve({ ok: true, entries: [], hasMore: false }),
+      getSummaries: () => Promise.resolve({ ok: true, summaries: [] }),
+      getCanon: () => Promise.resolve({ ok: false, error: 'ledger non leggibile' }),
+    } as unknown as typeof window.loomn;
+    const w = mount(JournalView, { global: { plugins: [createPinia()] } });
+    await flushPromises();
+    expect(w.find('[role="alert"]').text()).toContain('ledger non leggibile');
+  });
 });

@@ -83,4 +83,13 @@ describe('GmConsole', () => {
     await flushPromises();
     expect((w.find('input[type="checkbox"]').element as HTMLInputElement).checked).toBe(true);
   });
+
+  it('mostra l errore del vocabolario quando get-ruleset fallisce', async () => {
+    window.loomn = { getRuleset: () => Promise.resolve({ ok: false, error: 'vocabolario non caricato' }), dispatch } as unknown as typeof window.loomn;
+    useReadModelStore().applyPush(pushState('exploration'));
+    const w = mount(GmConsole);
+    await flushPromises();
+    await w.find('button').trigger('click'); // apre la Regia
+    expect(w.text()).toContain('vocabolario non caricato');
+  });
 });

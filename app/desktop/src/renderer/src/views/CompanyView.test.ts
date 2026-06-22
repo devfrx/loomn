@@ -98,4 +98,28 @@ describe('CompanyView', () => {
     await flushPromises();
     expect(w.text()).toContain('Eroe protegge Villaggio');
   });
+
+  it('mostra l errore del canale canon quando la lettura fallisce', async () => {
+    window.loomn = {
+      getRuleset: () => Promise.resolve(RULESET),
+      getSummaries: () => Promise.resolve({ ok: true, summaries: [] }),
+      getCanon: () => Promise.resolve({ ok: false, error: 'canon non leggibile' }),
+      dispatch: vi.fn(),
+    } as unknown as typeof window.loomn;
+    const w = mount(CompanyView, { global: { plugins: [createPinia()] } });
+    await flushPromises();
+    expect(w.text()).toContain('canon non leggibile');
+  });
+
+  it('mostra l errore del vocabolario quando get-ruleset fallisce', async () => {
+    window.loomn = {
+      getRuleset: () => Promise.resolve({ ok: false, error: 'vocabolario non caricato' }),
+      getSummaries: () => Promise.resolve({ ok: true, summaries: [] }),
+      getCanon: () => Promise.resolve(CANON),
+      dispatch: vi.fn(),
+    } as unknown as typeof window.loomn;
+    const w = mount(CompanyView, { global: { plugins: [createPinia()] } });
+    await flushPromises();
+    expect(w.text()).toContain('vocabolario non caricato');
+  });
 });

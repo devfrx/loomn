@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue';
 import LoomnPanel from '../components/LoomnPanel.vue';
 import LoomnButton from '../components/LoomnButton.vue';
+import PanelError from '../components/PanelError.vue';
 import { useNarrationStore } from '../stores/narration';
 import { useJournalStore } from '../stores/journal';
 import { groupSummaries, sortCanonBySalience, levelLabel } from '../lib/journal-view';
@@ -31,6 +32,7 @@ function reflectNow(): void {
   <main class="route-view">
     <LoomnPanel eyebrow="diario" title="Diario" :meta="`${journal.canon.length} fatti`">
       <div class="journal">
+        <PanelError :error="journal.error" />
         <section class="block">
           <h4 class="block__title">Riflessione</h4>
           <div class="reflect">

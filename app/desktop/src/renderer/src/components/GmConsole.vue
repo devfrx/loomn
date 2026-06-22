@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import LoomnButton from './LoomnButton.vue';
+import PanelError from './PanelError.vue';
 import { useReadModelStore } from '../stores/read-model';
 import { useRulesetStore } from '../stores/ruleset';
 import { useDispatch } from '../composables/use-dispatch';
@@ -131,6 +132,7 @@ const v = computed(() => ruleset.vocabulary);
         </header>
 
         <p v-if="feedback" class="gm__feedback" :class="`gm__feedback--${feedback.kind}`">{{ feedback.msg }}</p>
+        <PanelError :error="ruleset.error" />
 
         <section v-for="type in GM_COMMANDS" :key="type" class="cmd" :class="{ 'cmd--disabled': !enabled(type) }">
           <h4 class="cmd__title">{{ labels[type] }}</h4>

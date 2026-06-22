@@ -2,6 +2,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import LoomnPanel from '../components/LoomnPanel.vue';
 import LoomnButton from '../components/LoomnButton.vue';
+import PanelError from '../components/PanelError.vue';
 import { useReadModelStore, type ActorView } from '../stores/read-model';
 import { useRulesetStore } from '../stores/ruleset';
 import { useJournalStore } from '../stores/journal';
@@ -77,6 +78,8 @@ async function submit(): Promise<void> {
 <template>
   <main class="route-view">
     <LoomnPanel eyebrow="compagnia" title="Compagnia" :meta="`${store.actors.length} attori`">
+      <PanelError :error="ruleset.error" />
+      <PanelError :error="journal.error" />
       <div class="head-actions">
         <LoomnButton variant="solid" @click="openCreator">Aggiungi PG/PNG</LoomnButton>
       </div>

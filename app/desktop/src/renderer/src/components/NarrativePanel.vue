@@ -20,6 +20,9 @@ async function onSend(): Promise<void> {
   const action = draft.value;
   draft.value = '';
   await submit(action);
+  // M-08: se il turno fallisce, use-run-turn imposta narration.error (azzerato a inizio submit).
+  // Ripristina l azione cosi non va persa su un percorso d errore realistico (provider che cade).
+  if (narration.error !== null) draft.value = action;
 }
 </script>
 

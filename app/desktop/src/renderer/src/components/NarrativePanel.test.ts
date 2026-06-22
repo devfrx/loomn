@@ -91,4 +91,19 @@ describe('NarrativePanel', () => {
     await flushPromises();
     expect(w.text()).toContain('storia non leggibile');
   });
+
+  it('ripristina l azione digitata se il turno fallisce', async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const provider = useProviderStatusStore();
+    stubLoomn({ runTurn: vi.fn(() => Promise.resolve({ ok: false as const, error: 'provider caduto' })) });
+    await provider.refresh();
+    const w = mount(NarrativePanel, { global: { plugins: [pinia], stubs } });
+    await flushPromises();
+    await w.find('textarea').setValue('apro la porta');
+    await w.find('button').trigger('click');
+    await flushPromises();
+    expect(w.text()).toContain('provider caduto');
+    expect((w.find('textarea').element as HTMLTextAreaElement).value).toBe('apro la porta');
+  });
 });

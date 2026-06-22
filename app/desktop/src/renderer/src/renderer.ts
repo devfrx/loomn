@@ -179,15 +179,17 @@ async function runSelfTest(
       const gm = await window.loomn.dispatch({ type: 'EnterPhase', to: 'dialogue' });
       check(gm.ok && gm.events.some((e) => e.type === 'PhaseChanged'), 'comando GM EnterPhase cambia fase');
 
-      // I-02: il canale pull ritorna lo snapshot corrente (qui versione 7, dopo EnterPhase). Read-only.
+      // I-02: il canale pull ritorna lo snapshot corrente (qui versione 8, dopo EnterPhase). Read-only.
+      // Versione 8 (non 7): EndTurn su un solo partecipante chiude il round -> il motore auto-emette
+      // RoundAdvanced (FSM di I-01/F1), un evento in piu rispetto al ladder pre-F1.
       const rmPull = await window.loomn.getReadModel();
       check(
-        rmPull.version === 7 && rmPull.state.actors['goblin']?.name === 'Goblin',
+        rmPull.version === 8 && rmPull.state.actors['goblin']?.name === 'Goblin',
         'get-read-model pull ritorna lo stato corrente (canale I-02)',
       );
 
       // 10d: la Scheda monta via la route reale (SheetPanel) e legge l attore dal read-model.
-      // Read-only -> nessun evento, la versione resta 7 (la fase 2 lo verifica).
+      // Read-only -> nessun evento, la versione resta 8 (la fase 2 lo verifica).
       await appRouter.push('/scheda');
       check(appRouter.currentRoute.value.name === 'sheet', 'router naviga alla Scheda (SheetPanel montato)');
       check(readModel.actors.some((a) => a.id === 'goblin'), 'la Scheda vede l attore dal read-model');
@@ -195,7 +197,7 @@ async function runSelfTest(
       check(appRouter.currentRoute.value.name === 'game', 'router torna al Gioco dopo la Scheda');
     } else {
       const s0 = await window.loomn.getStatus();
-      check(s0.ok && s0.version === 7, 'versione 7 PERSISTITA dopo il riavvio (durabilita: incluso lo slice combat 10c)');
+      check(s0.ok && s0.version === 8, 'versione 8 PERSISTITA dopo il riavvio (durabilita: incluso lo slice combat 10c + RoundAdvanced di I-01)');
       check(s0.ok && s0.providerConfigured, 'provider ricostruito da settings.json (chiave decifrata)');
       check(s0.ok && s0.provider?.hasApiKey === true, 'read-back provider con chiave persistito dopo riavvio');
 
@@ -211,7 +213,7 @@ async function runSelfTest(
       // I-02: dopo il riavvio il pull ri-idrata lo stato persistito senza dipendere dal push.
       const rmPull = await window.loomn.getReadModel();
       check(
-        rmPull.version === 7 && rmPull.state.actors['goblin']?.name === 'Goblin',
+        rmPull.version === 8 && rmPull.state.actors['goblin']?.name === 'Goblin',
         'get-read-model pull ri-idrata dopo il riavvio (canale I-02)',
       );
     }

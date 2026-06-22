@@ -237,3 +237,41 @@ describe('filtro tool per-iterazione', () => {
     expect(res.events.some((e) => e.type === 'AttackResolved')).toBe(true);
   });
 });
+
+describe('I-04: turno senza narrazione (fallback + diagnostica)', () => {
+  it('maxIterations esaurito: narrazione di fallback non vuota e TraceEvent diagnostico', async () => {
+    const tracer = createRecordingTracer();
+    // Il modello chiama un tool valido a OGNI iterazione e non narra mai -> esaurisce il cap.
+    const model = fakeModel(() => toolCall('request_check', '{"actorId":"pc1","difficulty":"easy"}'));
+    const res = await runMasterTurn({
+      model, rng: createSeededRandom(1), ruleset: TURN_RULESET, state: baseState,
+      playerAction: 'Continuo a tentare.', tracer, maxIterations: 3,
+    });
+    expect(res.invocations.length).toBe(3); // ha risolto azioni a ogni iterazione
+    expect(res.narration.trim().length).toBeGreaterThan(0); // niente vuoto per il giocatore
+    expect(tracer.events.some((e) => e.kind === 'error' && e.message.includes('fallback'))).toBe(true);
+  });
+
+  it('modello che non narra ne agisce: fallback non vuoto e diagnostica', async () => {
+    const tracer = createRecordingTracer();
+    const model = fakeModel(() => text('')); // zero tool-call e testo vuoto
+    const res = await runMasterTurn({
+      model, rng: createSeededRandom(1), ruleset: TURN_RULESET, state: baseState,
+      playerAction: 'Resto in silenzio.', tracer,
+    });
+    expect(res.invocations).toEqual([]);
+    expect(res.narration.trim().length).toBeGreaterThan(0);
+    expect(tracer.events.some((e) => e.kind === 'error')).toBe(true);
+  });
+
+  it('quando il modello narra: nessun fallback ne TraceEvent error (nessuna regressione)', async () => {
+    const tracer = createRecordingTracer();
+    const model = fakeModel(() => text('Il sole tramonta sulle rovine.'));
+    const res = await runMasterTurn({
+      model, rng: createSeededRandom(1), ruleset: TURN_RULESET, state: baseState,
+      playerAction: 'Mi guardo intorno.', tracer,
+    });
+    expect(res.narration).toBe('Il sole tramonta sulle rovine.');
+    expect(tracer.events.some((e) => e.kind === 'error')).toBe(false);
+  });
+});

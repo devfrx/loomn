@@ -88,6 +88,19 @@ function summarizeCalls(names: string[]): string {
   return `Azioni proposte: ${names.join(', ')}`;
 }
 
+/** Narrazione di fallback DETERMINISTICA (niente RNG/Date) per quando il turno termina senza
+ *  prosa: cap di iterazioni esaurito, oppure il modello non narra ne agisce (I-04). Non vuota: a
+ *  valle NarrationRecorded viene persistito e il giocatore non resta nel vuoto. Neutra e
+ *  player-facing; il dettaglio diagnostico (conteggi) vive nel TraceEvent, non qui. */
+function fallbackNarration(invocations: ToolInvocation[]): string {
+  if (invocations.length === 0) {
+    return 'Il Master non ha prodotto una narrazione per questo turno. Riprova o riformula la tua azione.';
+  }
+  const n = invocations.length;
+  const noun = n === 1 ? 'azione' : 'azioni';
+  return `Il Master ha risolto ${n} ${noun} ma non ha concluso con una narrazione. Gli effetti restano validi; prosegui pure.`;
+}
+
 export async function runMasterTurn(request: MasterTurnRequest): Promise<MasterTurnResult> {
   const tracer = request.tracer ?? noopTracer;
   const maxIterations = request.maxIterations ?? 6;
@@ -99,7 +112,8 @@ export async function runMasterTurn(request: MasterTurnRequest): Promise<MasterT
   const messages: LlmMessage[] = buildMasterMessages(assemble(state), request.playerAction, state.phase);
   let narration = '';
 
-  for (let iter = 0; iter < maxIterations; iter++) {
+  let iter = 0;
+  for (; iter < maxIterations; iter++) {
     const toolDefs = masterToolDefs(state.phase, request.ruleset.vocabulary);
     const res = await collectResponse(request.model.stream({ messages, tools: toolDefs, toolChoice: 'auto' }));
     tracer.record({
@@ -148,6 +162,17 @@ export async function runMasterTurn(request: MasterTurnRequest): Promise<MasterT
       role: 'user',
       content: `Eventi reali dal motore:\n${resultLines.join('\n')}\nNarra questi esiti oppure proponi altre azioni.`,
     });
+  }
+
+  if (narration.trim().length === 0) {
+    // I-04: il turno e terminato senza narrazione (cap esaurito o modello muto). Diagnostica
+    // RUMOROSA (il bug non sparisce in silenzio) + fallback non vuoto (il giocatore non resta nel
+    // vuoto e NarrationRecorded viene persistito a valle). Additivo: non tocca gli eventi meccanici.
+    tracer.record({
+      kind: 'error',
+      message: `runMasterTurn: nessuna narrazione dopo ${iter} iterazioni (max ${maxIterations}), ${invocations.length} azioni risolte; applicata narrazione di fallback`,
+    });
+    narration = fallbackNarration(invocations);
   }
 
   return { state, events, narration, invocations, transcript: messages };

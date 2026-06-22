@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { createMemoryHistory } from 'vue-router';
@@ -6,6 +6,7 @@ import type { ReadModelPush } from '@loomn/shared';
 import { createAppRouter } from './router';
 import { useReadModelStore } from './stores/read-model';
 import App from './App.vue';
+import GmConsole from './components/GmConsole.vue';
 
 function push(phase: ReadModelPush['state']['phase']): ReadModelPush {
   return { version: 1, state: { version: 1, actors: {}, encounter: null, quests: {}, phase } };
@@ -65,6 +66,16 @@ describe('App shell', () => {
     store.applyPush(push('combat'));
     await flushPromises();
     expect(wrapper.find('.app-shell').attributes('data-phase')).toBe('combat');
+  });
+
+  it('non monta la Regia quando non e in DEV (dev-gate M-15)', async () => {
+    vi.stubEnv('DEV', false);
+    try {
+      const { wrapper } = await mountApp();
+      expect(wrapper.findComponent(GmConsole).exists()).toBe(false);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('solo il link corrente ha nav-btn--active', async () => {

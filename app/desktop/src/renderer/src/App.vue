@@ -24,6 +24,9 @@ const phaseLabels: Record<PhaseView, string> = {
   downtime: 'quiete',
 };
 const phaseLabel = computed(() => phaseLabels[phase.value]);
+
+// M-15: la Regia (override manuale del Master) e un dev-tool -> montata solo in sviluppo.
+const isDev = import.meta.env.DEV;
 </script>
 
 <template>
@@ -45,7 +48,7 @@ const phaseLabel = computed(() => phaseLabels[phase.value]);
       <header class="topbar">
         <div class="wordmark">Loomn<span class="dot">.</span></div>
         <div class="phase-badge">{{ phaseLabel }}</div>
-        <GmConsole />
+        <GmConsole v-if="isDev" />
       </header>
       <FirstRunBanner />
       <RouterView />

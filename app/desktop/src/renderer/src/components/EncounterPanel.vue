@@ -7,7 +7,7 @@ import { useReadModelStore } from '../stores/read-model';
 import { useRulesetStore } from '../stores/ruleset';
 import { useDispatch } from '../composables/use-dispatch';
 import { toEncounterView } from '../lib/encounter-view';
-import { buildAttack, endTurn, nextRound, endEncounter } from '../lib/combat-commands';
+import { buildAttack, endTurn, endEncounter } from '../lib/combat-commands';
 import type { DispatchCommand } from '@loomn/shared';
 
 const store = useReadModelStore();
@@ -84,7 +84,6 @@ function attack(): void {
 
       <div class="actions">
         <LoomnButton variant="solid" @click="send(endTurn())">Fine turno</LoomnButton>
-        <LoomnButton variant="ghost" @click="send(nextRound())">Round successivo</LoomnButton>
         <LoomnButton variant="ghost" @click="send(endEncounter())">Termina scontro</LoomnButton>
       </div>
 

@@ -86,13 +86,6 @@ describe('EncounterPanel', () => {
     expect(dispatch).toHaveBeenCalledWith({ type: 'EndTurn' });
   });
 
-  it('Round successivo dispaccia NextRound', async () => {
-    const w = mountPanel();
-    await flushPromises();
-    await clickByText(w, 'Round successivo');
-    expect(dispatch).toHaveBeenCalledWith({ type: 'NextRound' });
-  });
-
   it('Termina scontro dispaccia EndEncounter', async () => {
     const w = mountPanel();
     await flushPromises();

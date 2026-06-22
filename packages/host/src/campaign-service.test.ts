@@ -247,37 +247,48 @@ describe('createCampaignService - runTurn (AI dietro il servizio)', () => {
     }
   });
 
-  it('runTurn non persiste nulla se la narrazione e vuota e non ci sono Event', async () => {
-    const model = fakeModel([{ type: 'finish', reason: 'stop' }]); // niente testo, niente tool-call
+  // I-04: un turno muto (il Master non narra ne agisce, o esaurisce le iterazioni) non lascia piu
+  // il giocatore nel vuoto -> runMasterTurn restituisce una narrazione di FALLBACK non vuota, che il
+  // servizio persiste come NarrationRecorded (la guardia narration.length>0 ora passa). Si asserisce
+  // il contratto (fallback non vuoto persistito) senza accoppiarsi alla prosa esatta di @loomn/ai.
+  it('runTurn con turno muto: persiste il NarrationRecorded di fallback [I-04]', async () => {
+    const model = fakeModel([{ type: 'finish', reason: 'stop' }]); // niente testo, niente tool-call -> turno muto
     const { service, memory } = makeService({ model });
     try {
       const out = await service.runTurn('Resto in silenzio.');
-      expect(out.narration).toBe('');
-      expect(out.readModel.version).toBe(0);
-      expect(memory.eventStore.version()).toBe(0);
+      expect(out.narration.length).toBeGreaterThan(0); // niente vuoto per il giocatore
+      expect(out.events).toEqual([]); // TurnOutcome.events resta meccanica (niente NarrationRecorded)
+      expect(out.readModel.version).toBe(1); // il fallback entra come NarrationRecorded (v1)
+      expect(memory.eventStore.version()).toBe(1);
+      const stored = memory.eventStore.load();
+      expect(stored).toHaveLength(1);
+      expect(stored[0]?.event.type).toBe('NarrationRecorded');
+      expect(stored[0]?.event).toMatchObject({ type: 'NarrationRecorded', narration: out.narration });
     } finally {
       memory.close();
     }
   });
 
-  it('runTurn con Event meccanici ma narrazione vuota: persiste solo gli Event, niente NarrationRecorded', async () => {
+  it('runTurn con Event meccanici ma turno muto: persiste gli Event e il NarrationRecorded di fallback [I-04]', async () => {
     const model = scriptedModel([
       [
         { type: 'tool-call', id: 't1', name: 'spawn_npc', arguments: JSON.stringify({ id: 'png1', name: 'Locandiere' }) },
         { type: 'finish', reason: 'tool_calls' },
       ],
-      [{ type: 'finish', reason: 'stop' }], // nessun testo -> narrazione vuota
+      [{ type: 'finish', reason: 'stop' }], // nessun testo -> turno muto dopo l azione
     ]);
     const { service, memory } = makeService({ model });
     try {
       const out = await service.runTurn('Entro nella taverna.');
-      expect(out.narration).toBe('');
+      expect(out.narration.length).toBeGreaterThan(0); // fallback non vuoto
       expect(out.events.some((e) => e.type === 'ActorAdded')).toBe(true);
-      expect(out.readModel.version).toBe(1); // solo ActorAdded (v1), nessun NarrationRecorded
-      expect(memory.eventStore.version()).toBe(1);
+      expect(out.readModel.version).toBe(2); // ActorAdded (v1) + NarrationRecorded di fallback (v2)
+      expect(memory.eventStore.version()).toBe(2);
       const stored = memory.eventStore.load();
-      expect(stored).toHaveLength(1);
+      expect(stored).toHaveLength(2);
       expect(stored[0]?.event.type).toBe('ActorAdded');
+      expect(stored[1]?.event.type).toBe('NarrationRecorded');
+      expect(stored[1]?.event).toMatchObject({ type: 'NarrationRecorded', narration: out.narration });
     } finally {
       memory.close();
     }

@@ -40,9 +40,11 @@ export interface CanonFactFilter {
 export interface CanonLedger {
   /** Registra un nuovo fatto (status 'active'). */
   record(fact: CanonFactInput): void;
-  /** Fatti ATTIVI che soddisfano il filtro (tutti se assente), ordinati per eventSeq. */
+  /** Fatti ATTIVI che soddisfano il filtro (tutti se assente), ordinati per eventSeq, poi per id
+   *  (tie-break deterministico a parita di seq, M-12). */
   active(filter?: CanonFactFilter): CanonFact[];
-  /** Tutti i fatti (attivi e ritirati) che soddisfano il filtro, ordinati per eventSeq. */
+  /** Tutti i fatti (attivi e ritirati) che soddisfano il filtro, ordinati per eventSeq, poi per id
+   *  (tie-break deterministico a parita di seq, M-12). */
   all(filter?: CanonFactFilter): CanonFact[];
   /** Ritira un fatto (status 'retracted'); no-op se l id non esiste. */
   retract(id: string): void;

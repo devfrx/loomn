@@ -254,6 +254,9 @@ export const domainEventSchema = z.union([
         targetId: z.string(),
         resource: z.string(),
         delta: finiteNumber,
+        // `roll` annidato NON e .strict() di proposito (solo l arm top-level lo e, M-01): rollResultFields
+        // e condiviso con checkResultSchema -> renderlo strict restringerebbe un percorso di lettura piu
+        // ampio, rischiando di rifiutare dati storici (lezione F1). Non strictarlo.
         roll: z.object({ ...rollResultFields }),
       })
       .strict(),

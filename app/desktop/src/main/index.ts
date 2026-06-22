@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, safeStorage } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, safeStorage } from 'electron';
 import { join } from 'node:path';
 import { createSeededRandom } from '@loomn/engine';
 import {
@@ -249,33 +249,58 @@ function createWindow(service: CampaignService): BrowserWindow {
   return win;
 }
 
-void app.whenReady().then(() => {
-  // userData override per il gate (due lanci sullo stesso DB temporaneo); in produzione: default OS.
-  const userDataOverride = process.env['LOOMN_USERDATA'];
-  if (userDataOverride !== undefined) app.setPath('userData', userDataOverride);
+// userData override per il gate (due lanci sequenziali sullo stesso DB temp); in produzione: default OS.
+// Va impostata PRIMA del lock (per-userData) e prima di whenReady (Electron lo esige per userData).
+const userDataOverride = process.env['LOOMN_USERDATA'];
+if (userDataOverride !== undefined) app.setPath('userData', userDataOverride);
 
-  // Persistenza reale dentro Electron: UNA connessione (event store + ledger + summaries + assembler).
-  memory = createMemorySystem(join(app.getPath('userData'), 'loomn.db'));
-  const service = createCampaignService({
-    memory,
-    model: holder.model,
-    structured: holder.structured,
-    rng: createSeededRandom(DEV_SEED),
-    ruleset: devRuleset,
-  });
-
-  // Provider persistito (settings.json) -> ricostruisci all avvio (decifra la chiave con safeStorage).
-  const savedProvider = loadProviderConfig();
-  if (savedProvider !== undefined) holder.configure(createLanguageProvider(toLanguageProviderConfig(savedProvider)));
-
-  registerHandlers(service);
-  mainWindow = createWindow(service);
-  console.log('[MAIN] Loomn pronto');
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow(service);
-  });
+// I-11: una rejection non gestita nel main viene loggata (diagnostica). NON killa il processo: nel gate
+// una rejection benigna non deve far fallire il self-test.
+process.on('unhandledRejection', (reason) => {
+  console.error('[MAIN] unhandledRejection:', reason instanceof Error ? reason.message : reason);
 });
+
+// I-11: una sola istanza per userData (la seconda divergerebbe sullo stesso loomn.db -> ConcurrencyError).
+if (!app.requestSingleInstanceLock()) {
+  // Seconda istanza: cedi il passo (la prima riceve 'second-instance' e si rifocalizza) ed esci.
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow === undefined) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  });
+
+  void app.whenReady().then(() => {
+    try {
+      // Persistenza reale dentro Electron: UNA connessione (event store + ledger + summaries + assembler).
+      memory = createMemorySystem(join(app.getPath('userData'), 'loomn.db'));
+      const service = createCampaignService({
+        memory,
+        model: holder.model,
+        structured: holder.structured,
+        rng: createSeededRandom(DEV_SEED),
+        ruleset: devRuleset,
+      });
+
+      // Provider persistito (settings.json) -> ricostruisci all avvio (decifra la chiave con safeStorage).
+      const savedProvider = loadProviderConfig();
+      if (savedProvider !== undefined) holder.configure(createLanguageProvider(toLanguageProviderConfig(savedProvider)));
+
+      registerHandlers(service);
+      mainWindow = createWindow(service);
+      console.log('[MAIN] Loomn pronto');
+
+      app.on('activate', () => {
+        if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow(service);
+      });
+    } catch (err) {
+      // Avvio fallito (DB lockato, migrazione rotta, ...): mostra un messaggio invece della finestra nera.
+      dialog.showErrorBox('Loomn non può avviarsi', errorMessage(err));
+      app.exit(1);
+    }
+  });
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

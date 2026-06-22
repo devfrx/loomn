@@ -26,6 +26,9 @@ export const IPC_CHANNELS = {
   summaries: 'loomn:summaries',
   /** invoke/handle: vocabolario di gioco + enum statici + regole di fase (Ruleset, read-side 10g). */
   getRuleset: 'loomn:get-ruleset',
+  /** invoke/handle: PULL del read-model (read-side self-healing, I-02). Stesso payload {version,state}
+   *  del push readModelPush; il renderer lo idrata on-mount, indipendente dal timing del push. */
+  getReadModel: 'loomn:get-read-model',
   /** send/on (push main->renderer): proiezione read-side {version, state} (spec 5.2). */
   readModelPush: 'loomn:read-model-push',
 } as const;
@@ -241,6 +244,8 @@ export interface LoomnBridge {
   getSummaries(request: SummariesRequest): Promise<SummariesResult>;
   /** Vocabolario di gioco + enum statici + regole di fase (Ruleset, read-side 10g). Nessun payload. */
   getRuleset(): Promise<RulesetResult>;
+  /** Pull del read-model corrente (snapshot {version,state}), per la re-idratazione on-mount (I-02). */
+  getReadModel(): Promise<ReadModelPush>;
   /** Sottoscrive i push read-side; ritorna una funzione che annulla la sottoscrizione. */
   onReadModelPush(listener: (push: ReadModelPush) => void): () => void;
 }

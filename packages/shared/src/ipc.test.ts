@@ -59,6 +59,10 @@ describe('IPC_CHANNELS', () => {
   it('espone il canale get-ruleset del Piano 10g', () => {
     expect(IPC_CHANNELS.getRuleset).toBe('loomn:get-ruleset');
   });
+
+  it('espone il canale get-read-model del F4 I-02', () => {
+    expect(IPC_CHANNELS.getReadModel).toBe('loomn:get-read-model');
+  });
 });
 
 describe('dispatchRequestSchema (= commandSchema al confine)', () => {
@@ -179,6 +183,13 @@ describe('readModelPushSchema (snapshot read-side version e state)', () => {
 
   it('rifiuta uno snapshot senza state', () => {
     expect(() => readModelPushSchema.parse({ version: 0 })).toThrow();
+  });
+
+  it('il canale get-read-model riusa readModelPushSchema come risultato (pull = push)', () => {
+    const snapshot = { version: 4, state: { version: 4, actors: {}, encounter: null, quests: {}, phase: 'exploration' as const } };
+    const parsed = readModelPushSchema.parse(snapshot);
+    expect(parsed.version).toBe(4);
+    expect(IPC_CHANNELS.getReadModel).toBe('loomn:get-read-model');
   });
 });
 

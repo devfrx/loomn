@@ -40,6 +40,7 @@ const bridge: LoomnBridge = {
   getSummaries: (request: SummariesRequest): Promise<SummariesResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.summaries, request),
   getRuleset: (): Promise<RulesetResult> => ipcRenderer.invoke(IPC_CHANNELS.getRuleset),
+  getReadModel: (): Promise<ReadModelPush> => ipcRenderer.invoke(IPC_CHANNELS.getReadModel),
   onReadModelPush: (listener: (push: ReadModelPush) => void): (() => void) => {
     const handler = (_event: IpcRendererEvent, push: ReadModelPush): void => listener(push);
     ipcRenderer.on(IPC_CHANNELS.readModelPush, handler);

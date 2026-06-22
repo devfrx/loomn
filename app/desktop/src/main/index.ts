@@ -58,13 +58,17 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/** Read side (spec 5.2): spinge lo snapshot {version, state} al renderer. structuredClone difensivo
- *  del riferimento read-only di ReadModel.state (auto-documenta il contratto; send() clona comunque). */
+/** Costruisce lo snapshot read-side {version, state} (spec 5.2). structuredClone difensivo del
+ *  riferimento read-only di ReadModel.state (auto-documenta il contratto; send/IPC clona comunque). */
+function buildReadModelPush(service: CampaignService): ReadModelPush {
+  const rm = service.getReadModel();
+  return { version: rm.version, state: structuredClone(rm.state) };
+}
+
+/** Read side (spec 5.2): spinge lo snapshot {version, state} al renderer (push). */
 function pushReadModel(service: CampaignService): void {
   if (mainWindow === undefined) return;
-  const rm = service.getReadModel();
-  const push: ReadModelPush = { version: rm.version, state: structuredClone(rm.state) };
-  mainWindow.webContents.send(IPC_CHANNELS.readModelPush, push);
+  mainWindow.webContents.send(IPC_CHANNELS.readModelPush, buildReadModelPush(service));
 }
 
 /** Handler IPC sottili sopra il CampaignService. Payload renderer->main Zod-validato (spec 4); gli
@@ -189,6 +193,8 @@ function registerHandlers(service: CampaignService): void {
       return { ok: false, error: errorMessage(err) };
     }
   });
+
+  ipcMain.handle(IPC_CHANNELS.getReadModel, (): ReadModelPush => buildReadModelPush(service));
 }
 
 function createWindow(service: CampaignService): BrowserWindow {
@@ -233,7 +239,8 @@ function createWindow(service: CampaignService): BrowserWindow {
     void win.loadFile(file, selfTest !== undefined ? { query: { selftest: selfTest } } : {});
   }
 
-  win.webContents.once('did-finish-load', () => pushReadModel(service));
+  // I-02: .on (non .once) -> ogni did-finish-load, incluso un reload (Ctrl+R), ri-spinge il read-model.
+  win.webContents.on('did-finish-load', () => pushReadModel(service));
   return win;
 }
 

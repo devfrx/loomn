@@ -20,6 +20,9 @@ app.mount('#app');
 // stato entra nel renderer (spec 5.2): il main spinge {version, state}, lo store proietta.
 const store = useReadModelStore(pinia);
 window.loomn.onReadModelPush((push) => store.applyPush(push));
+// I-02: pull-on-mount. Read-side self-healing: idrata lo store anche se il push e gia passato (Ctrl+R),
+// indipendente dal timing del push. Nel reale post-reload pull e push sono alla stessa versione.
+void window.loomn.getReadModel().then((push) => store.applyPush(push));
 
 // Self-test scriptabile (gate, evoluzione del 9c-ii/Piano 0 sull app Vue reale): guidato da
 // ?selftest=<fase>, NON-GUI per il resto. Logga un singolo VERDICT che il main cattura (exit 0/1).
@@ -175,6 +178,13 @@ async function runSelfTest(
       const gm = await window.loomn.dispatch({ type: 'EnterPhase', to: 'dialogue' });
       check(gm.ok && gm.events.some((e) => e.type === 'PhaseChanged'), 'comando GM EnterPhase cambia fase');
 
+      // I-02: il canale pull ritorna lo snapshot corrente (qui versione 7, dopo EnterPhase). Read-only.
+      const rmPull = await window.loomn.getReadModel();
+      check(
+        rmPull.version === 7 && rmPull.state.actors['goblin']?.name === 'Goblin',
+        'get-read-model pull ritorna lo stato corrente (canale I-02)',
+      );
+
       // 10d: la Scheda monta via la route reale (SheetPanel) e legge l attore dal read-model.
       // Read-only -> nessun evento, la versione resta 7 (la fase 2 lo verifica).
       await appRouter.push('/scheda');
@@ -196,6 +206,13 @@ async function runSelfTest(
       ]);
       check(push.state.actors['goblin']?.name === 'Goblin', 'attore goblin sopravvissuto al riavvio');
       check(readModel.actors.some((a) => a.id === 'goblin'), 'store Pinia riflette lo stato persistito');
+
+      // I-02: dopo il riavvio il pull ri-idrata lo stato persistito senza dipendere dal push.
+      const rmPull = await window.loomn.getReadModel();
+      check(
+        rmPull.version === 7 && rmPull.state.actors['goblin']?.name === 'Goblin',
+        'get-read-model pull ri-idrata dopo il riavvio (canale I-02)',
+      );
     }
 
     const passed = lines.every((l) => l.startsWith('ok'));

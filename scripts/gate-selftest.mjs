@@ -8,6 +8,7 @@
 // rebuild:electron fallisce a meta (flip parziale) o un lancio lancia. Esce 0 SOLO se entrambe le fasi
 // loggano `VERDICT: PASS` (il main Electron esce 0/1 sul VERDICT; spawnSync ne cattura lo status).
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -20,6 +21,23 @@ function sh(label, cmd, extraEnv) {
     stdio: 'inherit',
     shell: true,
     env: extraEnv === undefined ? process.env : { ...process.env, ...extraEnv },
+  });
+  return r.status ?? 1;
+}
+
+// Risolve il binario electron del workspace app/desktop e lo lancia DIRETTAMENTE (niente shell, niente
+// `pnpm exec`): in questo ambiente la risoluzione del *bin* via `pnpm --filter @loomn/desktop exec electron`
+// si rompe SUBITO DOPO `rebuild:electron` (ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL "electron not found"),
+// mentre il bin diretto funziona. require('electron') restituisce il path assoluto dell eseguibile
+// (es. electron.exe su Windows); spawnSync senza shell evita ogni problema di quoting/risoluzione del bin.
+const electronBin = createRequire(join(process.cwd(), 'app', 'desktop', 'package.json'))('electron');
+
+/** Lancia il self-test Electron sul build (arg = la app dir app/desktop), bin diretto, stdio ereditato. */
+function runSelfTest(label, extraEnv) {
+  console.log(`\n[gate] ${label}: ${electronBin} app/desktop`);
+  const r = spawnSync(electronBin, ['app/desktop'], {
+    stdio: 'inherit',
+    env: { ...process.env, ...extraEnv },
   });
   return r.status ?? 1;
 }
@@ -45,11 +63,11 @@ try {
   } else {
     // 5) Due lanci sequenziali sullo STESSO userData temp: fase 1 costruisce lo stato, fase 2 verifica
     //    la persistenza dopo il riavvio + il reload in-finestra (I-02). Il main esce 0/1 sul VERDICT.
-    phase1 = sh('self-test fase 1', 'pnpm --filter @loomn/desktop exec electron .', {
+    phase1 = runSelfTest('self-test fase 1', {
       LOOMN_SELFTEST: '1',
       LOOMN_USERDATA: userData,
     });
-    phase2 = sh('self-test fase 2', 'pnpm --filter @loomn/desktop exec electron .', {
+    phase2 = runSelfTest('self-test fase 2', {
       LOOMN_SELFTEST: '2',
       LOOMN_USERDATA: userData,
     });

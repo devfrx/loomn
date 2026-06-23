@@ -17,3 +17,5 @@ export {
   type ReflectOutcome,
 } from './campaign-service';
 export { devRuleset } from './dev-vocabulary';
+export { devCampaignSeed } from './dev-campaign-seed';
+export { campaignDbPath, DEFAULT_CAMPAIGN_ID } from './campaign-path';

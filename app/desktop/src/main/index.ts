@@ -6,6 +6,8 @@ import {
   createCampaignService,
   createLanguageProvider,
   devRuleset,
+  campaignDbPath,
+  DEFAULT_CAMPAIGN_ID,
   type CampaignService,
   type MemorySystem,
 } from '@loomn/host';
@@ -274,7 +276,7 @@ if (!app.requestSingleInstanceLock()) {
   void app.whenReady().then(() => {
     try {
       // Persistenza reale dentro Electron: UNA connessione (event store + ledger + summaries + assembler).
-      memory = createMemorySystem(join(app.getPath('userData'), 'loomn.db'));
+      memory = createMemorySystem(campaignDbPath(app.getPath('userData'), DEFAULT_CAMPAIGN_ID));
       const service = createCampaignService({
         memory,
         model: holder.model,

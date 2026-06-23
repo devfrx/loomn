@@ -20,6 +20,8 @@ import {
   narrationHistoryRequestSchema,
   canonRequestSchema,
   summariesRequestSchema,
+  generateSeedRequestSchema,
+  seedCampaignRequestSchema,
   type DispatchResult,
   type RunTurnResult,
   type ProviderResult,
@@ -30,6 +32,8 @@ import {
   type CanonResult,
   type SummariesResult,
   type RulesetResult,
+  type GenerateSeedResult,
+  type SeedCampaignResult,
 } from '@loomn/shared';
 import { createProviderHolder, type ProviderHolder } from './provider-holder';
 import { loadProviderConfig, loadProviderMeta, saveProviderConfig } from './settings';
@@ -202,6 +206,37 @@ function registerHandlers(service: CampaignService): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.getReadModel, (): ReadModelPush => buildReadModelPush(service));
+
+  ipcMain.handle(IPC_CHANNELS.generateSeed, async (_e, raw): Promise<GenerateSeedResult> => {
+    const parsed = generateSeedRequestSchema.safeParse(raw);
+    if (!parsed.success) return { ok: false, error: `Brief non valido: ${parsed.error.message}` };
+    // Pre-check deterministico: niente string-sniffing del sentinel NO_PROVIDER del provider-holder.
+    if (!holder.isConfigured()) {
+      return { ok: false, error: 'Nessun provider AI configurato. Configuralo in Impostazioni.' };
+    }
+    try {
+      const seed = await service.generateSeed(parsed.data);
+      return { ok: true, seed };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.seedCampaign, async (_e, raw): Promise<SeedCampaignResult> => {
+    const parsed = seedCampaignRequestSchema.safeParse(raw);
+    if (!parsed.success) return { ok: false, error: `Seed non valido: ${parsed.error.message}` };
+    try {
+      const out = await service.seedCampaign(parsed.data.seed);
+      pushReadModel(service); // la board si popola di campaignFrame + attori
+      return {
+        ok: true,
+        version: out.readModel.version,
+        ...(out.narration !== undefined ? { narration: out.narration } : {}),
+      };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  });
 }
 
 function createWindow(service: CampaignService): BrowserWindow {

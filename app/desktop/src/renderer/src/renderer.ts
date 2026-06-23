@@ -40,6 +40,9 @@ async function runSelfTest(
   appRouter: Router,
 ): Promise<void> {
   const lines: string[] = [];
+  // I-02 (copertura reload): chiave sessionStorage che sopravvive a un location.reload() ma non a un
+  // riavvio-processo -> ci permette di forzare UN solo reload in fase 2 senza loop infinito.
+  const RELOAD_FLAG = 'loomn-selftest-reloaded';
   const check = (cond: boolean, label: string): void => {
     lines.push(`${cond ? 'ok' : 'FAIL'} ${label}`);
   };
@@ -196,8 +199,20 @@ async function runSelfTest(
       await appRouter.push('/');
       check(appRouter.currentRoute.value.name === 'game', 'router torna al Gioco dopo la Scheda');
     } else {
+      // I-02 (copertura del path RELOAD): la fase 2 (riavvio) e read-only e idempotente. Forziamo UN
+      // solo location.reload() (equivalente a Ctrl+R) PRIMA delle verifiche, cosi OGNI asserzione di
+      // persistenza qui sotto vale dopo un reload in-finestra. Chiude la lacuna che fece sfuggire I-02
+      // al gate: il gate copriva solo il riavvio-processo (finestra nuova -> primo push regolare), MAI
+      // il reload-in-finestra (did-finish-load rifira). Il reload non dispatcha -> la versione resta 8.
+      if (sessionStorage.getItem(RELOAD_FLAG) !== '1') {
+        sessionStorage.setItem(RELOAD_FLAG, '1');
+        location.reload();
+        return; // niente VERDICT sul passaggio pre-reload: lo logghera il passaggio post-reload.
+      }
+      sessionStorage.removeItem(RELOAD_FLAG);
+
       const s0 = await window.loomn.getStatus();
-      check(s0.ok && s0.version === 8, 'versione 8 PERSISTITA dopo il riavvio (durabilita: incluso lo slice combat 10c + RoundAdvanced di I-01)');
+      check(s0.ok && s0.version === 8, 'versione 8 PERSISTITA dopo riavvio + reload (durabilita: slice combat 10c + RoundAdvanced di I-01)');
       check(s0.ok && s0.providerConfigured, 'provider ricostruito da settings.json (chiave decifrata)');
       check(s0.ok && s0.provider?.hasApiKey === true, 'read-back provider con chiave persistito dopo riavvio');
 
@@ -215,6 +230,14 @@ async function runSelfTest(
       check(
         rmPull.version === 8 && rmPull.state.actors['goblin']?.name === 'Goblin',
         'get-read-model pull ri-idrata dopo il riavvio (canale I-02)',
+      );
+
+      // I-02 (reload): in QUESTO passaggio post-reload NON e stato emesso alcun dispatch, eppure lo store
+      // e a versione 8 col goblin -> dimostra il self-healing read-side dopo un Ctrl+R (pull-on-mount +
+      // .on did-finish-load di F4). E esattamente la copertura che mancava al gate quando I-02 sfuggi.
+      check(
+        readModel.version === 8 && readModel.actors.some((a) => a.id === 'goblin'),
+        'dopo il reload lo store si ri-popola SENZA dispatch (I-02 pull-on-mount + .on did-finish-load)',
       );
     }
 

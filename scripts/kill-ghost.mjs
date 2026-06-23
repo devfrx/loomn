@@ -39,6 +39,7 @@ export function killGhosts() {
 }
 
 // Esecuzione diretta (`pnpm gate:kill-ghost`): pathToFileURL gestisce i path Windows (backslash/drive).
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+// La guardia su argv[1] evita ERR_INVALID_ARG_TYPE se il modulo e caricato senno (es. node -e/REPL).
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
   killGhosts();
 }

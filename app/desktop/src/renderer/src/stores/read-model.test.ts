@@ -88,4 +88,11 @@ describe('useReadModelStore', () => {
     expect(s.version).toBe(2);
     expect(s.actors.map((a) => a.id)).toEqual(['a']);
   });
+
+  it('hasCampaign e false senza campaignFrame, true con campaignFrame', () => {
+    const store = useReadModelStore();
+    expect(store.hasCampaign).toBe(false);
+    store.applyPush({ version: 1, state: { campaignFrame: { id: 'c1' } } } as unknown as ReadModelPush);
+    expect(store.hasCampaign).toBe(true);
+  });
 });

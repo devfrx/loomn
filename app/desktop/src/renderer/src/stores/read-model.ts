@@ -37,6 +37,7 @@ export const useReadModelStore = defineStore('readModel', () => {
   const quests = computed<QuestView[]>(() => (state.value ? Object.values(state.value.quests) : []));
   const encounter = computed<EncounterView>(() => state.value?.encounter ?? null);
   const inCombat = computed<boolean>(() => phase.value === 'combat');
+  const hasCampaign = computed<boolean>(() => state.value?.campaignFrame !== undefined);
 
-  return { version, applyPush, loaded, phase, actors, pcs, npcs, quests, encounter, inCombat };
+  return { version, applyPush, loaded, phase, actors, pcs, npcs, quests, encounter, inCombat, hasCampaign };
 });

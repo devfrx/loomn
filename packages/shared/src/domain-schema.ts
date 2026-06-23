@@ -422,6 +422,50 @@ const startQuestCommandSchema = z
     ...(o.description !== undefined ? { description: o.description } : {}),
   }));
 
+// SeedCampaign: schemi con bounds (difesa-in-profondita al confine IPC). La cornice usa
+// campaignFrameSchema permissivo (Task 1). Gli opzionali attributes/skills/resources del SeedNpc
+// usano .transform() per OMETTERE le chiavi assenti -> tipo inferito assegnabile 1:1 a SeedNpc
+// sotto exactOptionalPropertyTypes (pattern di attackCommandSchema/requestCheckCommandSchema).
+const seedNpcCommandSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    description: z.string(),
+    attributes: z.record(z.string(), z.number()).optional(),
+    skills: z.record(z.string(), z.number()).optional(),
+    resources: z.record(z.string(), resourcePoolSchema).optional(),
+  })
+  .transform((o) => ({
+    id: o.id,
+    name: o.name,
+    description: o.description,
+    ...(o.attributes !== undefined ? { attributes: o.attributes } : {}),
+    ...(o.skills !== undefined ? { skills: o.skills } : {}),
+    ...(o.resources !== undefined ? { resources: o.resources } : {}),
+  }));
+
+const seedPlaceCommandSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string(),
+});
+
+const seedFactCommandSchema = z.object({
+  subject: z.string().min(1),
+  predicate: z.string().min(1),
+  object: z.string(),
+});
+
+const seedCampaignCommandSchema = z.object({
+  type: z.literal('SeedCampaign'),
+  seed: z.object({
+    frame: campaignFrameSchema,
+    keyNpcs: z.array(seedNpcCommandSchema),
+    keyPlaces: z.array(seedPlaceCommandSchema),
+    initialFacts: z.array(seedFactCommandSchema),
+  }),
+});
+
 /** Schema Zod dell unione Command del motore (spec 5.1). Validazione del payload IPC non fidato
  *  (renderer->main, spec 4). L inferenza e cast-free assegnabile 1:1 a Command (provato in host). */
 export const commandSchema = z.union([
@@ -440,4 +484,5 @@ export const commandSchema = z.union([
   z.object({ type: z.literal('AdvanceQuest'), questId: z.string(), status: questOutcomeSchema }),
   z.object({ type: z.literal('EnterPhase'), to: softPhaseSchema }),
   z.object({ type: z.literal('EndEncounter') }),
+  seedCampaignCommandSchema,
 ]);

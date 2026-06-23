@@ -646,7 +646,7 @@ describe('vocabolario statico di comando (RESOURCE_DIRECTIONS / COMMAND_TYPES)',
     expect([...RESOURCE_DIRECTIONS]).toEqual(['restore', 'drain']);
   });
 
-  it('COMMAND_TYPES elenca tutti e 11 i tipi di Command', () => {
+  it('COMMAND_TYPES elenca tutti e 12 i tipi di Command', () => {
     expect([...COMMAND_TYPES]).toEqual([
       'AddActor',
       'StartEncounter',
@@ -659,6 +659,7 @@ describe('vocabolario statico di comando (RESOURCE_DIRECTIONS / COMMAND_TYPES)',
       'AdvanceQuest',
       'EnterPhase',
       'EndEncounter',
+      'SeedCampaign',
     ]);
   });
 

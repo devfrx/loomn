@@ -11,6 +11,7 @@ import type { Ruleset } from './ruleset';
 import type { Quest, QuestOutcome } from './quest';
 import type { Phase } from './phase';
 import { canTransition, type SoftPhase } from './phase';
+import type { CampaignSeed, SeedNpc } from './campaign';
 
 /** Direzioni di un effetto su risorsa (ApplyEffect): vocabolario STATICO di comando, sorella di
  *  DIFFICULTIES (difficulty.ts) / SOFT_PHASES (phase.ts) / QUEST_OUTCOMES (quest.ts). Sorgente unica:
@@ -39,7 +40,8 @@ export type Command =
   | { type: 'StartQuest'; id: string; title: string; description?: string }
   | { type: 'AdvanceQuest'; questId: string; status: QuestOutcome }
   | { type: 'EnterPhase'; to: SoftPhase }
-  | { type: 'EndEncounter' };
+  | { type: 'EndEncounter' }
+  | { type: 'SeedCampaign'; seed: CampaignSeed };
 
 // Lancia se key non e nel set, elencando i valori legali (l errore reiniettato fa auto-correggere
 // il loop agentico). Il vocabolario e iniettato: "legale" = membership, non per-attore.
@@ -80,6 +82,7 @@ export const COMMAND_TYPES = [
   'AdvanceQuest',
   'EnterPhase',
   'EndEncounter',
+  'SeedCampaign',
 ] as const;
 export type CommandType = (typeof COMMAND_TYPES)[number];
 
@@ -90,6 +93,33 @@ const _commandTypesComplete: Exclude<Command['type'], CommandType> extends never
 const _commandTypesSound: Exclude<CommandType, Command['type']> extends never ? true : never = true;
 void _commandTypesComplete;
 void _commandTypesSound;
+
+/** Valida l attore contro il vocabolario, auto-fill delle risorse mancanti dal Ruleset, clamp,
+ *  e ritorna l evento ActorAdded. NON controlla i duplicati (lo fa il chiamante). */
+function buildActorAddedEvent(actor: Actor, ruleset: Ruleset): DomainEvent {
+  const vocab = ruleset.vocabulary;
+  for (const k of Object.keys(actor.attributes)) requireMember(vocab.attributes, k, 'Attributo');
+  for (const k of Object.keys(actor.skills)) requireMember(vocab.skills, k, 'Abilita');
+  for (const k of Object.keys(actor.resources)) requireMember(vocab.resources, k, 'Risorsa');
+  const merged = { ...vocab.defaultResources, ...actor.resources };
+  const resources = Object.fromEntries(Object.entries(merged).map(([k, pool]) => [k, clampPool(pool)]));
+  return { type: 'ActorAdded', actor: { ...actor, resources } };
+}
+
+/** Mappa un SeedNpc in un Actor con tutti i campi obbligatori (come spawn_npc nel master-tools). */
+function seedNpcToActor(npc: SeedNpc): Actor {
+  return {
+    id: npc.id,
+    name: npc.name,
+    kind: 'npc',
+    attributes: npc.attributes ?? {},
+    skills: npc.skills ?? {},
+    resources: npc.resources ?? {},
+    conditions: [],
+    items: [],
+    progression: { xp: 0, level: 0 },
+  };
+}
 
 /** Valida un comando contro lo stato e produce gli eventi risultanti.
  *  L'RNG è consumato dai comandi che lo richiedono (es. Attack). Funzione pura. */
@@ -102,18 +132,7 @@ export function decide(state: GameState, command: Command, rng: RandomSource, ru
       if (state.actors[command.actor.id] !== undefined) {
         throw new Error(`Attore già presente: ${command.actor.id}`);
       }
-      const vocab = ruleset.vocabulary;
-      for (const k of Object.keys(command.actor.attributes)) requireMember(vocab.attributes, k, 'Attributo');
-      for (const k of Object.keys(command.actor.skills)) requireMember(vocab.skills, k, 'Abilita');
-      for (const k of Object.keys(command.actor.resources)) requireMember(vocab.resources, k, 'Risorsa');
-      // Auto-fill combat-ready: le risorse mancanti dal template; quelle fornite sovrascrivono.
-      // clampPool impone l invariante current in [0,max] anche alla CREAZIONE (l arbitro: nessun
-      // garbage nello stato), come adjustResource fa su ogni mutazione successiva.
-      const merged = { ...vocab.defaultResources, ...command.actor.resources };
-      const resources = Object.fromEntries(
-        Object.entries(merged).map(([k, pool]) => [k, clampPool(pool)]),
-      );
-      return [{ type: 'ActorAdded', actor: { ...command.actor, resources } }];
+      return [buildActorAddedEvent(command.actor, ruleset)];
     }
     case 'StartEncounter': {
       if (command.participants.length === 0) {
@@ -277,6 +296,21 @@ export function decide(state: GameState, command: Command, rng: RandomSource, ru
         { type: 'EncounterEnded', encounterId: enc.id },
         { type: 'PhaseChanged', from: 'combat', to: 'exploration' },
       ];
+    }
+    case 'SeedCampaign': {
+      if (state.campaignFrame !== undefined) {
+        throw new Error('Campagna gia seminata');
+      }
+      const events: DomainEvent[] = [{ type: 'CampaignFramed', frame: command.seed.frame }];
+      const seen = new Set<string>();
+      for (const npc of command.seed.keyNpcs) {
+        if (state.actors[npc.id] !== undefined || seen.has(npc.id)) {
+          throw new Error(`PNG seminato duplicato: ${npc.id}`);
+        }
+        seen.add(npc.id);
+        events.push(buildActorAddedEvent(seedNpcToActor(npc), ruleset));
+      }
+      return events;
     }
     default: {
       const _exhaustive: never = command;

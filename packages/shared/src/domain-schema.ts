@@ -498,24 +498,6 @@ export const campaignBriefSchema = z
     ...(b.overrides !== undefined ? { overrides: b.overrides } : {}),
   }));
 
-/** Risultato del canale generate-seed (D-01c): ok con seed bozza, o errore. */
-export const generateSeedResultSchema = z.union([
-  z.object({ ok: z.literal(true), seed: campaignSeedSchema }),
-  z.object({ ok: z.literal(false), error: z.string() }),
-]);
-export type GenerateSeedResult = z.infer<typeof generateSeedResultSchema>;
-
-/** Risultato del canale seed-campaign (D-01c): ok con version + narration opzionale, o errore. */
-export const seedCampaignResultSchema = z.union([
-  z.object({
-    ok: z.literal(true),
-    version: z.number().int().nonnegative(),
-    narration: z.string().optional(),
-  }),
-  z.object({ ok: z.literal(false), error: z.string() }),
-]);
-export type SeedCampaignResult = z.infer<typeof seedCampaignResultSchema>;
-
 /** Schema Zod dell unione Command del motore (spec 5.1). Validazione del payload IPC non fidato
  *  (renderer->main, spec 4). L inferenza e cast-free assegnabile 1:1 a Command (provato in host). */
 export const commandSchema = z.union([

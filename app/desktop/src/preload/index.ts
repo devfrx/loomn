@@ -45,7 +45,7 @@ const bridge: LoomnBridge = {
     ipcRenderer.invoke(IPC_CHANNELS.summaries, request),
   getRuleset: (): Promise<RulesetResult> => ipcRenderer.invoke(IPC_CHANNELS.getRuleset),
   getReadModel: (): Promise<ReadModelPush> => ipcRenderer.invoke(IPC_CHANNELS.getReadModel),
-  // D-01c stubs: implementazione definitiva in Task 2 (main handler + preload wiring)
+  // D-01c: handler nel main arriva in Task 2
   generateSeed: (brief: GenerateSeedRequest): Promise<GenerateSeedResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.generateSeed, brief),
   seedCampaign: (request: SeedCampaignRequest): Promise<SeedCampaignResult> =>

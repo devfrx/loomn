@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
+import { campaignSeedSchema, campaignBriefSchema } from './domain-schema';
 import {
-  campaignSeedSchema,
-  campaignBriefSchema,
+  generateSeedRequestSchema,
   generateSeedResultSchema,
+  seedCampaignRequestSchema,
   seedCampaignResultSchema,
-} from './domain-schema';
-import { generateSeedRequestSchema, seedCampaignRequestSchema } from './ipc';
+} from './ipc';
 
 const VALID_SEED = {
   frame: {

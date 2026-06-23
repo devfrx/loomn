@@ -4,7 +4,7 @@
 // IPC (payload non fidati renderer->main) usa questi schemi; il read side e una proiezione di sola
 // lettura {version, state} spinta dal main (spec 5.2).
 import { z } from 'zod';
-import { campaignBriefSchema, campaignSeedSchema, commandSchema, domainEventSchema, gameStateSchema, generateSeedResultSchema, type GenerateSeedResult, seedCampaignResultSchema, type SeedCampaignResult } from './domain-schema';
+import { campaignBriefSchema, campaignSeedSchema, commandSchema, domainEventSchema, gameStateSchema } from './domain-schema';
 
 /** Nomi dei canali IPC (prefisso `loomn:` per evitare collisioni). */
 export const IPC_CHANNELS = {
@@ -238,15 +238,25 @@ export const generateSeedRequestSchema = campaignBriefSchema;
 /** Forma del brief lato chiamante (input pre-transform). */
 export type GenerateSeedRequest = z.input<typeof campaignBriefSchema>;
 
-export { generateSeedResultSchema };
-export type { GenerateSeedResult };
+export const generateSeedResultSchema = z.union([
+  z.object({ ok: z.literal(true), seed: campaignSeedSchema }),
+  z.object({ ok: z.literal(false), error: z.string() }),
+]);
+export type GenerateSeedResult = z.infer<typeof generateSeedResultSchema>;
 
 // --- seedCampaign (conferma: semina la campagna, atomico nel host) ---
 export const seedCampaignRequestSchema = z.object({ seed: campaignSeedSchema });
 export type SeedCampaignRequest = z.input<typeof seedCampaignRequestSchema>;
 
-export { seedCampaignResultSchema };
-export type { SeedCampaignResult };
+export const seedCampaignResultSchema = z.union([
+  z.object({
+    ok: z.literal(true),
+    version: z.number().int().nonnegative(),
+    narration: z.string().optional(),
+  }),
+  z.object({ ok: z.literal(false), error: z.string() }),
+]);
+export type SeedCampaignResult = z.infer<typeof seedCampaignResultSchema>;
 
 /** Superficie IPC esposta dal preload al renderer (contratto tipizzato del bridge). */
 export interface LoomnBridge {
@@ -277,4 +287,3 @@ export interface LoomnBridge {
   /** Sottoscrive i push read-side; ritorna una funzione che annulla la sottoscrizione. */
   onReadModelPush(listener: (push: ReadModelPush) => void): () => void;
 }
-

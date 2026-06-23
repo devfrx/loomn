@@ -118,10 +118,10 @@ export function rawToCampaignSeed(raw: RawSeed, ruleset: Ruleset, brief?: Campai
 }
 
 const SYSTEM_PROMPT = [
-  'Sei un game-designer esperto. Espandi il brief dell utente in uno scenario di campagna coerente e giocabile.',
+  'Sei un game-designer esperto. Espandi il brief dell\'utente in uno scenario di campagna coerente e giocabile.',
   'Rispondi in italiano. Produci una premessa, un setting, un tono, una scena di apertura, alcuni ganci narrativi,',
   'i PNG chiave (con un livello di competenza tier: comune, esperto o eccezionale), i luoghi chiave e alcuni fatti iniziali.',
-  'Nei fatti cita le entita per NOME. NON inventare identificatori tecnici ne numeri di gioco (attributi, abilita, punti vita):',
+  'Nei fatti cita le entità per NOME. NON inventare identificatori tecnici né numeri di gioco (attributi, abilità, punti vita):',
   'quelli li assegna il sistema. Mantieni nomi brevi e descrizioni concise.',
 ].join(' ');
 

@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createRuleset, createVocabulary, type Ruleset } from '@loomn/engine';
-import { slugify, rawToCampaignSeed, type RawSeed } from './campaign-generation';
-import { generateCampaignSeed, type CampaignBrief } from './campaign-generation';
+import { slugify, rawToCampaignSeed, generateCampaignSeed, type RawSeed, type CampaignBrief } from './campaign-generation';
 import { StructuredOutputError, type StructuredOutputPort, type StructuredOutputRequest, type StructuredOutputResult } from './structured-output';
 
 const RULESET: Ruleset = createRuleset({

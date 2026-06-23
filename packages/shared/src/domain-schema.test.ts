@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { domainEventSchema, gameStateSchema } from './index';
+import { commandSchema, domainEventSchema, gameStateSchema } from './index';
 
 const fullActor = {
   id: 'eroe',
@@ -265,5 +265,33 @@ describe('gameStateSchema', () => {
     const s = { version: 5, actors: { eroe: fullActor }, encounter: null, quests: {}, phase: 'combat' as const };
     expect(gameStateSchema.parse(s)).toEqual(s);
     expect(() => gameStateSchema.parse({ ...s, phase: 'sognante' })).toThrow();
+  });
+});
+
+describe('commandSchema — SeedCampaign', () => {
+  const validSeed = {
+    type: 'SeedCampaign',
+    seed: {
+      frame: { id: 'c1', name: 'X', premise: 'p', setting: { place: 'a', era: 'b', genres: ['c'] }, tone: 't', openingScene: 'o', hooks: ['h'] },
+      keyNpcs: [{ id: 'npc-1', name: 'N', description: 'd', attributes: { forza: 3 } }],
+      keyPlaces: [],
+      initialFacts: [],
+    },
+  };
+
+  it('commandSchema accetta SeedCampaign con attributo finito', () => {
+    expect(commandSchema.safeParse(validSeed).success).toBe(true);
+  });
+
+  it('commandSchema rifiuta un PNG seminato con un attributo non finito', () => {
+    const r = commandSchema.safeParse({
+      type: 'SeedCampaign',
+      seed: {
+        frame: { id: 'c1', name: 'X', premise: 'p', setting: { place: 'a', era: 'b', genres: ['c'] }, tone: 't', openingScene: 'o', hooks: ['h'] },
+        keyNpcs: [{ id: 'npc-1', name: 'N', description: 'd', attributes: { forza: Infinity } }],
+        keyPlaces: [], initialFacts: [],
+      },
+    });
+    expect(r.success).toBe(false);
   });
 });

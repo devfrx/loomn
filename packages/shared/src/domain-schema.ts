@@ -431,8 +431,8 @@ const seedNpcCommandSchema = z
     id: z.string().min(1),
     name: z.string().min(1),
     description: z.string(),
-    attributes: z.record(z.string(), z.number()).optional(),
-    skills: z.record(z.string(), z.number()).optional(),
+    attributes: z.record(z.string(), finiteNumber).optional(),
+    skills: z.record(z.string(), finiteNumber).optional(),
     resources: z.record(z.string(), resourcePoolSchema).optional(),
   })
   .transform((o) => ({

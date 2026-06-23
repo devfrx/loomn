@@ -69,4 +69,12 @@ describe('decide(SeedCampaign)', () => {
     expect(events).toHaveLength(1);
     expect(events[0]?.type).toBe('CampaignFramed');
   });
+
+  it('rifiuta un PNG con un attributo fuori vocabolario', () => {
+    const bad: CampaignSeed = {
+      ...seed,
+      keyNpcs: [{ id: 'npc-x', name: 'X', description: 'd', attributes: { nonEsiste: 3 } }],
+    };
+    expect(() => decide(initialState, { type: 'SeedCampaign', seed: bad }, rng, testRuleset)).toThrow();
+  });
 });

@@ -97,8 +97,8 @@ describe('commandSchema -> Command del motore (cast-free)', () => {
     expect(c.type).toBe('NextRound');
   });
 
-  it('SeedCampaign passa commandSchema', () => {
-    const parsed = commandSchema.parse({
+  it('SeedCampaign e assegnabile a Command', () => {
+    const c: Command = commandSchema.parse({
       type: 'SeedCampaign',
       seed: {
         frame: { id: 'c1', name: 'X', premise: 'p', setting: { place: 'a', era: 'b', genres: ['c'] }, tone: 't', openingScene: 'o', hooks: ['h'] },
@@ -107,7 +107,7 @@ describe('commandSchema -> Command del motore (cast-free)', () => {
         initialFacts: [],
       },
     });
-    expect(parsed.type).toBe('SeedCampaign');
+    expect(c.type).toBe('SeedCampaign');
   });
 
   it('Attack e assegnabile a Command', () => {

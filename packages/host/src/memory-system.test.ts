@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { initialState, applyEvent, type Actor } from '@loomn/engine';
 import { createMemorySystem } from './memory-system';
 import { systemClock } from './clock';
@@ -103,6 +106,15 @@ describe('createMemorySystem - connessione condivisa', () => {
     } finally {
       sys.close();
     }
+  });
+
+  it('crea la directory genitore inesistente del path del DB', () => {
+    const base = mkdtempSync(join(tmpdir(), 'loomn-ms-dir-'));
+    const dbPath = join(base, 'campaigns', 'default', 'loomn.db'); // la dir genitore NON esiste
+    const ms = createMemorySystem(dbPath);
+    expect(existsSync(dirname(dbPath))).toBe(true);
+    ms.close();
+    rmSync(base, { recursive: true, force: true });
   });
 });
 

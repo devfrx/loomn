@@ -3,6 +3,8 @@
 // (read path 8c) leggono/scrivono lo STESSO DB: letture coerenti, concorrenza ottimistica sullo
 // stesso stream. `assembleContext` e il vero allocatore di contesto, pronto da iniettare in
 // runMasterTurn (MasterTurnRequest.assembleContext) al posto di assembleContextStub.
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import {
   openDatabase,
   createSqliteEventStoreOn,
@@ -57,6 +59,13 @@ const DEFAULT_TOKEN_BUDGET = 2000;
 /** Apre UNA connessione (dbPath=':memory:' nei test) e monta event store + ledger + summaries +
  *  assembler sullo stesso handle Drizzle. Il chiamante chiude con `close()`. */
 export function createMemorySystem(dbPath: string, config: MemorySystemConfig = {}): MemorySystem {
+  // Il path per-campagna (es. userData/campaigns/<id>/loomn.db) puo avere una dir genitore inesistente:
+  // better-sqlite3 NON crea le dir intermedie. La creiamo qui (idempotente, recursive) cosi il seam
+  // regge qualsiasi path annidato (fondamenta multi-campagna D-01a; D-03 ne beneficia).
+  // ':memory:' non e un file su disco -> niente mkdir.
+  if (dbPath !== ':memory:') {
+    mkdirSync(dirname(dbPath), { recursive: true });
+  }
   const { db, close } = openDatabase(dbPath);
   const clock = config.clock ?? systemClock;
   const eventStore = createSqliteEventStoreOn(db);

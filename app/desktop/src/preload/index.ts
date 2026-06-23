@@ -45,7 +45,7 @@ const bridge: LoomnBridge = {
     ipcRenderer.invoke(IPC_CHANNELS.summaries, request),
   getRuleset: (): Promise<RulesetResult> => ipcRenderer.invoke(IPC_CHANNELS.getRuleset),
   getReadModel: (): Promise<ReadModelPush> => ipcRenderer.invoke(IPC_CHANNELS.getReadModel),
-  // D-01c: handler nel main arriva in Task 2
+  // D-01c: onboarding (genera bozza dal brief / conferma e semina la campagna).
   generateSeed: (brief: GenerateSeedRequest): Promise<GenerateSeedResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.generateSeed, brief),
   seedCampaign: (request: SeedCampaignRequest): Promise<SeedCampaignResult> =>

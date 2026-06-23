@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createSeededRandom, createRuleset, createVocabulary, type Actor, type Command } from '@loomn/engine';
+import { createSeededRandom, createRuleset, createVocabulary, type Actor, type Command, type CampaignSeed } from '@loomn/engine';
 import { devRuleset } from './dev-vocabulary';
 import {
   type LanguageModel,
@@ -732,6 +732,109 @@ describe('createCampaignService - getRuleset (vocabolario + enum + regole di fas
       const rs = service.getRuleset();
       expect([...rs.commandPhaseRules.combatOnly].sort()).toEqual(['Attack', 'EndEncounter', 'EndTurn', 'NextRound']);
       expect([...rs.commandPhaseRules.nonCombatOnly].sort()).toEqual(['EnterPhase', 'StartEncounter']);
+    } finally {
+      memory.close();
+    }
+  });
+});
+
+// Seed minimo per i test di seedCampaign (D-01a Task 4).
+const demoSeed: CampaignSeed = {
+  frame: {
+    id: 'c1',
+    name: 'Demo',
+    premise: 'Un regno in pericolo.',
+    setting: { place: 'Aldoria', era: 'medievale', genres: ['fantasy'] },
+    tone: 'epico',
+    openingScene: 'La citta di confine brucia.',
+    hooks: ['trovare il traditore'],
+  },
+  keyNpcs: [{ id: 'npc-1', name: 'Mercante', description: 'un mercante ambulante' }],
+  keyPlaces: [{ id: 'p-1', name: 'Mercato', description: 'piazza affollata' }],
+  initialFacts: [{ subject: 'npc-1', predicate: 'lavora-a', object: 'p-1' }],
+};
+
+describe('createCampaignService - seedCampaign (D-01a)', () => {
+  it('seedCampaign semina frame, attori e canon atomicamente', async () => {
+    const model = fakeModel([
+      { type: 'text', delta: 'La citta di confine brucia tra le fiamme.' },
+      { type: 'finish', reason: 'stop' },
+    ]);
+    const { service, memory } = makeService({ model });
+    try {
+      const out = await service.seedCampaign(demoSeed);
+      expect(out.readModel.state.campaignFrame?.name).toBe('Demo');
+      expect(out.readModel.state.actors['npc-1']).toBeDefined();
+      const canon = service.getCanon({});
+      expect(canon.some((f) => f.id === 'seed-0')).toBe(true);
+    } finally {
+      memory.close();
+    }
+  });
+
+  it('seedCampaign produce la narrazione d apertura quando il provider e configurato', async () => {
+    const model = fakeModel([
+      { type: 'text', delta: 'Il sole tramonta su Aldoria.' },
+      { type: 'finish', reason: 'stop' },
+    ]);
+    const { service, memory } = makeService({ model });
+    try {
+      const out = await service.seedCampaign(demoSeed);
+      expect(out.narration).toBeDefined();
+      expect(typeof out.narration).toBe('string');
+    } finally {
+      memory.close();
+    }
+  });
+
+  it('seedCampaign persiste i fatti canon di keyPlaces e initialFacts con id seed-i', async () => {
+    const { service, memory } = makeService();
+    try {
+      await service.seedCampaign(demoSeed);
+      const canon = service.getCanon({});
+      // seed-0 = keyPlace, seed-1 = initialFact
+      expect(canon.some((f) => f.id === 'seed-0' && f.predicate === 'e-il-luogo')).toBe(true);
+      expect(canon.some((f) => f.id === 'seed-1' && f.predicate === 'lavora-a')).toBe(true);
+    } finally {
+      memory.close();
+    }
+  });
+
+  it('seedCampaign rifiuta una seconda semina (once-guard end-to-end)', async () => {
+    const { service, memory } = makeService();
+    try {
+      await service.seedCampaign(demoSeed);
+      await expect(service.seedCampaign(demoSeed)).rejects.toThrow(/gia seminata/);
+    } finally {
+      memory.close();
+    }
+  });
+
+  it('seedCampaign senza narrazione: il seed riesce, narration e undefined', async () => {
+    // Modello che lancia: simula provider non configurato o errore di rete.
+    const throwingModel: LanguageModel = {
+      id: 'throw',
+      async *stream() {
+        throw new Error('provider non configurato');
+        yield { type: 'finish', reason: 'stop' } as LlmStreamEvent;
+      },
+    };
+    const { service, memory } = makeService({ model: throwingModel });
+    try {
+      const out = await service.seedCampaign(demoSeed);
+      expect(out.readModel.state.campaignFrame).toBeDefined();
+      expect(out.narration).toBeUndefined();
+    } finally {
+      memory.close();
+    }
+  });
+
+  it('la coda resta operativa dopo seedCampaign: un dispatch successivo procede', async () => {
+    const { service, memory } = makeService();
+    try {
+      await service.seedCampaign(demoSeed);
+      const out = await service.dispatch({ type: 'AddActor', actor: actor('goblin', 'Goblin') });
+      expect(out.readModel.state.actors['goblin']).toBeDefined();
     } finally {
       memory.close();
     }

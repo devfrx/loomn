@@ -21,6 +21,7 @@ import {
   type GameState,
   type RandomSource,
   type Ruleset,
+  type CampaignSeed,
 } from '@loomn/engine';
 import { runMasterTurn, type LanguageModel, type StructuredOutputPort } from '@loomn/ai';
 import { runScenesReflection } from '@loomn/memory';
@@ -65,6 +66,11 @@ export interface TurnOutcome {
    *  avanza di events.length + (narration.length > 0 ? 1 : 0). */
   events: DomainEvent[];
   readModel: ReadModel;
+}
+
+export interface SeedOutcome {
+  readModel: ReadModel;
+  narration?: string;
 }
 
 export interface ReflectOutcome {
@@ -121,6 +127,11 @@ export interface CampaignService {
   /** Write side: valida il Command (decide), persiste gli Event (concorrenza ottimistica),
    *  avanza la proiezione. La Promise rigetta se il Command viola le invarianti (decide lancia). */
   dispatch(command: Command): Promise<DispatchOutcome>;
+  /** Semina la campagna (atomico): persiste CampaignFramed + ActorAdded per ogni PNG + fatti
+   *  canon keyPlaces/initialFacts in un unica transazione SQLite. Poi, best-effort, esegue il
+   *  turno di apertura (narrazione della scena iniziale). Se il provider non e configurato la
+   *  narrazione e assente ma il seed e gia durevole. Rigetta se la campagna e gia seminata. */
+  seedCampaign(seed: CampaignSeed): Promise<SeedOutcome>;
   /** Turno agentico (spec 5.4) dietro il servizio: assembler reale iniettato, Event reali persistiti. */
   runTurn(playerAction: string): Promise<TurnOutcome>;
   /** Reflection (spec 6.1, item 6): riflette in modo incrementale le scene non ancora riflesse
@@ -168,6 +179,67 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
     }
   }
 
+  // Corpo del turno agentico (non-enqueued): estratto per essere riusato da seedCampaign
+  // (narrazione d apertura best-effort) e da runTurn (enqueued). Comportamento identico a prima.
+  async function _runTurn(playerAction: string): Promise<TurnOutcome> {
+    const startVersion = state.version;
+    const result = await runMasterTurn({
+      model: deps.model,
+      rng: deps.rng,
+      ruleset: deps.ruleset,
+      state,
+      playerAction,
+      assembleContext: deps.memory.assembleContext,
+    });
+    // La narrazione del Master entra nello stream come NarrationRecorded (spec F4): cosi la
+    // storia e rebuild-safe e la Reflection puo spogliarla. e l unico evento non prodotto da
+    // decide (registra l output dell AI: nessun RNG ne validazione meccanica). result.state
+    // ha gia applicato result.events; applichiamo SOLO la narrazione sopra.
+    const toStore: DomainEvent[] = [...result.events];
+    let nextState = result.state;
+    if (result.narration.length > 0) {
+      const narrationEvent: DomainEvent = {
+        type: 'NarrationRecorded',
+        playerAction,
+        narration: result.narration,
+      };
+      toStore.push(narrationEvent);
+      nextState = applyEvent(nextState, narrationEvent);
+    }
+    if (toStore.length > 0) {
+      deps.memory.eventStore.append(toStore, startVersion);
+      state = nextState;
+      maybeSnapshot();
+    }
+    // TurnOutcome.events resta la lista MECCANICA: il NarrationRecorded e persistenza di stream,
+    // non un esito meccanico del turno. La version del read model riflette comunque il bump.
+    return { narration: result.narration, events: result.events, readModel: readModel() };
+  }
+
+  // Parte atomica del seed: eventi + canon in un unica transazione SQLite (sincrona).
+  function _seedCampaign(seed: CampaignSeed): void {
+    deps.memory.runInTransaction(() => {
+      const versionBefore = state.version;
+      const evts = decide(state, { type: 'SeedCampaign', seed }, deps.rng, deps.ruleset);
+      deps.memory.eventStore.append(evts, versionBefore);
+      let s = state;
+      for (const e of evts) s = applyEvent(s, e);
+      state = s;
+      // CampaignFramed e SEMPRE il primo evento emesso da decide(SeedCampaign): il suo seq e
+      // versionBefore + 1. Lo usiamo come eventSeq per i canon seed (collega i fatti all evento
+      // di frame, non all ultimo evento del batch).
+      const framedSeq = versionBefore + 1;
+      let i = 0;
+      for (const place of seed.keyPlaces) {
+        deps.memory.ledger.record({ id: `seed-${i++}`, subject: place.id, predicate: 'e-il-luogo', object: place.description, eventSeq: framedSeq });
+      }
+      for (const f of seed.initialFacts) {
+        deps.memory.ledger.record({ id: `seed-${i++}`, subject: f.subject, predicate: f.predicate, object: f.object, eventSeq: framedSeq });
+      }
+      maybeSnapshot();
+    });
+  }
+
   return {
     getReadModel: readModel,
 
@@ -182,41 +254,24 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
       });
     },
 
-    runTurn(playerAction: string): Promise<TurnOutcome> {
-      return enqueue(async () => {
-        const startVersion = state.version;
-        const result = await runMasterTurn({
-          model: deps.model,
-          rng: deps.rng,
-          ruleset: deps.ruleset,
-          state,
-          playerAction,
-          assembleContext: deps.memory.assembleContext,
-        });
-        // La narrazione del Master entra nello stream come NarrationRecorded (spec F4): cosi la
-        // storia e rebuild-safe e la Reflection puo spogliarla. e l unico evento non prodotto da
-        // decide (registra l output dell AI: nessun RNG ne validazione meccanica). result.state
-        // ha gia applicato result.events; applichiamo SOLO la narrazione sopra.
-        const toStore: DomainEvent[] = [...result.events];
-        let nextState = result.state;
-        if (result.narration.length > 0) {
-          const narrationEvent: DomainEvent = {
-            type: 'NarrationRecorded',
-            playerAction,
-            narration: result.narration,
-          };
-          toStore.push(narrationEvent);
-          nextState = applyEvent(nextState, narrationEvent);
+    seedCampaign(seed: CampaignSeed): Promise<SeedOutcome> {
+      return enqueue(async (): Promise<SeedOutcome> => {
+        _seedCampaign(seed); // atomico: lancia se gia seminata o seed invalido
+        // Narrazione d apertura best-effort: se il provider non e configurato o lancia, il seed
+        // e gia durevole (transazione committata) -> inghiottiamo l errore silenziosamente.
+        let narration: string | undefined;
+        try {
+          const turn = await _runTurn('(apertura)');
+          narration = turn.narration;
+        } catch {
+          // seed gia committato e durevole; la narrazione slittera al primo turno reale.
         }
-        if (toStore.length > 0) {
-          deps.memory.eventStore.append(toStore, startVersion);
-          state = nextState;
-          maybeSnapshot();
-        }
-        // TurnOutcome.events resta la lista MECCANICA: il NarrationRecorded e persistenza di stream,
-        // non un esito meccanico del turno. La version del read model riflette comunque il bump.
-        return { narration: result.narration, events: result.events, readModel: readModel() };
+        return { readModel: readModel(), ...(narration !== undefined ? { narration } : {}) };
       });
+    },
+
+    runTurn(playerAction: string): Promise<TurnOutcome> {
+      return enqueue(() => _runTurn(playerAction));
     },
 
     reflect(scope: string): Promise<ReflectOutcome> {

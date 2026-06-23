@@ -12,15 +12,17 @@ Oggi il Master AI narra **nel vuoto**: nessuno scenario/universo/trama/scena d'a
 2. **Strutturato + semina lo stato.** Il seed non è solo contesto narrativo: i **PNG chiave** diventano attori reali e **luoghi/fatti** diventano canon, così il mondo esiste per l'arbitro dal turno 0 (coerente con "il codice è l'arbitro").
 3. **Decomposizione.** D‑01 si splitta in **D‑01a** (motore + contesto, seed da default — questo spec), **D‑01b** (generazione AI‑da‑brief via StructuredOutput), **D‑01c** (UX onboarding), **D‑01d → Piano 11** (moduli come sorgente).
 4. **Approccio A — Command `SeedCampaign`.** Un nuovo Command che il motore espande in `CampaignFramed` (nuovo campo `GameState.campaignFrame`, event‑sourced) + `ActorAdded` per i PNG; il host semina i fatti canon e lancia il turno Master d'apertura; il Context Assembler aggiunge il blocco "campaign frame". Atomico, arbitrato, replayable, single-source.
+5. **Fondamenta multi-campagna decise ORA (gestione additiva in D‑03).** Isolamento = **un DB per campagna** (`userData/campaigns/<id>/loomn.db`); **identità** (`id`+`name`) nel seed/frame, event‑sourced. D‑01a opera sulla **campagna attiva** (id `default` finché non c'è il registro). Il **registro** (lista/crea/seleziona/switch/elimina) e la sua UX restano **D‑03**, ma ora **puramente additivi** (zero rework): definire *prima* cos'è UNA campagna (il seed) abilita la gestione del plurale. *(Verificato: il cuore del seed è già per-stream → multi-ready; l'unica assunzione single-campaign era `main` che apre un DB, `app/desktop/src/main/index.ts:277`.)*
 
 ## 3. Scope
 
 **IN (D‑01a):**
-- `CampaignSeed` + `CampaignFrame` come schemi in `@loomn/shared`.
+- `CampaignSeed` + `CampaignFrame` come schemi in `@loomn/shared`, con **identità** (`id`+`name`).
 - Command `SeedCampaign` + evento `CampaignFramed` + campo `GameState.campaignFrame` (`@loomn/engine`), che semina i PNG riusando la logica `AddActor`.
 - Seeding dei fatti canon iniziali nel Canon Ledger (`@loomn/memory`/`@loomn/host`).
 - Blocco "campaign frame" nel Context Assembler.
 - `seedCampaign(seed)` su `CampaignService` (atomico) + **narrazione d'apertura** (turno 0) best-effort.
+- **Layout DB-per-campagna** + apertura della **campagna attiva** a `userData/campaigns/<id>/loomn.db` (piccolo cambio al wiring del `main`; `createMemorySystem(dbPath)` resta il seam) → fondamenta multi-campagna (§4.4).
 - `devCampaignSeed` di default (come `devRuleset`) per provare end‑to‑end senza AI/UX.
 
 **DIFFERITO (NON D‑01a):**
@@ -28,7 +30,7 @@ Oggi il Master AI narra **nel vuoto**: nessuno scenario/universo/trama/scena d'a
 - UX onboarding nuova-campagna (brief → review/edit → crea PG → apertura) → **D‑01c** (può intrecciarsi con D‑02).
 - Moduli/Piano 11 come sorgente di seed → **D‑01d**.
 - **Topologia/movimento di zona** (già differito post-Piano-10): i luoghi sono **solo canon**, non zone con movimento.
-- Multi-campagna (selezione/isolamento DB) → **D‑03**.
+- **Gestione** multi-campagna (registro: lista/crea/seleziona/switch/elimina + UX) → **D‑03**, ora **additiva** perché le fondamenta (isolamento per-DB + identità) sono in D‑01a (§4.4). L'isolamento è **by-file** (un DB per campagna), niente `campaignId` sulle righe.
 
 ## 4. Data model (`@loomn/shared`)
 
@@ -38,6 +40,8 @@ Tutti gli schemi vivono in `packages/shared/src/domain-schema.ts`, accanto a `ac
 
 ```
 CampaignSeed {
+  id: string                      // identità: chiave del DB-per-campagna (userData/campaigns/<id>/)
+  name: string                    // nome leggibile della campagna
   premise: string                 // logline: il cuore della campagna
   setting: {
     place: string                 // dove
@@ -65,6 +69,8 @@ SeedFact  { subject: string, predicate: string, object: string }  // 1:1 sul Can
 
 ```
 CampaignFrame {
+  id: string
+  name: string
   premise: string
   setting: { place, era, genres: string[], worldRules? }
   tone: string
@@ -80,6 +86,12 @@ CampaignFrame {
 
 - `campaignSeedSchema`/`campaignFrameSchema` sono **permissivi** (read/event path): nessun bound su stringhe/array. Usati da `CampaignFramed` (evento) e da `gameStateSchema.campaignFrame` → **mai restringere** (parsano dati storici a ogni replay/load). Modello: `questSchema` (`domain-schema.ts:194`), con `.transform()` per i campi opzionali sotto `exactOptionalPropertyTypes`.
 - I **bound** (lunghezze, `.min(1)` sugli array, ecc.) vanno **solo** su `seedCampaignCommandSchema` (difesa-in-profondità al confine IPC), mai sul read path. Modello: split `dieGroupSchema`/`dieGroupCommandSchema` (`domain-schema.ts:23` vs `:38`).
+
+### 4.4 Fondamenta multi-campagna (decise ora; gestione in D‑03, additiva)
+
+- **Isolamento = un DB per campagna**, layout `userData/campaigns/<id>/loomn.db`. È il modello più pulito per event-sourcing + zero-debt: isolamento totale **by-file**, nessun filtro `campaignId` su ogni query (che, se dimenticato, farebbe leakare tra campagne). `createMemorySystem(dbPath)` è **già** il seam — multi-campagna = scegliere il path. *(Alternativa scartata: un DB con `campaignId` su ogni riga — più invasiva e fragile.)*
+- **Identità** `id`+`name` nel frame (event-sourced) → la campagna "conosce" il proprio nome (Master/UI lo usano) e l'`id` è anche la chiave del path. `createdAt`/`lastPlayed` sono metadati di **registro** (D‑03), **non** del frame (la purezza engine evita `Date.now`).
+- **D‑01a** stabilisce il layout e apre la **campagna attiva** (id `default` finché non c'è il registro), con un piccolo cambio al wiring del `main` (`createMemorySystem(campaignDbPath(userData, id))`). **D‑03** aggiunge il registro (lista/crea/seleziona/switch/elimina) + UX — **puramente additivo**: niente da ritrattare, perché le fondamenta (per-DB + identità) sono qui. Il single-instance lock per-userData (I‑11) resta valido (una sola istanza app; cambiare campagna = swappare il service).
 
 ## 5. Engine (`@loomn/engine`)
 
@@ -189,4 +201,4 @@ I `keyPlaces` e gli `initialFacts` diventano fatti canon via `CanonLedger.record
 
 ## 14. Fuori ambito (esplicito)
 
-Generazione AI del seed (D‑01b), UX onboarding (D‑01c), moduli (D‑01d/Piano 11), zone con topologia/movimento (i luoghi sono solo canon), multi-campagna (D‑03), un flag "turno d'apertura" su `NarrationRecorded` (l'apertura è inferibile dal `playerAction` sentinella; se la UI lo richiede, è un follow-up).
+Generazione AI del seed (D‑01b), UX onboarding (D‑01c), moduli (D‑01d/Piano 11), zone con topologia/movimento (i luoghi sono solo canon), la **gestione** multi-campagna (registro/selezione/switch/elimina + UX → D‑03; ma le fondamenta — isolamento per-DB + identità — sono in D‑01a, §4.4), un flag "turno d'apertura" su `NarrationRecorded` (l'apertura è inferibile dal `playerAction` sentinella; se la UI lo richiede, è un follow-up).

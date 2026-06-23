@@ -30,7 +30,8 @@ const selfTest = new URLSearchParams(location.search).get('selftest');
 if (selfTest !== null) {
   void runSelfTest(selfTest, store, router);
 } else {
-  // First-run (spec 10f): idrata lo status e guida a Impostazioni una volta se non configurato.
+  // Gate di boot (spec 10f + D-01c): se manca il provider -> Impostazioni, altrimenti se manca la
+  // campagna -> onboarding. NON e un guard globale (il self-test bypassa questo ramo).
   void runFirstRun(router, useProviderStatusStore(pinia), useReadModelStore(pinia));
 }
 

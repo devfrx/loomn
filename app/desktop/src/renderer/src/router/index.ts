@@ -10,6 +10,7 @@ import JournalView from '../views/JournalView.vue';
 import SheetView from '../views/SheetView.vue';
 import CompanyView from '../views/CompanyView.vue';
 import SettingsView from '../views/SettingsView.vue';
+import OnboardingView from '../views/OnboardingView.vue';
 
 export const routes: RouteRecordRaw[] = [
   { path: '/', name: 'game', component: GameView },
@@ -17,6 +18,7 @@ export const routes: RouteRecordRaw[] = [
   { path: '/scheda', name: 'sheet', component: SheetView },
   { path: '/compagnia', name: 'company', component: CompanyView },
   { path: '/impostazioni', name: 'settings', component: SettingsView },
+  { path: '/nuova-campagna', name: 'onboarding', component: OnboardingView },
 ];
 
 // Hash history: l app gira da file:// (la web history richiede un server). history iniettabile ->

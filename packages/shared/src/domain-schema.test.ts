@@ -215,6 +215,27 @@ describe('domainEventSchema (lettura) — non rifiuta item storici con dadi fuor
   });
 });
 
+describe('domainEventSchema — CampaignFramed', () => {
+  it('domainEventSchema accetta CampaignFramed', () => {
+    const parsed = domainEventSchema.parse({
+      type: 'CampaignFramed',
+      frame: {
+        id: 'c1', name: 'X', premise: 'p',
+        setting: { place: 'a', era: 'b', genres: ['c'] },
+        tone: 't', openingScene: 'o', hooks: ['h'],
+      },
+    });
+    expect(parsed.type).toBe('CampaignFramed');
+  });
+
+  it('gameStateSchema parsa uno snapshot SENZA campaignFrame (debt-free)', () => {
+    const s = gameStateSchema.parse({
+      version: 0, actors: {}, encounter: null, quests: {}, phase: 'exploration',
+    });
+    expect(s.campaignFrame).toBeUndefined();
+  });
+});
+
 describe('gameStateSchema', () => {
   it('fa round-trip di uno stato con encounter null e non null', () => {
     const s1 = { version: 2, actors: { eroe: fullActor }, encounter: null, quests: {}, phase: 'exploration' };

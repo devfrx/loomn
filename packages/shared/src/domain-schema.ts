@@ -228,6 +228,47 @@ const checkResolvedEventSchema = z
     ...(o.skill !== undefined ? { skill: o.skill } : {}),
   }));
 
+// Permissivo (read/event path): NESSUN bound. I bound vivono su seedCampaignCommandSchema (Task successivo).
+const campaignSettingSchema = z
+  .object({
+    place: z.string(),
+    era: z.string(),
+    genres: z.array(z.string()),
+    worldRules: z.string().optional(),
+  })
+  .transform((s) => ({
+    place: s.place,
+    era: s.era,
+    genres: s.genres,
+    ...(s.worldRules !== undefined ? { worldRules: s.worldRules } : {}),
+  }));
+
+export const campaignFrameSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    premise: z.string(),
+    setting: campaignSettingSchema,
+    tone: z.string(),
+    contentGuidance: z.string().optional(),
+    openingScene: z.string(),
+    hooks: z.array(z.string()),
+  })
+  .transform((f) => ({
+    id: f.id,
+    name: f.name,
+    premise: f.premise,
+    setting: f.setting,
+    tone: f.tone,
+    ...(f.contentGuidance !== undefined ? { contentGuidance: f.contentGuidance } : {}),
+    openingScene: f.openingScene,
+    hooks: f.hooks,
+  }));
+
+const campaignFramedEventSchema = z
+  .object({ type: z.literal('CampaignFramed'), frame: campaignFrameSchema })
+  .strict();
+
 /** Schema Zod dell unione DomainEvent del motore. Unica fonte di validazione al confine
  *  di persistenza (spec 4/12). */
 export const domainEventSchema = z.union([
@@ -266,16 +307,27 @@ export const domainEventSchema = z.union([
     z.object({ type: z.literal('EncounterEnded'), encounterId: z.string() }).strict(),
   ]),
   checkResolvedEventSchema,
+  campaignFramedEventSchema,
 ]);
 
 /** Schema Zod di GameState, per validare gli snapshot persistiti. */
-export const gameStateSchema = z.object({
-  version: finiteNumber,
-  actors: z.record(z.string(), actorSchema),
-  encounter: encounterSchema.nullable(),
-  quests: z.record(z.string(), questSchema),
-  phase: phaseSchema,
-});
+export const gameStateSchema = z
+  .object({
+    version: finiteNumber,
+    actors: z.record(z.string(), actorSchema),
+    encounter: encounterSchema.nullable(),
+    quests: z.record(z.string(), questSchema),
+    phase: phaseSchema,
+    campaignFrame: campaignFrameSchema.optional(),
+  })
+  .transform((s) => ({
+    version: s.version,
+    actors: s.actors,
+    encounter: s.encounter,
+    quests: s.quests,
+    phase: s.phase,
+    ...(s.campaignFrame !== undefined ? { campaignFrame: s.campaignFrame } : {}),
+  }));
 
 // --- Command (intenzione, spec 5.1): schema Zod del payload IPC non fidato (renderer->main, spec 4).
 // Riusa i building block del motore (actorSchema, ...). z.union e NON z.discriminatedUnion perche

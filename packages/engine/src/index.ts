@@ -16,4 +16,5 @@ export * from './encounter';
 export * from './combat';
 export * from './events';
 export * from './commands';
+export type { CampaignFrame, CampaignSeed, SeedNpc, SeedPlace, SeedFact } from './campaign';
 export * from './event-store';

@@ -4,6 +4,7 @@ import type { RollResult } from './dice';
 import type { Difficulty } from './difficulty';
 import type { Quest, QuestOutcome } from './quest';
 import { INITIAL_PHASE, type Phase } from './phase';
+import type { CampaignFrame } from './campaign';
 import { adjustResource } from './resource';
 import { addCondition, DOWNED_CONDITION_KEY, dyingCondition } from './condition';
 import { endTurn, nextRound, type Encounter } from './encounter';
@@ -22,7 +23,8 @@ export type DomainEvent =
   | { type: 'QuestStarted'; quest: Quest }
   | { type: 'QuestAdvanced'; questId: string; status: QuestOutcome }
   | { type: 'PhaseChanged'; from: Phase; to: Phase }
-  | { type: 'EncounterEnded'; encounterId: string };
+  | { type: 'EncounterEnded'; encounterId: string }
+  | { type: 'CampaignFramed'; frame: CampaignFrame };
 
 export interface GameState {
   version: number;
@@ -30,6 +32,7 @@ export interface GameState {
   encounter: Encounter | null;
   quests: Record<string, Quest>;
   phase: Phase;
+  campaignFrame?: CampaignFrame;
 }
 
 export const initialState: GameState = { version: 0, actors: {}, encounter: null, quests: {}, phase: INITIAL_PHASE };
@@ -107,6 +110,8 @@ export function applyEvent(state: GameState, event: DomainEvent): GameState {
     case 'EncounterEnded':
       // chiude lo scontro; la fase torna non-combat con il PhaseChanged emesso in coppia da decide.
       return { ...bumped, encounter: null };
+    case 'CampaignFramed':
+      return { ...bumped, campaignFrame: event.frame };
     default: {
       const _exhaustive: never = event;
       return _exhaustive;

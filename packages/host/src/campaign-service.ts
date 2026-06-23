@@ -23,7 +23,7 @@ import {
   type Ruleset,
   type CampaignSeed,
 } from '@loomn/engine';
-import { runMasterTurn, type LanguageModel, type StructuredOutputPort } from '@loomn/ai';
+import { runMasterTurn, generateCampaignSeed, type LanguageModel, type StructuredOutputPort, type CampaignBrief } from '@loomn/ai';
 import { runScenesReflection } from '@loomn/memory';
 import type { CanonFact, CanonFactFilter, NarrationWindow, Summary, SummaryFilter } from '@loomn/memory';
 import type { MemorySystem } from './memory-system';
@@ -132,6 +132,10 @@ export interface CampaignService {
    *  turno di apertura (narrazione della scena iniziale). Se il provider non e configurato la
    *  narrazione e assente ma il seed e gia durevole. Rigetta se la campagna e gia seminata. */
   seedCampaign(seed: CampaignSeed): Promise<SeedOutcome>;
+  /** Genera una BOZZA di CampaignSeed dal brief via LLM (D-01b). NON semina: la conferma e
+   *  seedCampaign(seed). Non accodato (non legge ne muta lo stato: usa solo ruleset + provider).
+   *  Rigetta se il provider non e configurato o la generazione strutturata fallisce. */
+  generateSeed(brief: CampaignBrief): Promise<CampaignSeed>;
   /** Turno agentico (spec 5.4) dietro il servizio: assembler reale iniettato, Event reali persistiti. */
   runTurn(playerAction: string): Promise<TurnOutcome>;
   /** Reflection (spec 6.1, item 6): riflette in modo incrementale le scene non ancora riflesse
@@ -271,6 +275,10 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
         }
         return { readModel: readModel(), ...(narration !== undefined ? { narration } : {}) };
       });
+    },
+
+    generateSeed(brief: CampaignBrief): Promise<CampaignSeed> {
+      return generateCampaignSeed(brief, { structured: deps.structured, ruleset: deps.ruleset });
     },
 
     runTurn(playerAction: string): Promise<TurnOutcome> {

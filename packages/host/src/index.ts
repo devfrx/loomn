@@ -16,6 +16,7 @@ export {
   type TurnOutcome,
   type ReflectOutcome,
 } from './campaign-service';
+export type { CampaignBrief } from '@loomn/ai';
 export { devRuleset } from './dev-vocabulary';
 export { devCampaignSeed } from './dev-campaign-seed';
 export { campaignDbPath, DEFAULT_CAMPAIGN_ID } from './campaign-path';

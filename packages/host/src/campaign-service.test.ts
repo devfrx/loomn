@@ -8,6 +8,8 @@ import {
   type StructuredOutputPort,
   type StructuredOutputRequest,
   type StructuredOutputResult,
+  type RawSeed,
+  type CampaignBrief,
 } from '@loomn/ai';
 import { commandSchema } from '@loomn/shared';
 import { createMemorySystem } from './memory-system';
@@ -835,6 +837,68 @@ describe('createCampaignService - seedCampaign (D-01a)', () => {
       await service.seedCampaign(demoSeed);
       const out = await service.dispatch({ type: 'AddActor', actor: actor('goblin', 'Goblin') });
       expect(out.readModel.state.actors['goblin']).toBeDefined();
+    } finally {
+      memory.close();
+    }
+  });
+});
+
+const rawForHost: RawSeed = {
+  name: 'Mondo Test',
+  premise: 'una premessa',
+  setting: { place: 'luogo', era: 'era', genres: ['fantasy'] },
+  tone: 'epico',
+  openingScene: 'apertura',
+  hooks: ['gancio'],
+  npcs: [{ name: 'Guardiano', description: 'sorveglia la torre', tier: 'esperto' }],
+  places: [{ name: 'Torre', description: 'alta e buia' }],
+  facts: [{ subject: 'Guardiano', predicate: 'sorveglia', object: 'Torre' }],
+};
+
+function fakeSeedPort(raw: RawSeed): StructuredOutputPort {
+  return {
+    generate: async <T>(_req: StructuredOutputRequest<T>): Promise<StructuredOutputResult<T>> => ({
+      value: raw as unknown as T,
+      strategy: 'function-call',
+    }),
+  };
+}
+
+describe('createCampaignService - generateSeed (D-01b)', () => {
+  it('genera una bozza di CampaignSeed dal brief con stat riempite dal vocabolario', async () => {
+    const { service, memory } = makeService({ structured: fakeSeedPort(rawForHost) });
+    try {
+      const brief: CampaignBrief = { text: 'una torre maledetta' };
+      const seed = await service.generateSeed(brief);
+      expect(seed.frame.name).toBe('Mondo Test');
+      expect(seed.keyNpcs[0]?.id).toBe('guardiano');
+      expect(seed.keyNpcs[0]?.attributes?.['forza']).toBe(2);
+    } finally {
+      memory.close();
+    }
+  });
+
+  it('la bozza generata e sempre confermabile: generateSeed poi seedCampaign riesce', async () => {
+    const { service, memory } = makeService({ structured: fakeSeedPort(rawForHost) });
+    try {
+      const seed = await service.generateSeed({ text: 'x' });
+      const out = await service.seedCampaign(seed);
+      expect(out.readModel.state.campaignFrame?.name).toBe('Mondo Test');
+      expect(out.readModel.state.actors['guardiano']).toBeDefined();
+    } finally {
+      memory.close();
+    }
+  });
+
+  it('propaga l errore quando il provider non e configurato', async () => {
+    const failingPort: StructuredOutputPort = {
+      generate: async () => {
+        throw new Error('provider non configurato');
+      },
+    };
+    const { service, memory } = makeService({ structured: failingPort });
+    try {
+      await expect(service.generateSeed({ text: 'x' })).rejects.toThrow(/provider/);
     } finally {
       memory.close();
     }

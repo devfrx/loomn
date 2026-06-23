@@ -456,15 +456,65 @@ const seedFactCommandSchema = z.object({
   object: z.string(),
 });
 
+/** Gate di confine IPC del CampaignSeed (estratto da seedCampaignCommandSchema; behaviour-preserving).
+ *  Bound ammessi (riusa i componenti gia bounded come seedNpcCommandSchema con finiteNumber): e un
+ *  confine, NON un read-path di replay. Usato dai canali generate-seed/seed-campaign (D-01c). */
+export const campaignSeedSchema = z.object({
+  frame: campaignFrameSchema,
+  keyNpcs: z.array(seedNpcCommandSchema),
+  keyPlaces: z.array(seedPlaceCommandSchema),
+  initialFacts: z.array(seedFactCommandSchema),
+});
+
 const seedCampaignCommandSchema = z.object({
   type: z.literal('SeedCampaign'),
-  seed: z.object({
-    frame: campaignFrameSchema,
-    keyNpcs: z.array(seedNpcCommandSchema),
-    keyPlaces: z.array(seedPlaceCommandSchema),
-    initialFacts: z.array(seedFactCommandSchema),
-  }),
+  seed: campaignSeedSchema,
 });
+
+/** Brief di campagna al confine IPC (D-01c): mirror Zod di CampaignBrief (@loomn/ai). Il .transform
+ *  omette le chiavi opzionali assenti -> z.infer assegnabile a CampaignBrief (exactOptional). */
+export const campaignBriefSchema = z
+  .object({
+    text: z.string().min(1),
+    name: z.string().optional(),
+    overrides: z
+      .object({
+        genres: z.array(z.string()).optional(),
+        tone: z.string().optional(),
+        npcCount: finiteNumber.int().nonnegative().optional(),
+        contentGuidance: z.string().optional(),
+      })
+      .transform((o) => ({
+        ...(o.genres !== undefined ? { genres: o.genres } : {}),
+        ...(o.tone !== undefined ? { tone: o.tone } : {}),
+        ...(o.npcCount !== undefined ? { npcCount: o.npcCount } : {}),
+        ...(o.contentGuidance !== undefined ? { contentGuidance: o.contentGuidance } : {}),
+      }))
+      .optional(),
+  })
+  .transform((b) => ({
+    text: b.text,
+    ...(b.name !== undefined ? { name: b.name } : {}),
+    ...(b.overrides !== undefined ? { overrides: b.overrides } : {}),
+  }));
+
+/** Risultato del canale generate-seed (D-01c): ok con seed bozza, o errore. */
+export const generateSeedResultSchema = z.union([
+  z.object({ ok: z.literal(true), seed: campaignSeedSchema }),
+  z.object({ ok: z.literal(false), error: z.string() }),
+]);
+export type GenerateSeedResult = z.infer<typeof generateSeedResultSchema>;
+
+/** Risultato del canale seed-campaign (D-01c): ok con version + narration opzionale, o errore. */
+export const seedCampaignResultSchema = z.union([
+  z.object({
+    ok: z.literal(true),
+    version: z.number().int().nonnegative(),
+    narration: z.string().optional(),
+  }),
+  z.object({ ok: z.literal(false), error: z.string() }),
+]);
+export type SeedCampaignResult = z.infer<typeof seedCampaignResultSchema>;
 
 /** Schema Zod dell unione Command del motore (spec 5.1). Validazione del payload IPC non fidato
  *  (renderer->main, spec 4). L inferenza e cast-free assegnabile 1:1 a Command (provato in host). */

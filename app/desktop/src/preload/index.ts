@@ -19,6 +19,10 @@ import {
   type SummariesRequest,
   type SummariesResult,
   type RulesetResult,
+  type GenerateSeedRequest,
+  type GenerateSeedResult,
+  type SeedCampaignRequest,
+  type SeedCampaignResult,
 } from '@loomn/shared';
 
 // Superficie IPC minima e tipizzata (spec 4): solo i canali del contratto, nessun accesso Node/DB
@@ -41,6 +45,11 @@ const bridge: LoomnBridge = {
     ipcRenderer.invoke(IPC_CHANNELS.summaries, request),
   getRuleset: (): Promise<RulesetResult> => ipcRenderer.invoke(IPC_CHANNELS.getRuleset),
   getReadModel: (): Promise<ReadModelPush> => ipcRenderer.invoke(IPC_CHANNELS.getReadModel),
+  // D-01c stubs: implementazione definitiva in Task 2 (main handler + preload wiring)
+  generateSeed: (brief: GenerateSeedRequest): Promise<GenerateSeedResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.generateSeed, brief),
+  seedCampaign: (request: SeedCampaignRequest): Promise<SeedCampaignResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.seedCampaign, request),
   onReadModelPush: (listener: (push: ReadModelPush) => void): (() => void) => {
     const handler = (_event: IpcRendererEvent, push: ReadModelPush): void => listener(push);
     ipcRenderer.on(IPC_CHANNELS.readModelPush, handler);

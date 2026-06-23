@@ -3,6 +3,8 @@
 
 import { z } from 'zod';
 import type { CampaignSeed, CampaignFrame, SeedNpc, SeedPlace, SeedFact, Ruleset } from '@loomn/engine';
+import type { LlmMessage } from './language-model';
+import type { StructuredOutputPort } from './structured-output';
 
 /** Slug deterministico per gli id: minuscolo, accenti rimossi, non-alfanumerici -> trattino. */
 export function slugify(name: string): string {
@@ -113,4 +115,42 @@ export function rawToCampaignSeed(raw: RawSeed, ruleset: Ruleset, brief?: Campai
   };
 
   return { frame, keyNpcs, keyPlaces, initialFacts };
+}
+
+const SYSTEM_PROMPT = [
+  'Sei un game-designer esperto. Espandi il brief dell utente in uno scenario di campagna coerente e giocabile.',
+  'Rispondi in italiano. Produci una premessa, un setting, un tono, una scena di apertura, alcuni ganci narrativi,',
+  'i PNG chiave (con un livello di competenza tier: comune, esperto o eccezionale), i luoghi chiave e alcuni fatti iniziali.',
+  'Nei fatti cita le entita per NOME. NON inventare identificatori tecnici ne numeri di gioco (attributi, abilita, punti vita):',
+  'quelli li assegna il sistema. Mantieni nomi brevi e descrizioni concise.',
+].join(' ');
+
+/** Tesse il brief libero e gli override in un singolo messaggio utente. */
+function buildMessages(brief: CampaignBrief): LlmMessage[] {
+  const parts: string[] = [brief.text.trim()];
+  const o = brief.overrides;
+  if (brief.name !== undefined) parts.push(`Nome campagna desiderato: ${brief.name}`);
+  if (o?.genres !== undefined && o.genres.length > 0) parts.push(`Generi: ${o.genres.join(', ')}`);
+  if (o?.tone !== undefined) parts.push(`Tono: ${o.tone}`);
+  if (o?.npcCount !== undefined) parts.push(`Numero di PNG chiave desiderato: ${o.npcCount}`);
+  if (o?.contentGuidance !== undefined) parts.push(`Vincoli di contenuto: ${o.contentGuidance}`);
+  return [
+    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'user', content: parts.join('\n\n') },
+  ];
+}
+
+/** Genera una BOZZA di CampaignSeed dal brief (single-shot). Non semina: la conferma e seedCampaign. */
+export async function generateCampaignSeed(
+  brief: CampaignBrief,
+  deps: { structured: StructuredOutputPort; ruleset: Ruleset },
+): Promise<CampaignSeed> {
+  const { value: raw } = await deps.structured.generate({
+    messages: buildMessages(brief),
+    schema: rawSeedSchema,
+    schemaName: 'campaign_seed',
+    schemaDescription: 'Scenario di campagna espanso da un brief',
+    temperature: 0.9,
+  });
+  return rawToCampaignSeed(raw, deps.ruleset, brief);
 }

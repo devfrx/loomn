@@ -6,3 +6,4 @@ export * from './structured-output';
 export * from './coercion';
 export * from './master-tools';
 export * from './master-turn';
+export * from './campaign-generation';

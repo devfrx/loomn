@@ -44,6 +44,23 @@ export interface ContextAssemblerConfig {
   recencyDecayPerHour?: number;
 }
 
+/** Blocco never-cut della cornice di campagna (priorita massima). Vuoto se non seminata. */
+function renderCampaignFrame(state: GameState): string {
+  const f = state.campaignFrame;
+  if (f === undefined) return '';
+  const lines = [
+    `# Campagna: ${f.name}`,
+    `Premessa: ${f.premise}`,
+    `Ambientazione: ${f.setting.place}, ${f.setting.era} (${f.setting.genres.join(', ')}).`,
+    ...(f.setting.worldRules !== undefined ? [`Regole del mondo: ${f.setting.worldRules}`] : []),
+    `Tono: ${f.tone}`,
+    ...(f.contentGuidance !== undefined ? [`Limiti: ${f.contentGuidance}`] : []),
+    `Scena d apertura: ${f.openingScene}`,
+    ...(f.hooks.length > 0 ? [`Hook: ${f.hooks.join('; ')}`] : []),
+  ];
+  return lines.join('\n');
+}
+
 /** Soggetti in scena = id e nome di ogni attore presente in L1. Filtra L1.5 ai fatti su
  *  scena/PNG presenti (non tutto il mondo, spec 6.2). */
 function sceneSubjects(state: GameState): Set<string> {
@@ -148,6 +165,7 @@ export function createContextAssembler(
     chosen.sort((a, b) => a.createdAt - b.createdAt || byId(a.id, b.id));
     const l2 = chosen.length > 0 ? `Memoria recente (L2):\n${chosen.map(renderSummary).join('\n')}` : '';
 
-    return [l1, l15, l2].filter((b) => b.length > 0).join('\n\n');
+    const frameBlock = renderCampaignFrame(state);
+    return [frameBlock, l1, l15, l2].filter((b) => b.length > 0).join('\n\n');
   };
 }

@@ -280,3 +280,66 @@ describe('blocco quest in L1', () => {
     }
   });
 });
+
+describe('blocco campaign frame nel contesto (never-cut)', () => {
+  function assemble(state: GameState): string {
+    const { db, close } = openDatabase(':memory:');
+    try {
+      const ledger = createCanonLedger(db);
+      const summaries = createSummaryStore(db);
+      return createContextAssembler({ ledger, summaries, clock: fixedClock(0) }, { tokenBudget: 1000 })(state);
+    } finally {
+      close();
+    }
+  }
+
+  it('include il blocco campaign frame quando campaignFrame e settato', () => {
+    const state: GameState = {
+      ...HERO_STATE,
+      campaignFrame: {
+        id: 'c1',
+        name: 'La Cripta',
+        premise: 'indagine',
+        setting: { place: 'Porto', era: 'bronzo', genres: ['mistero'] },
+        tone: 'cupo',
+        openingScene: 'moli deserti',
+        hooks: ['marinai scomparsi'],
+      },
+    };
+    const ctx = assemble(state);
+    expect(ctx).toContain('Campagna: La Cripta');
+    expect(ctx).toContain('moli deserti');
+  });
+
+  it('non include il blocco campaign frame quando campaignFrame e undefined', () => {
+    const ctx = assemble(HERO_STATE);
+    expect(ctx).not.toContain('Campagna:');
+  });
+
+  it('il blocco campaign frame e preposto a L1 e non tagliato con budget 0', () => {
+    const state: GameState = {
+      ...HERO_STATE,
+      campaignFrame: {
+        id: 'c2',
+        name: 'Il Bosco',
+        premise: 'sopravvivenza',
+        setting: { place: 'Foresta', era: 'medievale', genres: ['avventura', 'horror'] },
+        tone: 'oscuro',
+        openingScene: 'sentiero abbandonato',
+        hooks: [],
+      },
+    };
+    const { db, close } = openDatabase(':memory:');
+    try {
+      const ctx = createContextAssembler(
+        { ledger: createCanonLedger(db), summaries: createSummaryStore(db), clock: fixedClock(0) },
+        { tokenBudget: 0 },
+      )(state);
+      expect(ctx).toContain('Campagna: Il Bosco');
+      // il frame precede L1
+      expect(ctx.indexOf('Campagna: Il Bosco')).toBeLessThan(ctx.indexOf('Stato attuale (L1)'));
+    } finally {
+      close();
+    }
+  });
+});

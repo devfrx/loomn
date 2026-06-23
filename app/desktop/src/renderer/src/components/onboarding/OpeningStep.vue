@@ -24,4 +24,17 @@ const name = computed<string>(() => store.draft?.frame.name ?? 'La tua campagna'
 .opening { display: flex; flex-direction: column; gap: 16px; }
 .narration { font-family: var(--f-serif, serif); line-height: 1.7; color: var(--text); }
 .actions { display: flex; justify-content: flex-end; }
+
+.enter {
+  font-family: var(--f-ui);
+  font-size: 13px;
+  padding: 8px 16px;
+  border-radius: var(--r-xs, 8px);
+  border: none;
+  background: var(--accent);
+  color: var(--ink, #0c0d10);
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+.enter:hover { filter: brightness(1.08); }
 </style>

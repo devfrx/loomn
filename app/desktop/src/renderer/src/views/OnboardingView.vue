@@ -18,7 +18,7 @@ const labels: Record<(typeof steps)[number], string> = { brief: 'Brief', review:
     </nav>
     <BriefStep v-if="store.step === 'brief'" />
     <ReviewStep v-else-if="store.step === 'review'" />
-    <OpeningStep v-else />
+    <OpeningStep v-else-if="store.step === 'opening'" />
   </main>
 </template>
 

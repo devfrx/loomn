@@ -41,7 +41,7 @@ const store = useOnboardingStore();
 
     <PanelError :error="store.error" />
     <div class="actions">
-      <button type="button" @click="store.regenerate()">Rigenera</button>
+      <button class="secondary" type="button" @click="store.regenerate()">Rigenera</button>
       <button class="confirm" type="button" :disabled="store.status === 'seeding'" @click="store.confirm()">
         {{ store.status === 'seeding' ? 'Seeding…' : 'Conferma e inizia' }}
       </button>
@@ -56,5 +56,32 @@ const store = useOnboardingStore();
 .fact { display: flex; gap: 6px; }
 .fact input { flex: 1; min-width: 0; }
 .chip { font-size: 11px; color: var(--text-3); }
-.actions { display: flex; justify-content: space-between; gap: 12px; }
+.actions { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+
+.confirm {
+  font-family: var(--f-ui);
+  font-size: 13px;
+  padding: 8px 16px;
+  border-radius: var(--r-xs, 8px);
+  border: none;
+  background: var(--accent);
+  color: var(--ink, #0c0d10);
+  cursor: pointer;
+  transition: opacity 0.15s, filter 0.15s;
+}
+.confirm:hover:not(:disabled) { filter: brightness(1.08); }
+.confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.secondary {
+  font-family: var(--f-ui);
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: var(--r-xs, 8px);
+  background: transparent;
+  border: 1px solid var(--line-2);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.secondary:hover { border-color: var(--accent); background: var(--accent-dim); }
 </style>

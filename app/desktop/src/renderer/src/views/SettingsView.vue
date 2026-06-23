@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import LoomnPanel from '../components/LoomnPanel.vue';
 import LoomnButton from '../components/LoomnButton.vue';
 import { useProviderStatusStore } from '../stores/provider-status';
+import { useReadModelStore } from '../stores/read-model';
 import { buildProviderPayload, type ProviderFormState } from '../lib/provider-form';
 
 const status = useProviderStatusStore();
+const router = useRouter();
+const readModel = useReadModelStore();
 
 const form = reactive<ProviderFormState>({ baseUrl: '', model: '', keyAction: 'keep', keyInput: '' });
 const feedback = ref<{ kind: 'ok' | 'error'; msg: string } | null>(null);
@@ -41,6 +45,10 @@ async function save(): Promise<void> {
     if (res.ok) {
       await status.refresh();
       feedback.value = { kind: 'ok', msg: 'Provider salvato.' };
+      // D-01c: provider appena configurato e nessuna campagna -> porta all onboarding.
+      const push = await window.loomn.getReadModel();
+      readModel.applyPush(push);
+      if (!readModel.hasCampaign) await router.push('/nuova-campagna');
     } else {
       feedback.value = { kind: 'error', msg: res.error };
     }

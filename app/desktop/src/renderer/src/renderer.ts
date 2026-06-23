@@ -31,7 +31,7 @@ if (selfTest !== null) {
   void runSelfTest(selfTest, store, router);
 } else {
   // First-run (spec 10f): idrata lo status e guida a Impostazioni una volta se non configurato.
-  void runFirstRun(router, useProviderStatusStore(pinia));
+  void runFirstRun(router, useProviderStatusStore(pinia), useReadModelStore(pinia));
 }
 
 async function runSelfTest(

@@ -224,7 +224,6 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
       deps.memory.eventStore.append(evts, versionBefore);
       let s = state;
       for (const e of evts) s = applyEvent(s, e);
-      state = s;
       // CampaignFramed e SEMPRE il primo evento emesso da decide(SeedCampaign): il suo seq e
       // versionBefore + 1. Lo usiamo come eventSeq per i canon seed (collega i fatti all evento
       // di frame, non all ultimo evento del batch).
@@ -236,6 +235,10 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
       for (const f of seed.initialFacts) {
         deps.memory.ledger.record({ id: `seed-${i++}`, subject: f.subject, predicate: f.predicate, object: f.object, eventSeq: framedSeq });
       }
+      // Avanziamo lo stato in-memoria SOLO dopo che tutte le scritture DB nella transazione hanno
+      // avuto successo: se un ledger.record lancia, SQLite fa rollback ma `state` rimane quello
+      // precedente, cosi la proiezione in-memoria non diverge dallo store.
+      state = s;
       maybeSnapshot();
     });
   }
@@ -262,7 +265,7 @@ export function createCampaignService(deps: CampaignServiceDeps): CampaignServic
         let narration: string | undefined;
         try {
           const turn = await _runTurn('(apertura)');
-          narration = turn.narration;
+          narration = turn.narration || undefined;
         } catch {
           // seed gia committato e durevole; la narrazione slittera al primo turno reale.
         }

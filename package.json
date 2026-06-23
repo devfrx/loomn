@@ -8,6 +8,7 @@
     "test:watch": "vitest",
     "typecheck": "pnpm -r typecheck",
     "verify": "pnpm -r typecheck && pnpm test",
+    "gate:kill-ghost": "node scripts/kill-ghost.mjs",
     "rebuild:electron": "pnpm --filter @loomn/desktop exec electron-rebuild -f -w better-sqlite3",
     "rebuild:node": "pnpm -r rebuild better-sqlite3"
   },

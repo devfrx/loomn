@@ -58,4 +58,15 @@ describe('SettingsView', () => {
     await flushPromises();
     expect(router.currentRoute.value.name).toBe('onboarding');
   });
+
+  it('il selettore tema imposta data-theme e persiste', async () => {
+    stub({ ok: true, version: 1, safeStorageAvailable: true, providerConfigured: true, provider: { baseUrl: 'http://x/v1', model: 'm', hasApiKey: true } });
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+    const { w } = mountView();
+    await flushPromises();
+    await w.find('[data-test="theme-dark"]').trigger('change');
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(localStorage.getItem('loomn-theme')).toBe('dark');
+  });
 });

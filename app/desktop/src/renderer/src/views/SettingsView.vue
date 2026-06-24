@@ -6,10 +6,12 @@ import LoomnButton from '../components/LoomnButton.vue';
 import { useProviderStatusStore } from '../stores/provider-status';
 import { useReadModelStore } from '../stores/read-model';
 import { buildProviderPayload, type ProviderFormState } from '../lib/provider-form';
+import { useTheme } from '../composables/use-theme';
 
 const status = useProviderStatusStore();
 const router = useRouter();
 const readModel = useReadModelStore();
+const themeCtl = useTheme();
 
 const form = reactive<ProviderFormState>({ baseUrl: '', model: '', keyAction: 'keep', keyInput: '' });
 const feedback = ref<{ kind: 'ok' | 'error'; msg: string } | null>(null);
@@ -107,6 +109,15 @@ async function save(): Promise<void> {
         <div><dt>safeStorage</dt><dd>{{ status.safeStorageAvailable ? 'disponibile' : 'non disponibile' }}</dd></div>
         <div><dt>provider</dt><dd>{{ status.providerConfigured ? 'configurato' : 'non configurato' }}</dd></div>
       </dl>
+
+      <fieldset class="field">
+        <legend class="field__label">Tema</legend>
+        <div class="key-modes">
+          <label><input type="radio" :checked="themeCtl.theme.value === 'system'" @change="themeCtl.set('system')" /> Sistema</label>
+          <label><input data-test="theme-light" type="radio" :checked="themeCtl.theme.value === 'light'" @change="themeCtl.set('light')" /> Chiaro</label>
+          <label><input data-test="theme-dark" type="radio" :checked="themeCtl.theme.value === 'dark'" @change="themeCtl.set('dark')" /> Scuro</label>
+        </div>
+      </fieldset>
     </LoomnPanel>
   </main>
 </template>

@@ -22,11 +22,11 @@ const name = computed<string>(() => store.draft?.frame.name ?? 'La tua campagna'
 
 <style scoped>
 .opening { display: flex; flex-direction: column; gap: 16px; }
-.narration { font-family: var(--f-serif, serif); line-height: 1.7; color: var(--text); }
+.narration { font-family: var(--f-sans); line-height: 1.7; color: var(--text); }
 .actions { display: flex; justify-content: flex-end; }
 
 .enter {
-  font-family: var(--f-ui);
+  font-family: var(--f-sans);
   font-size: 13px;
   padding: 8px 16px;
   border-radius: var(--r-xs, 8px);

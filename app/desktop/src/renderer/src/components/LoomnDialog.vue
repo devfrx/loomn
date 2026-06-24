@@ -78,7 +78,7 @@ const rootProps = computed(() => (props.open !== undefined ? { open: props.open 
   padding: 18px 20px;
 }
 .loomn-dialog__title {
-  font-family: var(--f-display);
+  font-family: var(--f-sans);
   font-size: 18px;
   color: var(--text);
   margin-bottom: 12px;

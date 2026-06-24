@@ -23,7 +23,7 @@ const visible = computed<boolean>(() => status.loaded && !status.providerConfigu
   align-items: center;
   gap: 14px;
   padding: 10px 16px;
-  background: var(--accent-dim);
+  background: var(--accent-soft);
   border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
   border-radius: var(--r);
   color: var(--text);

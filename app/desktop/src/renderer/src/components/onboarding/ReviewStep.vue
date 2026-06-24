@@ -59,7 +59,7 @@ const store = useOnboardingStore();
 .actions { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
 
 .confirm {
-  font-family: var(--f-ui);
+  font-family: var(--f-sans);
   font-size: 13px;
   padding: 8px 16px;
   border-radius: var(--r-xs, 8px);
@@ -73,7 +73,7 @@ const store = useOnboardingStore();
 .confirm:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .secondary {
-  font-family: var(--f-ui);
+  font-family: var(--f-sans);
   font-size: 13px;
   padding: 8px 14px;
   border-radius: var(--r-xs, 8px);
@@ -83,5 +83,5 @@ const store = useOnboardingStore();
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
-.secondary:hover { border-color: var(--accent); background: var(--accent-dim); }
+.secondary:hover { border-color: var(--accent); background: var(--accent-soft); }
 </style>

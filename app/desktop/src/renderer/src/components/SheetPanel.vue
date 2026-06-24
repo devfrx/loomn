@@ -100,7 +100,7 @@ const kindLabel = computed(() => (sheet.value?.kind === 'pc' ? 'PG' : 'PNG'));
 <style scoped>
 .sheet { display: flex; flex-direction: column; gap: 16px; height: 100%; min-height: 0; }
 .sheet__head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.sheet__select { font: inherit; font-family: var(--f-ui); font-size: 13px; color: var(--text); background: var(--well); border: 1px solid var(--line-2); border-radius: 10px; padding: 7px 10px; }
+.sheet__select { font: inherit; font-family: var(--f-sans); font-size: 13px; color: var(--text); background: var(--well); border: 1px solid var(--line-2); border-radius: 10px; padding: 7px 10px; }
 .sheet__select:focus { outline: none; border-color: var(--accent); }
 .sheet__id { font-family: var(--f-mono); font-size: 11px; color: var(--text-3); }
 .block { display: flex; flex-direction: column; gap: 8px; }
@@ -125,7 +125,7 @@ const kindLabel = computed(() => (sheet.value?.kind === 'pc' ? 'PG' : 'PNG'));
 .item { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--well); }
 .item__head { display: flex; align-items: center; gap: 8px; }
 .item__name { color: var(--text); }
-.item__badge { font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); background: var(--accent-dim); border-radius: var(--r-xs); padding: 2px 7px; }
+.item__badge { font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); border-radius: var(--r-xs); padding: 2px 7px; }
 .item__effects { font-family: var(--f-mono); font-size: 11px; color: var(--text-3); }
 .empty { color: var(--text-3); font-size: 13px; margin: 0; }
 </style>

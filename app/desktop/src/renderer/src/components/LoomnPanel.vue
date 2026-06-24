@@ -43,7 +43,7 @@ const hasHead = computed(() => Boolean(props.eyebrow ?? props.title ?? props.met
   font-weight: 600;
 }
 .loomn-panel__title {
-  font-family: var(--f-display);
+  font-family: var(--f-sans);
   font-size: 17px;
   font-weight: 500;
   color: var(--text);

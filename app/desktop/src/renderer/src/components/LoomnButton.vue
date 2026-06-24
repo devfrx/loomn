@@ -21,7 +21,7 @@ function onClick(ev: MouseEvent): void {
 
 <style scoped>
 .loomn-btn {
-  font-family: var(--f-ui);
+  font-family: var(--f-sans);
   font-size: 12px;
   padding: 8px 15px;
   border-radius: 10px;
@@ -40,7 +40,7 @@ function onClick(ev: MouseEvent): void {
 .loomn-btn--ghost:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--text);
-  background: var(--accent-dim);
+  background: var(--accent-soft);
 }
 .loomn-btn--solid {
   color: #1a140a;

@@ -49,7 +49,7 @@ function onNpcCount(raw: string): void {
 .actions { display: flex; justify-content: flex-end; gap: 12px; align-items: center; }
 
 .generate {
-  font-family: var(--f-ui);
+  font-family: var(--f-sans);
   font-size: 13px;
   padding: 8px 16px;
   border-radius: var(--r-xs, 8px);
@@ -69,7 +69,7 @@ function onNpcCount(raw: string): void {
   cursor: pointer;
   padding: 0;
   font-size: 13px;
-  font-family: var(--f-ui);
+  font-family: var(--f-sans);
 }
 .link:hover { text-decoration: underline; }
 </style>

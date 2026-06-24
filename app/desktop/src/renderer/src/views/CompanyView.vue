@@ -178,17 +178,17 @@ async function submit(): Promise<void> {
 .head-actions { margin-bottom: 14px; }
 .roster { display: flex; flex-direction: column; gap: 18px; }
 .group { display: flex; flex-direction: column; gap: 10px; }
-.group__title { margin: 0; font-family: var(--f-display); font-size: 15px; color: var(--text-2); }
+.group__title { margin: 0; font-family: var(--f-sans); font-size: 15px; color: var(--text-2); }
 .cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
 .card { display: flex; flex-direction: column; gap: 7px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--well); }
 .card__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.card__name { font-family: var(--f-display); font-size: 16px; color: var(--text); }
+.card__name { font-family: var(--f-sans); font-size: 16px; color: var(--text); }
 .card__lvl { font-family: var(--f-mono); font-size: 11px; color: var(--accent); }
 .card__res { display: flex; flex-wrap: wrap; gap: 8px; }
 .res { font-family: var(--f-mono); font-size: 11px; color: var(--text-2); border: 1px solid var(--line); border-radius: var(--r-xs); padding: 2px 7px; }
 .card__meta { font-family: var(--f-mono); font-size: 10.5px; color: var(--text-3); }
 .rel { list-style: none; margin: 4px 0 0; padding: 8px 0 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
-.rel__row { font-family: var(--f-ui); font-size: 12px; color: var(--text-2); }
+.rel__row { font-family: var(--f-sans); font-size: 12px; color: var(--text-2); }
 .form { display: flex; flex-direction: column; gap: 12px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field__label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }

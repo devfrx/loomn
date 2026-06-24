@@ -58,11 +58,6 @@
   --bad: #C2403A;
   --warn: #B7791F;
 
-  /* alias-bridge (rimossi a fine migrazione, T3/T4) */
-  --accent-dim: var(--accent-soft);
-  --f-display: var(--f-sans);
-  --f-read: var(--f-sans);
-  --f-ui: var(--f-sans);
 }
 
 /* palette DARK: applicata se l OS preferisce scuro e l utente non ha forzato light */

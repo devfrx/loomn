@@ -9,7 +9,7 @@ body,
   height: 100%;
 }
 body {
-  font-family: var(--f-ui);
+  font-family: var(--f-sans);
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;

@@ -78,7 +78,7 @@ const isDev = import.meta.env.DEV;
   border-radius: var(--r);
 }
 .brand-mark {
-  font-family: var(--f-display);
+  font-family: var(--f-sans);
   font-weight: 600;
   font-size: 20px;
   color: var(--text);
@@ -102,7 +102,7 @@ const isDev = import.meta.env.DEV;
   cursor: pointer;
   transition: 0.18s;
   text-decoration: none;
-  font-family: var(--f-display);
+  font-family: var(--f-sans);
   font-size: 15px;
 }
 .nav-btn:hover {
@@ -112,7 +112,7 @@ const isDev = import.meta.env.DEV;
 }
 .nav-btn--active {
   color: var(--accent);
-  background: var(--accent-dim);
+  background: var(--accent-soft);
   border-color: color-mix(in srgb, var(--accent) 25%, transparent);
 }
 .stage {
@@ -139,7 +139,7 @@ const isDev = import.meta.env.DEV;
   border-radius: var(--r);
 }
 .wordmark {
-  font-family: var(--f-display);
+  font-family: var(--f-sans);
   font-size: 21px;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -152,7 +152,7 @@ const isDev = import.meta.env.DEV;
   font-size: 12px;
   letter-spacing: 0.02em;
   color: var(--accent);
-  background: var(--accent-dim);
+  background: var(--accent-soft);
   border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
   padding: 6px 12px;
   border-radius: 9px;

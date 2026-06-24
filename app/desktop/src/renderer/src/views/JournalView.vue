@@ -103,18 +103,18 @@ function reflectNow(): void {
 .reflect__info { font-size: 12px; color: var(--text-2); }
 .timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .entry { padding: 9px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--well); }
-.entry__action { margin: 0 0 4px; font-family: var(--f-ui); font-size: 12px; color: var(--text-3); }
-.entry__narr { margin: 0; font-family: var(--f-read); font-size: 14px; color: var(--text); line-height: 1.5; }
+.entry__action { margin: 0 0 4px; font-family: var(--f-sans); font-size: 12px; color: var(--text-3); }
+.entry__narr { margin: 0; font-family: var(--f-sans); font-size: 14px; color: var(--text); line-height: 1.5; }
 .summaries { display: flex; flex-direction: column; gap: 12px; }
 .sgroup { display: flex; flex-direction: column; gap: 6px; }
 .sgroup__level { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
 .sgroup__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .summary { padding: 8px 11px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--well); }
-.summary__text { margin: 0 0 4px; font-family: var(--f-read); font-size: 13px; color: var(--text); line-height: 1.45; }
+.summary__text { margin: 0 0 4px; font-family: var(--f-sans); font-size: 13px; color: var(--text); line-height: 1.45; }
 .summary__meta { font-family: var(--f-mono); font-size: 10.5px; color: var(--text-3); }
 .canon { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .fact { padding: 7px 11px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--well); }
-.fact__text { font-family: var(--f-ui); font-size: 13px; color: var(--text); }
+.fact__text { font-family: var(--f-sans); font-size: 13px; color: var(--text); }
 .fact--retracted { opacity: 0.5; }
 .fact--retracted .fact__text { text-decoration: line-through; }
 .empty { color: var(--text-3); font-size: 13px; margin: 0; }

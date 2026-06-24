@@ -116,10 +116,10 @@ function attack(): void {
 <style scoped>
 .cockpit { display: flex; flex-direction: column; gap: 12px; height: 100%; min-height: 0; }
 .cockpit__turn { margin: 0; font-size: 13px; color: var(--text-2); }
-.cockpit__turn strong { color: var(--text); font-family: var(--f-display); }
+.cockpit__turn strong { color: var(--text); font-family: var(--f-sans); }
 .order { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; overflow: auto; min-height: 0; }
 .order__row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--well); }
-.order__row--current { border-color: var(--accent); background: var(--accent-dim); }
+.order__row--current { border-color: var(--accent); background: var(--accent-soft); }
 .order__row--downed { opacity: 0.55; }
 .order__init { font-family: var(--f-mono); font-size: 13px; color: var(--accent); min-width: 26px; text-align: right; }
 .order__name { color: var(--text); flex: 1; }

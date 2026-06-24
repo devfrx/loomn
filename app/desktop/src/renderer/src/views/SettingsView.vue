@@ -7,6 +7,8 @@ import { useProviderStatusStore } from '../stores/provider-status';
 import { useReadModelStore } from '../stores/read-model';
 import { buildProviderPayload, type ProviderFormState } from '../lib/provider-form';
 import { useTheme } from '../composables/use-theme';
+import LoomnField from '../components/LoomnField.vue';
+import LoomnTextInput from '../components/LoomnTextInput.vue';
 
 const status = useProviderStatusStore();
 const router = useRouter();
@@ -69,15 +71,12 @@ async function save(): Promise<void> {
       </p>
 
       <div class="form">
-        <label class="field">
-          <span class="field__label">Base URL</span>
-          <input v-model="form.baseUrl" class="field__input" type="text" placeholder="http://localhost:1234/v1" />
-        </label>
-
-        <label class="field">
-          <span class="field__label">Model</span>
-          <input v-model="form.model" class="field__input" type="text" placeholder="local-model" />
-        </label>
+        <LoomnField label="Base URL">
+          <LoomnTextInput v-model="form.baseUrl" mono placeholder="http://localhost:1234/v1" />
+        </LoomnField>
+        <LoomnField label="Model">
+          <LoomnTextInput v-model="form.model" placeholder="local-model" />
+        </LoomnField>
 
         <fieldset class="field">
           <legend class="field__label">Chiave API</legend>

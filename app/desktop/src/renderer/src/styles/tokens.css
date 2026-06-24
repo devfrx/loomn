@@ -38,6 +38,12 @@
   --dur: 200ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
 
+  /* shell (D-02c): geometria non-cromatica della navigazione */
+  --rail-w: 56px;
+  --rail-w-expanded: 176px;
+  --topbar-h: 54px;
+  --icon-size: 20px;
+
   /* palette LIGHT (default) */
   --bg: #F3EFE7;
   --surface: #FBF9F4;

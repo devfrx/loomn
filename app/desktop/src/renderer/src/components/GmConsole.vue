@@ -203,7 +203,7 @@ const v = computed(() => ruleset.vocabulary);
 .cmd--disabled { opacity: 0.45; }
 .cmd__title { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-2); margin: 0 0 10px; }
 .cmd__body { border: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.inp { font: inherit; font-family: var(--f-mono); font-size: 12px; color: var(--text); background: var(--panel); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 9px; }
+.inp { font: inherit; font-family: var(--f-mono); font-size: 12px; color: var(--text); background: var(--surface); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 9px; }
 .inp[type='number'] { width: 64px; }
 .cmd__hint { font-size: 11px; color: var(--text-3); margin: 0; }
 .se-row { display: flex; align-items: center; gap: 8px; width: 100%; }

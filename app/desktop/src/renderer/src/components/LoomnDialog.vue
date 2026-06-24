@@ -51,7 +51,7 @@ const rootProps = computed(() => (props.open !== undefined ? { open: props.open 
   position: fixed;
   display: flex;
   flex-direction: column;
-  background: var(--panel);
+  background: var(--surface);
   border: 1px solid var(--line-2);
   box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.8);
   z-index: 51;

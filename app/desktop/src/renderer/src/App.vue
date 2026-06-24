@@ -73,7 +73,7 @@ const isDev = import.meta.env.DEV;
   align-items: center;
   gap: 6px;
   padding: 14px 0;
-  background: var(--panel);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r);
 }
@@ -89,7 +89,7 @@ const isDev = import.meta.env.DEV;
   margin-bottom: 10px;
   border: 1px solid var(--line-2);
   border-radius: 12px;
-  background: linear-gradient(180deg, var(--raise), var(--panel));
+  background: linear-gradient(180deg, var(--surface-2), var(--surface));
 }
 .nav-btn {
   width: 42px;
@@ -107,7 +107,7 @@ const isDev = import.meta.env.DEV;
 }
 .nav-btn:hover {
   color: var(--text-2);
-  background: var(--panel-hi);
+  background: var(--surface-2);
   border-color: var(--line);
 }
 .nav-btn--active {
@@ -134,7 +134,7 @@ const isDev = import.meta.env.DEV;
   gap: 18px;
   height: 54px;
   padding: 0 18px;
-  background: var(--panel);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r);
 }

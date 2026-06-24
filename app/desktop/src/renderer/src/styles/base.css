@@ -11,7 +11,7 @@ body,
 body {
   font-family: var(--f-ui);
   color: var(--text);
-  background: radial-gradient(120% 90% at 50% -10%, #16181d 0%, var(--ink) 42%, var(--ink-edge) 100%) fixed;
+  background: var(--bg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overflow: hidden;
@@ -27,7 +27,7 @@ body {
   width: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--raise);
+  background: var(--surface-2);
   border-radius: 8px;
-  border: 3px solid var(--panel);
+  border: 3px solid var(--surface);
 }

@@ -59,11 +59,6 @@
   --warn: #B7791F;
 
   /* alias-bridge (rimossi a fine migrazione, T3/T4) */
-  --ink: var(--bg);
-  --ink-edge: var(--bg);
-  --panel: var(--surface);
-  --panel-hi: var(--surface-2);
-  --raise: var(--surface-2);
   --accent-dim: var(--accent-soft);
   --f-display: var(--f-sans);
   --f-read: var(--f-sans);

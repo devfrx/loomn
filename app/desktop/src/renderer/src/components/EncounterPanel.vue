@@ -127,14 +127,14 @@ function attack(): void {
 .order__tag { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
 .order__tag--bad { color: var(--bad); }
 .zones { display: flex; flex-wrap: wrap; gap: 8px; }
-.zones__group { display: flex; flex-direction: column; gap: 2px; padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel); }
+.zones__group { display: flex; flex-direction: column; gap: 2px; padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); }
 .zones__label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
 .zones__members { font-size: 12px; color: var(--text-2); }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .attack { border-top: 1px solid var(--line); padding-top: 10px; }
 .attack__title { margin: 0 0 8px; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-2); }
 .attack__row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.inp { font: inherit; font-family: var(--f-mono); font-size: 12px; color: var(--text); background: var(--panel); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 9px; }
+.inp { font: inherit; font-family: var(--f-mono); font-size: 12px; color: var(--text); background: var(--surface); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 9px; }
 .inp[type='number'] { width: 64px; }
 .cockpit__feedback { font-size: 12px; margin: 0; }
 .cockpit__feedback--ok { color: var(--accent); }

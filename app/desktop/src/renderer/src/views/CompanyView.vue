@@ -3,6 +3,7 @@ import { ref, reactive, computed, onMounted, watch } from 'vue';
 import LoomnPanel from '../components/LoomnPanel.vue';
 import LoomnButton from '../components/LoomnButton.vue';
 import LoomnDialog from '../components/LoomnDialog.vue';
+import LoomnCard from '../components/LoomnCard.vue';
 import PanelError from '../components/PanelError.vue';
 import { useReadModelStore, type ActorView } from '../stores/read-model';
 import { useRulesetStore } from '../stores/ruleset';
@@ -88,8 +89,8 @@ async function submit(): Promise<void> {
       <div v-if="store.actors.length" class="roster">
         <section v-if="pcCards.length" class="group">
           <h3 class="group__title">Personaggi</h3>
-          <ul class="cards">
-            <li v-for="row in pcCards" :key="row.card.id" class="card">
+          <div class="cards">
+            <LoomnCard v-for="row in pcCards" :key="row.card.id">
               <div class="card__head">
                 <span class="card__name">{{ row.card.name }}</span>
                 <span class="card__lvl">liv. {{ row.card.level }}</span>
@@ -101,13 +102,13 @@ async function submit(): Promise<void> {
               <ul v-if="row.relations.length" class="rel">
                 <li v-for="f in row.relations" :key="f.id" class="rel__row">{{ f.text }}</li>
               </ul>
-            </li>
-          </ul>
+            </LoomnCard>
+          </div>
         </section>
         <section v-if="npcCards.length" class="group">
           <h3 class="group__title">Personaggi non giocanti</h3>
-          <ul class="cards">
-            <li v-for="row in npcCards" :key="row.card.id" class="card">
+          <div class="cards">
+            <LoomnCard v-for="row in npcCards" :key="row.card.id">
               <div class="card__head">
                 <span class="card__name">{{ row.card.name }}</span>
                 <span class="card__lvl">liv. {{ row.card.level }}</span>
@@ -119,8 +120,8 @@ async function submit(): Promise<void> {
               <ul v-if="row.relations.length" class="rel">
                 <li v-for="f in row.relations" :key="f.id" class="rel__row">{{ f.text }}</li>
               </ul>
-            </li>
-          </ul>
+            </LoomnCard>
+          </div>
         </section>
       </div>
       <p v-else>Nessun attore ancora. Crea un PG o PNG per iniziare.</p>
@@ -179,8 +180,7 @@ async function submit(): Promise<void> {
 .roster { display: flex; flex-direction: column; gap: 18px; }
 .group { display: flex; flex-direction: column; gap: 10px; }
 .group__title { margin: 0; font-family: var(--f-sans); font-size: 15px; color: var(--text-2); }
-.cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-.card { display: flex; flex-direction: column; gap: 7px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--well); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
 .card__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .card__name { font-family: var(--f-sans); font-size: 16px; color: var(--text); }
 .card__lvl { font-family: var(--f-mono); font-size: 11px; color: var(--accent); }

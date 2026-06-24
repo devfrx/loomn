@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue';
 import LoomnPanel from './LoomnPanel.vue';
 import PanelError from './PanelError.vue';
+import LoomnTag from './LoomnTag.vue';
 import { useReadModelStore } from '../stores/read-model';
 import { useRulesetStore } from '../stores/ruleset';
 import { resolveSelectedActor, toSheetView } from '../lib/sheet-view';
@@ -85,7 +86,7 @@ const kindLabel = computed(() => (sheet.value?.kind === 'pc' ? 'PG' : 'PNG'));
           <li v-for="it in sheet.items" :key="it.id" class="item">
             <div class="item__head">
               <span class="item__name">{{ it.name }}</span>
-              <span v-if="it.equipped" class="item__badge">equipaggiato</span>
+              <LoomnTag v-if="it.equipped" variant="accent">equipaggiato</LoomnTag>
             </div>
             <span v-if="it.effects.length" class="item__effects">{{ it.effects.join(' · ') }}</span>
           </li>
@@ -125,7 +126,6 @@ const kindLabel = computed(() => (sheet.value?.kind === 'pc' ? 'PG' : 'PNG'));
 .item { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--well); }
 .item__head { display: flex; align-items: center; gap: 8px; }
 .item__name { color: var(--text); }
-.item__badge { font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); border-radius: var(--r-xs); padding: 2px 7px; }
 .item__effects { font-family: var(--f-mono); font-size: 11px; color: var(--text-3); }
 .empty { color: var(--text-3); font-size: 13px; margin: 0; }
 </style>

@@ -21,7 +21,7 @@ const hasHead = computed(() => Boolean(props.eyebrow ?? props.title ?? props.met
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 22px 48px -26px rgba(0, 0, 0, 0.75);
+  box-shadow: var(--shadow-2);
   display: flex;
   flex-direction: column;
   min-height: 0;

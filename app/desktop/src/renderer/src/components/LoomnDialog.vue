@@ -44,7 +44,7 @@ const rootProps = computed(() => (props.open !== undefined ? { open: props.open 
 .loomn-dialog__overlay {
   position: fixed;
   inset: 0;
-  background: rgba(7, 8, 9, 0.6);
+  background: var(--scrim);
   z-index: 50;
 }
 .loomn-dialog__content {
@@ -53,7 +53,7 @@ const rootProps = computed(() => (props.open !== undefined ? { open: props.open 
   flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--line-2);
-  box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.8);
+  box-shadow: var(--shadow-2);
   z-index: 51;
 }
 .loomn-dialog__content--center {
@@ -98,5 +98,10 @@ const rootProps = computed(() => (props.open !== undefined ? { open: props.open 
   cursor: pointer;
   line-height: 1;
   padding: 4px 6px;
+}
+.loomn-dialog__close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
 }
 </style>

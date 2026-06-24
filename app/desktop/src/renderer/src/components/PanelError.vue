@@ -10,5 +10,5 @@ defineProps<{ error: string | null }>();
 </template>
 
 <style scoped>
-.panel-error { color: var(--bad); font-size: 13px; margin: 0; }
+.panel-error { color: var(--bad); font-size: var(--fs-sm); margin: 0; }
 </style>

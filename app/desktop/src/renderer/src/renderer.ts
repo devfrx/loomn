@@ -7,6 +7,7 @@ import { createAppRouter } from './router';
 import { useReadModelStore } from './stores/read-model';
 import { useProviderStatusStore } from './stores/provider-status';
 import { runFirstRun } from './composables/use-first-run';
+import { useTheme } from './composables/use-theme';
 import './styles';
 
 const pinia = createPinia();
@@ -14,6 +15,7 @@ const router = createAppRouter();
 const app = createApp(App);
 app.use(pinia);
 app.use(router);
+useTheme().init();
 app.mount('#app');
 
 // Lo store usa la pinia appena creata. La sottoscrizione al push read-side e l UNICA via per cui lo

@@ -31,4 +31,16 @@ describe('LoomnThemeToggle', () => {
     expect(theme.value).toBe('dark');
     expect(segs[2]!.classes()).toContain('is-active');
   });
+
+  it('compresso: il bottone mostra l icona e l etichetta del tema corrente', async () => {
+    const w = mount(LoomnThemeToggle, { props: { expanded: false } });
+    const btn = w.find('.theme-cycle');
+    // stato iniziale: system (impostato in beforeEach)
+    expect(btn.find('svg').attributes('data-icon')).toBe('theme-system');
+    expect(btn.attributes('aria-label')).toContain('auto');
+    // dopo un ciclo -> light
+    await btn.trigger('click');
+    expect(btn.find('svg').attributes('data-icon')).toBe('theme-light');
+    expect(btn.attributes('aria-label')).toContain('chiaro');
+  });
 });

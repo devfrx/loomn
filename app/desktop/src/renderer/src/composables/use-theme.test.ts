@@ -44,4 +44,12 @@ describe('useTheme', () => {
     expect(t.theme.value).toBe('dark');
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
   });
+
+  it('init con valore persistito non valido torna a system', () => {
+    localStorage.setItem(THEME_KEY, 'purple');
+    const t = useTheme();
+    t.init();
+    expect(t.theme.value).toBe('system');
+    expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
+  });
 });

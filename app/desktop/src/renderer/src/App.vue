@@ -1,21 +1,20 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { RouterView, RouterLink } from 'vue-router';
+import { RouterView, useRoute } from 'vue-router';
 import { useReadModelStore } from './stores/read-model';
 import type { PhaseView } from './stores/read-model';
+import { routeTitle } from './lib/shell-nav';
 import FirstRunBanner from './components/FirstRunBanner.vue';
 import GmConsole from './components/GmConsole.vue';
+import LoomnRail from './components/LoomnRail.vue';
 
 const store = useReadModelStore();
+const route = useRoute();
 const phase = computed<PhaseView>(() => store.phase);
-
-const navItems = [
-  { to: '/', label: 'Gioco' },
-  { to: '/diario', label: 'Diario' },
-  { to: '/scheda', label: 'Scheda' },
-  { to: '/compagnia', label: 'Compagnia' },
-  { to: '/impostazioni', label: 'Impostazioni' },
-] as const;
+const surfaceTitle = computed<string>(() => {
+  const n = route.name;
+  return typeof n === 'string' ? routeTitle(n) : '';
+});
 
 const phaseLabels: Record<PhaseView, string> = {
   exploration: 'esplorazione',
@@ -31,28 +30,20 @@ const isDev = import.meta.env.DEV;
 
 <template>
   <div class="app-shell" :data-phase="phase">
-    <aside class="rail" aria-label="navigazione">
-      <div class="brand-mark">L</div>
-      <RouterLink
-        v-for="it in navItems"
-        :key="it.to"
-        :to="it.to"
-        class="nav-btn"
-        exact-active-class="nav-btn--active"
-        :title="it.label"
-        :aria-label="it.label"
-        >{{ it.label.charAt(0) }}</RouterLink
-      >
-    </aside>
+    <LoomnRail />
     <div class="stage">
       <header class="topbar">
-        <div class="wordmark">Loomn<span class="dot">.</span></div>
+        <h1 class="topbar__title">{{ surfaceTitle }}</h1>
         <div class="phase-badge">{{ phaseLabel }}</div>
         <GmConsole v-if="isDev" />
       </header>
       <FirstRunBanner />
       <div class="stage__view">
-        <RouterView />
+        <RouterView v-slot="{ Component }">
+          <Transition name="view" mode="out-in">
+            <component :is="Component" />
+          </Transition>
+        </RouterView>
       </div>
     </div>
   </div>
@@ -61,59 +52,11 @@ const isDev = import.meta.env.DEV;
 <style scoped>
 .app-shell {
   display: grid;
-  grid-template-columns: 66px 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   height: 100vh;
   padding: 14px;
   gap: 14px;
-}
-.rail {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 14px 0;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-}
-.brand-mark {
-  font-family: var(--f-sans);
-  font-weight: 600;
-  font-size: 20px;
-  color: var(--text);
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
-  margin-bottom: 10px;
-  border: 1px solid var(--line-2);
-  border-radius: 12px;
-  background: linear-gradient(180deg, var(--surface-2), var(--surface));
-}
-.nav-btn {
-  width: 42px;
-  height: 42px;
-  border-radius: 11px;
-  display: grid;
-  place-items: center;
-  color: var(--text-3);
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: 0.18s;
-  text-decoration: none;
-  font-family: var(--f-sans);
-  font-size: 15px;
-}
-.nav-btn:hover {
-  color: var(--text-2);
-  background: var(--surface-2);
-  border-color: var(--line);
-}
-.nav-btn--active {
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
 }
 .stage {
   display: flex;
@@ -132,29 +75,42 @@ const isDev = import.meta.env.DEV;
   display: flex;
   align-items: center;
   gap: 18px;
-  height: 54px;
+  height: var(--topbar-h);
   padding: 0 18px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r);
 }
-.wordmark {
+.topbar__title {
+  margin: 0;
   font-family: var(--f-sans);
-  font-size: 21px;
-  font-weight: 600;
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-semibold);
+  color: var(--text);
   letter-spacing: 0.01em;
-}
-.wordmark .dot {
-  color: var(--accent);
 }
 .phase-badge {
   margin-left: auto;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   letter-spacing: 0.02em;
   color: var(--accent);
   background: var(--accent-soft);
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border: 1px solid var(--accent-soft);
   padding: 6px 12px;
-  border-radius: 9px;
+  border-radius: var(--r-xs);
+}
+.view-enter-active,
+.view-leave-active {
+  transition: opacity var(--dur) var(--ease);
+}
+.view-enter-from,
+.view-leave-to {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .view-enter-active,
+  .view-leave-active {
+    transition: none;
+  }
 }
 </style>

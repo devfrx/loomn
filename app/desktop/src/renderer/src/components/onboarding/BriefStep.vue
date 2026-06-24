@@ -55,7 +55,7 @@ function onNpcCount(raw: string): void {
   border-radius: var(--r-xs, 8px);
   border: none;
   background: var(--accent);
-  color: var(--ink, #0c0d10);
+  color: var(--on-accent);
   cursor: pointer;
   transition: opacity 0.15s, filter 0.15s;
 }

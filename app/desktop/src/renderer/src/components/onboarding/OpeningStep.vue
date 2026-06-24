@@ -32,7 +32,7 @@ const name = computed<string>(() => store.draft?.frame.name ?? 'La tua campagna'
   border-radius: var(--r-xs, 8px);
   border: none;
   background: var(--accent);
-  color: var(--ink, #0c0d10);
+  color: var(--on-accent);
   cursor: pointer;
   transition: filter 0.15s;
 }

@@ -50,9 +50,9 @@
   --text-3: #9A958A;
   --line: rgba(43, 40, 34, 0.10);
   --line-2: rgba(43, 40, 34, 0.16);
-  --accent: #BD6A4C;
+  --accent: #B05E40; /* terracotta: testo bianco ~4.64:1 = AA. --accent-press per testo-accento piccolo. */
   --accent-press: #A8552F;
-  --accent-soft: rgba(189, 106, 76, 0.13);
+  --accent-soft: rgba(176, 94, 64, 0.13);
   --on-accent: #FFFFFF;
   --ok: #5E8C61;
   --bad: #C2403A;

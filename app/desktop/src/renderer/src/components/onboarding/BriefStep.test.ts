@@ -16,7 +16,7 @@ describe('BriefStep', () => {
 
   it('disabilita Genera bozza quando il testo e vuoto', async () => {
     const w = mountStep();
-    expect((w.find('button.generate').element as HTMLButtonElement).disabled).toBe(true);
+    expect((w.find('button.loomn-btn').element as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('abilita Genera bozza quando c e del testo', async () => {
@@ -24,7 +24,7 @@ describe('BriefStep', () => {
     s.text = 'una storia';
     const w = mountStep();
     await w.vm.$nextTick();
-    expect((w.find('button.generate').element as HTMLButtonElement).disabled).toBe(false);
+    expect((w.find('button.loomn-btn').element as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('mostra il PanelError quando lo store ha un errore', async () => {

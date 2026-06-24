@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useOnboardingStore } from '../../stores/onboarding';
 import PanelError from '../PanelError.vue';
+import LoomnButton from '../LoomnButton.vue';
 
 defineOptions({ name: 'ReviewStep' });
 const store = useOnboardingStore();
@@ -42,9 +43,9 @@ const store = useOnboardingStore();
     <PanelError :error="store.error" />
     <div class="actions">
       <button class="secondary" type="button" @click="store.regenerate()">Rigenera</button>
-      <button class="confirm" type="button" :disabled="store.status === 'seeding'" @click="store.confirm()">
+      <LoomnButton variant="solid" :disabled="store.status === 'seeding'" @click="store.confirm()">
         {{ store.status === 'seeding' ? 'Seeding…' : 'Conferma e inizia' }}
-      </button>
+      </LoomnButton>
     </div>
   </div>
 </template>
@@ -57,20 +58,6 @@ const store = useOnboardingStore();
 .fact input { flex: 1; min-width: 0; }
 .chip { font-size: 11px; color: var(--text-3); }
 .actions { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
-
-.confirm {
-  font-family: var(--f-sans);
-  font-size: 13px;
-  padding: 8px 16px;
-  border-radius: var(--r-xs, 8px);
-  border: none;
-  background: var(--accent);
-  color: var(--on-accent);
-  cursor: pointer;
-  transition: opacity 0.15s, filter 0.15s;
-}
-.confirm:hover:not(:disabled) { filter: brightness(1.08); }
-.confirm:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .secondary {
   font-family: var(--f-sans);

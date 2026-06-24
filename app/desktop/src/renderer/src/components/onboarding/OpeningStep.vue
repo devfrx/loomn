@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useOnboardingStore } from '../../stores/onboarding';
+import LoomnButton from '../LoomnButton.vue';
 
 defineOptions({ name: 'OpeningStep' });
 const store = useOnboardingStore();
@@ -15,7 +16,7 @@ const name = computed<string>(() => store.draft?.frame.name ?? 'La tua campagna'
     <h2>{{ name }} e pronta</h2>
     <p class="narration">{{ opening }}</p>
     <div class="actions">
-      <button class="enter" type="button" @click="router.push('/')">Entra nella campagna</button>
+      <LoomnButton variant="solid" @click="router.push('/')">Entra nella campagna</LoomnButton>
     </div>
   </div>
 </template>
@@ -24,17 +25,4 @@ const name = computed<string>(() => store.draft?.frame.name ?? 'La tua campagna'
 .opening { display: flex; flex-direction: column; gap: 16px; }
 .narration { font-family: var(--f-sans); line-height: 1.7; color: var(--text); }
 .actions { display: flex; justify-content: flex-end; }
-
-.enter {
-  font-family: var(--f-sans);
-  font-size: 13px;
-  padding: 8px 16px;
-  border-radius: var(--r-xs, 8px);
-  border: none;
-  background: var(--accent);
-  color: var(--on-accent);
-  cursor: pointer;
-  transition: filter 0.15s;
-}
-.enter:hover { filter: brightness(1.08); }
 </style>

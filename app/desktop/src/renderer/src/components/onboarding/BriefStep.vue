@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useOnboardingStore } from '../../stores/onboarding';
 import PanelError from '../PanelError.vue';
+import LoomnButton from '../LoomnButton.vue';
 
 defineOptions({ name: 'BriefStep' });
 const store = useOnboardingStore();
@@ -36,9 +37,9 @@ function onNpcCount(raw: string): void {
     <PanelError :error="store.error" />
     <div class="actions">
       <button v-if="store.error" class="link" type="button" @click="router.push('/impostazioni')">Vai a Impostazioni</button>
-      <button class="generate" type="button" :disabled="!canGenerate" @click="store.generate()">
+      <LoomnButton variant="solid" :disabled="!canGenerate" @click="store.generate()">
         {{ store.status === 'generating' ? 'Generazione…' : 'Genera bozza' }}
-      </button>
+      </LoomnButton>
     </div>
   </div>
 </template>
@@ -47,20 +48,6 @@ function onNpcCount(raw: string): void {
 .brief { display: flex; flex-direction: column; gap: 12px; }
 .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text-2); }
 .actions { display: flex; justify-content: flex-end; gap: 12px; align-items: center; }
-
-.generate {
-  font-family: var(--f-sans);
-  font-size: 13px;
-  padding: 8px 16px;
-  border-radius: var(--r-xs, 8px);
-  border: none;
-  background: var(--accent);
-  color: var(--on-accent);
-  cursor: pointer;
-  transition: opacity 0.15s, filter 0.15s;
-}
-.generate:hover:not(:disabled) { filter: brightness(1.08); }
-.generate:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .link {
   background: none;

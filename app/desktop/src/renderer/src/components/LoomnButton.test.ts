@@ -24,4 +24,14 @@ describe('LoomnButton', () => {
     const w = mount(LoomnButton, { props: { variant: 'solid' } });
     expect(w.find('button').classes()).toContain('loomn-btn--solid');
   });
+
+  it('applica la classe della variant danger', () => {
+    const w = mount(LoomnButton, { props: { variant: 'danger' } });
+    expect(w.find('button').classes()).toContain('loomn-btn--danger');
+  });
+
+  it('default e ghost', () => {
+    const w = mount(LoomnButton);
+    expect(w.find('button').classes()).toContain('loomn-btn--ghost');
+  });
 });

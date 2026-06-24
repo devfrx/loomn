@@ -113,9 +113,9 @@ async function save(): Promise<void> {
       <fieldset class="field">
         <legend class="field__label">Tema</legend>
         <div class="key-modes">
-          <label><input type="radio" :checked="themeCtl.theme.value === 'system'" @change="themeCtl.set('system')" /> Sistema</label>
-          <label><input data-test="theme-light" type="radio" :checked="themeCtl.theme.value === 'light'" @change="themeCtl.set('light')" /> Chiaro</label>
-          <label><input data-test="theme-dark" type="radio" :checked="themeCtl.theme.value === 'dark'" @change="themeCtl.set('dark')" /> Scuro</label>
+          <label><input type="radio" name="theme" :checked="themeCtl.theme.value === 'system'" @change="themeCtl.set('system')" /> Sistema</label>
+          <label><input data-test="theme-light" type="radio" name="theme" :checked="themeCtl.theme.value === 'light'" @change="themeCtl.set('light')" /> Chiaro</label>
+          <label><input data-test="theme-dark" type="radio" name="theme" :checked="themeCtl.theme.value === 'dark'" @change="themeCtl.set('dark')" /> Scuro</label>
         </div>
       </fieldset>
     </LoomnPanel>

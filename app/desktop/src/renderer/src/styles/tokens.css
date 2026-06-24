@@ -1,45 +1,113 @@
+/* Design system D-02a: warm-neutral, light + dark, accento terracotta statico.
+   Single source of truth. I non-cromatici stanno in :root; i cromatici hanno una
+   palette light (default) e una dark, via prefers-color-scheme + override [data-theme]. */
 :root {
-  --ink: #0c0d10;
-  --ink-edge: #070809;
-  --panel: #15171c;
-  --panel-hi: #191c22;
-  --raise: #1f232a;
-  --well: #101216;
-  --line: rgba(233, 229, 218, 0.08);
-  --line-2: rgba(233, 229, 218, 0.14);
-  --text: #e9e5da;
-  --text-2: #9b988f;
-  --text-3: #6b6962;
-  --brass: #c8a45c;
-  --brass-hi: #e3c684;
-  --brass-dim: rgba(200, 164, 92, 0.12);
-  --clay: #c0694f;
-  --sage: #7fa07e;
-  --steel: #6f8fb0;
-  --ok: #86b48a;
-  --bad: #c5635b;
-  --accent: var(--brass);
-  --accent-dim: var(--brass-dim);
-  --f-display: 'Fraunces Variable', Georgia, serif;
-  --f-read: 'Newsreader Variable', Georgia, serif;
-  --f-ui: 'Archivo Variable', 'Helvetica Neue', sans-serif;
-  --f-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
-  --r: 15px;
-  --r-sm: 11px;
+  color-scheme: light dark;
+
+  /* forma */
+  --r: 14px;
+  --r-sm: 10px;
   --r-xs: 8px;
+  --r-pill: 999px;
+
+  /* spazio (scala 4px) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* tipografia */
+  --f-sans: 'Archivo Variable', system-ui, 'Helvetica Neue', sans-serif;
+  --f-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+  --fs-display: 1.75rem;
+  --fs-h1: 1.375rem;
+  --fs-h2: 1.125rem;
+  --fs-h3: 1rem;
+  --fs-body: 0.9375rem;
+  --fs-sm: 0.8125rem;
+  --fs-xs: 0.6875rem;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --lh-body: 1.6;
+
+  /* elevation + motion */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-2: 0 6px 20px rgba(0, 0, 0, 0.10);
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* palette LIGHT (default) */
+  --bg: #F3EFE7;
+  --surface: #FBF9F4;
+  --surface-2: #F7F4EC;
+  --well: #EEE9DF;
+  --text: #2B2824;
+  --text-2: #6E6A61;
+  --text-3: #9A958A;
+  --line: rgba(43, 40, 34, 0.10);
+  --line-2: rgba(43, 40, 34, 0.16);
+  --accent: #BD6A4C;
+  --accent-press: #A8552F;
+  --accent-soft: rgba(189, 106, 76, 0.13);
+  --on-accent: #FFFFFF;
+  --ok: #5E8C61;
+  --bad: #C2403A;
+  --warn: #B7791F;
+
+  /* alias-bridge (rimossi a fine migrazione, T3/T4) */
+  --ink: var(--bg);
+  --ink-edge: var(--bg);
+  --panel: var(--surface);
+  --panel-hi: var(--surface-2);
+  --raise: var(--surface-2);
+  --accent-dim: var(--accent-soft);
+  --f-display: var(--f-sans);
+  --f-read: var(--f-sans);
+  --f-ui: var(--f-sans);
 }
 
-/* Accento per fase (decisione 2): l intera shell comunica la modalita. Lo applica App.vue su
-   [data-phase] del root; i pannelli ereditano via var(--accent)/var(--accent-dim). */
-[data-phase='combat'] {
-  --accent: var(--clay);
-  --accent-dim: rgba(192, 105, 79, 0.13);
+/* palette DARK: applicata se l OS preferisce scuro e l utente non ha forzato light */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #181613;
+    --surface: #232019;
+    --surface-2: #2A261F;
+    --well: #14110F;
+    --text: #ECE7DE;
+    --text-2: #A8A399;
+    --text-3: #75716A;
+    --line: rgba(236, 231, 222, 0.10);
+    --line-2: rgba(236, 231, 222, 0.18);
+    --accent: #D98A6A;
+    --accent-press: #E0A084;
+    --accent-soft: rgba(217, 138, 106, 0.18);
+    --on-accent: #1B1916;
+    --ok: #8FBF93;
+    --bad: #E08079;
+    --warn: #E0A84E;
+  }
 }
-[data-phase='dialogue'] {
-  --accent: #cbb07a;
-  --accent-dim: rgba(203, 176, 122, 0.12);
-}
-[data-phase='downtime'] {
-  --accent: #8aa0a8;
-  --accent-dim: rgba(138, 160, 168, 0.12);
+
+/* override esplicito dell utente (toggle, T2): batte il media query */
+[data-theme='dark'] {
+  --bg: #181613;
+  --surface: #232019;
+  --surface-2: #2A261F;
+  --well: #14110F;
+  --text: #ECE7DE;
+  --text-2: #A8A399;
+  --text-3: #75716A;
+  --line: rgba(236, 231, 222, 0.10);
+  --line-2: rgba(236, 231, 222, 0.18);
+  --accent: #D98A6A;
+  --accent-press: #E0A084;
+  --accent-soft: rgba(217, 138, 106, 0.18);
+  --on-accent: #1B1916;
+  --ok: #8FBF93;
+  --bad: #E08079;
+  --warn: #E0A84E;
 }
